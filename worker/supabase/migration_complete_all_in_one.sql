@@ -38,6 +38,11 @@ alter table public.jobs drop constraint if exists jobs_status_check;
 alter table public.jobs add constraint jobs_status_check 
   check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed','canceled'));
 
+-- Permite cortes de ate 3600 segundos (1 hora)
+alter table public.jobs drop constraint if exists jobs_max_seconds_check;
+alter table public.jobs add constraint jobs_max_seconds_check 
+  check (max_seconds <= 3600);
+
 -- 5. Permissão de RLS para o usuário atualizar/cancelar seus próprios pedidos
 drop policy if exists "jobs: cancelar os proprios" on public.jobs;
 create policy "jobs: cancelar os proprios" on public.jobs

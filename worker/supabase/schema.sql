@@ -18,7 +18,7 @@ create table if not exists public.jobs (
   crop_x        numeric not null default 0.5 check (crop_x between 0 and 1),
   clip_count    int  not null default 10 check (clip_count between 1 and 30),
   min_seconds   int  not null default 30 check (min_seconds >= 5),
-  max_seconds   int  not null default 90 check (max_seconds <= 180),
+  max_seconds   int  not null default 90 check (max_seconds <= 3600),
   language      text not null default 'pt-BR',
 
   -- Vídeo de Referência e Diretrizes de Design
