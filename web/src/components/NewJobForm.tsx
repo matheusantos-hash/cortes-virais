@@ -45,6 +45,10 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [refStyle, setRefStyle] = useState(STYLE_PRESETS[0].name);
   const [designInstructions, setDesignInstructions] = useState("");
 
+  // Opções de B-Roll / Vídeos de apoio
+  const [useBroll, setUseBroll] = useState(false);
+  const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield">("pexels");
+
   const [busy, setBusy] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +156,8 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       reference_path: refPath,
       reference_style: showRefSection ? refStyle : null,
       design_instructions: showRefSection && designInstructions.trim() ? designInstructions.trim() : null,
+      use_broll: useBroll,
+      broll_source: useBroll ? brollSource : "none",
     });
     setBusy(false);
     if (insError) return setError(`Não foi possível criar o pedido: ${insError.message}`);
@@ -360,6 +366,41 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 onChange={(e) => setDesignInstructions(e.target.value)}
               />
               <small>Instruções adicionais para o Claude selecionar os melhores momentos seguindo seu estilo.</small>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* SEÇÃO: VÍDEOS DE APOIO / B-ROLL AUTOMÁTICO */}
+      <div className="card" style={{ border: "1px dashed var(--ok)", background: "rgba(22, 121, 76, 0.03)" }}>
+        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.65rem", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            style={{ width: "1.25rem", height: "1.25rem", accentColor: "var(--accent)", cursor: "pointer" }}
+            checked={useBroll}
+            onChange={(e) => setUseBroll(e.target.checked)}
+          />
+          <div>
+            <strong style={{ fontSize: "0.95rem", color: "var(--text)" }}>🎬 Inserir Vídeos de Apoio (B-Rolls) nos momentos-chave</strong>
+            <small style={{ display: "block", color: "var(--muted)" }}>
+              A IA identifica conceitos visuais no áudio e intercala vídeos de alta qualidade automaticamente para aumentar a retenção.
+            </small>
+          </div>
+        </label>
+
+        {useBroll && (
+          <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--line)" }}>
+            <label>
+              <strong>Provedor de B-Roll:</strong>
+              <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}>
+                <option value="pexels">Pexels (Vídeos reais em Full HD gratuitos &amp; rápidos)</option>
+                <option value="higgsfield">Higgsfield AI (Animações geradas por IA)</option>
+              </select>
+              <small>
+                {brollSource === "pexels"
+                  ? "✓ Recomendado: busca automática em acervo de vídeos reais Full HD correspondentes ao que é dito (sem custo por vídeo)."
+                  : "Animações personalizadas geradas com inteligência artificial (requer HIGGSFIELD_API_KEY no Railway)."}
+              </small>
             </label>
           </div>
         )}

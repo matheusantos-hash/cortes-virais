@@ -28,6 +28,10 @@ create table if not exists public.jobs (
   reference_style      text,
   design_instructions  text,
 
+  -- B-Rolls e Vídeos de Apoio
+  use_broll            boolean not null default false,
+  broll_source         text not null default 'none' check (broll_source in ('pexels', 'higgsfield', 'none')),
+
   status        text not null default 'queued'
                 check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed','canceled')),
   progress      int  not null default 0 check (progress between 0 and 100),

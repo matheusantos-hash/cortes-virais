@@ -156,7 +156,13 @@ export async function extractAudio(videoPath: string, audioPath: string, signal?
   );
 }
 
-/** Corta um trecho e já enquadra conforme a orientação. */
+export interface ActiveBroll {
+  offsetSec: number;
+  durationSec: number;
+  filePath: string;
+}
+
+/** Corta um trecho e já enquadra conforme a orientação, aplicando B-Rolls se houver. */
 export async function cutClip(opts: {
   input: string;
   output: string;
@@ -165,18 +171,28 @@ export async function cutClip(opts: {
   orientation: Orientation;
   verticalMode: VerticalMode;
   cropX: number;
+  brolls?: ActiveBroll[];
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, start, end, orientation, verticalMode, cropX, signal, onLog } = opts;
+  const { input, output, start, end, orientation, verticalMode, cropX, brolls = [], signal, onLog } = opts;
   const duration = end - start;
 
-  const base = [
+  const validBrolls = brolls.filter((b) => b.filePath && b.durationSec > 0 && b.offsetSec < duration);
+
+  const baseInputs = [
     "-hide_banner", "-loglevel", "error", "-y",
     "-ss", start.toFixed(3),
     "-i", input,
     "-t", duration.toFixed(3),
   ];
+
+  // Adiciona cada vídeo B-Roll como input adicional
+  const brollInputs: string[] = [];
+  for (const b of validBrolls) {
+    brollInputs.push("-stream_loop", "-1", "-i", b.filePath);
+  }
+
   const encode = [
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
     ...videoRateArgs(duration),
@@ -185,36 +201,58 @@ export async function cutClip(opts: {
     output,
   ];
 
+  const targetWidth = orientation === "vertical" ? 1080 : 1920;
+  const targetHeight = orientation === "vertical" ? 1920 : 1080;
+
+  // 1. Gera o filtro base para o vídeo do orador
+  let baseFilter = "";
   if (orientation === "horizontal") {
-    await run("ffmpeg", [...base, "-vf", "scale=-2:min(1080\\,ih)", ...encode], signal, onLog);
-    return;
-  }
-
-  if (verticalMode === "crop") {
-    // Preenche o quadro 9:16 cortando as laterais. cropX: 0 = esquerda, 0.5 = centro, 1 = direita.
-    const vf = `crop=ih*9/16:ih:(iw-ow)*${cropX}:0,scale=1080:1920`;
-    await run("ffmpeg", [...base, "-vf", vf, ...encode], signal, onLog);
-    return;
-  }
-
-  if (verticalMode === "split") {
-    // Split screen (Podcast / 2 oradores): divide o vídeo horizontal em topo e base
-    const filter =
+    baseFilter = `[0:v]scale=-2:min(1080\\,ih)[base_v]`;
+  } else if (verticalMode === "crop") {
+    baseFilter = `[0:v]crop=ih*9/16:ih:(iw-ow)*${cropX}:0,scale=1080:1920[base_v]`;
+  } else if (verticalMode === "split") {
+    baseFilter =
       "[0:v]split=2[top_in][bot_in];" +
       "[top_in]crop=iw/2:ih:0:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960[top];" +
       "[bot_in]crop=iw/2:ih:iw/2:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960[bot];" +
-      "[top][bot]vstack[v]";
-    await run("ffmpeg", [...base, "-filter_complex", filter, "-map", "[v]", "-map", "0:a?", ...encode], signal, onLog);
+      "[top][bot]vstack[base_v]";
+  } else {
+    // "blur"
+    baseFilter =
+      "[0:v]split=2[bg][fg];" +
+      "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5[bgb];" +
+      "[fg]scale=1080:-2[fgs];" +
+      "[bgb][fgs]overlay=(W-w)/2:(H-h)/2[base_v]";
+  }
+
+  // Se não houver B-rolls, executa diretamente
+  if (!validBrolls.length) {
+    if (orientation === "horizontal") {
+      await run("ffmpeg", [...baseInputs, "-vf", "scale=-2:min(1080\\,ih)", ...encode], signal, onLog);
+      return;
+    }
+    await run("ffmpeg", [...baseInputs, "-filter_complex", baseFilter, "-map", "[base_v]", "-map", "0:a?", ...encode], signal, onLog);
     return;
   }
 
-  // "blur": vídeo inteiro centralizado sobre um fundo desfocado 9:16.
-  const filter =
-    "[0:v]split=2[bg][fg];" +
-    "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5[bgb];" +
-    "[fg]scale=1080:-2[fgs];" +
-    "[bgb][fgs]overlay=(W-w)/2:(H-h)/2[v]";
-  await run("ffmpeg", [...base, "-filter_complex", filter, "-map", "[v]", "-map", "0:a?", ...encode], signal, onLog);
+  // 2. Encadeia os B-rolls sobre o [base_v]
+  let currentLayer = "base_v";
+  const filterParts = [baseFilter];
+
+  validBrolls.forEach((b, idx) => {
+    const inputIdx = idx + 1;
+    const scaledBroll = `br_scale_${idx}`;
+    const nextLayer = idx === validBrolls.length - 1 ? "final_v" : `layer_${idx}`;
+    const tStart = b.offsetSec.toFixed(2);
+    const tEnd = (b.offsetSec + b.durationSec).toFixed(2);
+
+    filterParts.push(`[${inputIdx}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}[${scaledBroll}]`);
+    filterParts.push(`[${currentLayer}][${scaledBroll}]overlay=enable='between(t,${tStart},${tEnd})':format=auto[${nextLayer}]`);
+    currentLayer = nextLayer;
+  });
+
+  const fullFilter = filterParts.join(";");
+  await run("ffmpeg", [...baseInputs, ...brollInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, "-map", "0:a?", ...encode], signal, onLog);
 }
 
 /** Duração do vídeo em segundos (usa o ffprobe, que vem junto com o ffmpeg). */

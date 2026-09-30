@@ -60,6 +60,8 @@ interface Job {
   reference_path?: string | null;
   reference_style?: string | null;
   design_instructions?: string | null;
+  use_broll?: boolean;
+  broll_source?: "pexels" | "higgsfield" | "none";
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -161,6 +163,9 @@ async function processJob(job: Job) {
       if (job.reference_url) await pushLog(`[DESIGN] Vídeo de Referência: ${job.reference_url}`);
       if (job.design_instructions) await pushLog(`[DESIGN] Diretrizes de Edição: "${job.design_instructions}"`);
     }
+    if (job.use_broll) {
+      await pushLog(`[B-ROLL] Inserção de vídeos de apoio ativada via ${job.broll_source ?? "pexels"}`);
+    }
     await flushLogs();
 
     await mkdir(workDir, { recursive: true });
@@ -242,6 +247,8 @@ async function processJob(job: Job) {
       referencePath: job.reference_path,
       referenceStyle: job.reference_style,
       designInstructions: job.design_instructions,
+      useBroll: job.use_broll ?? false,
+      brollSource: job.broll_source ?? "pexels",
       force: false,
       dryRun: false,
     };

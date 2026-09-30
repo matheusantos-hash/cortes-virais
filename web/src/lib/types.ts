@@ -26,6 +26,8 @@ export interface Job {
   reference_path?: string | null;
   reference_style?: string | null;
   design_instructions?: string | null;
+  use_broll?: boolean;
+  broll_source?: "pexels" | "higgsfield" | "none";
   status: JobStatus;
   progress: number;
   error: string | null;

@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
-import { CanceledError, cutClip, extractAudio } from "./media.js";
+import { type ActiveBroll, CanceledError, cutClip, extractAudio } from "./media.js";
+import { fetchPexelsBroll } from "./pexels.js";
 import { transcribe } from "./transcribe.js";
 import type { Clip, Options, Word } from "./types.js";
 
@@ -124,6 +125,29 @@ export async function processVideo(args: {
     
     await hooks?.onLog?.(`[Render ${i + 1}/${clips.length}] Cortando [${fmt(c.start)} - ${fmt(c.end)}] -> ${path.basename(file)}`);
     console.log(`  ${path.basename(file)}`);
+
+    // Busca e baixa B-rolls no Pexels se solicitado
+    const activeBrolls: ActiveBroll[] = [];
+    if (opts.useBroll && (opts.brollSource === "pexels" || !opts.brollSource) && c.brolls?.length) {
+      for (const [bIdx, broll] of c.brolls.entries()) {
+        await hooks?.checkCanceled?.();
+        const brollFile = path.join(workDir, `broll-c${i + 1}-${bIdx + 1}.mp4`);
+        const downloaded = await fetchPexelsBroll({
+          query: broll.keyword,
+          outPath: brollFile,
+          orientation: opts.orientation === "vertical" ? "portrait" : "landscape",
+          signal: hooks?.signal,
+          onLog: hooks?.onLog,
+        });
+        if (downloaded) {
+          activeBrolls.push({
+            offsetSec: broll.offsetSec,
+            durationSec: broll.durationSec,
+            filePath: downloaded,
+          });
+        }
+      }
+    }
     
     await cutClip({
       input: sourcePath,
@@ -133,7 +157,9 @@ export async function processVideo(args: {
       orientation: opts.orientation,
       verticalMode: opts.verticalMode,
       cropX: opts.cropX,
+      brolls: activeBrolls,
       signal: hooks?.signal,
+      onLog: hooks?.onLog,
     });
     files.push(file);
   }

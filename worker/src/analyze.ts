@@ -63,12 +63,16 @@ IMPORTANTE: Priorize selecionar trechos, ganchos e momentos que correspondam est
 ---\n`;
   }
 
+  const brollRules = opts.useBroll
+    ? `\n- B-ROLLS / VÍDEOS DE APOIO: Para cada trecho, identifique de 1 a 3 momentos visuais onde um vídeo de apoio (B-Roll) enriqueceria o corte. No campo "brolls", informe o "offsetSec" (segundos após o início do clipe), "durationSec" (entre 2 e 4 segundos) e "keyword" (termo de busca em inglês curto e visual para o Pexels, ex: "luxury car", "person thinking", "money stack", "bitcoin graphic").`
+    : "";
+
   return `Abaixo está a transcrição dividida em blocos numerados. Cada linha tem o número do bloco (#), o horário de início e o texto.
 ${referenceGuidelines}
 Encontre até ${candidateCount} trechos candidatos. Regras:
 - Duração de cada trecho: entre ${opts.minSeconds} e ${opts.maxSeconds} segundos (estime pelos horários de início dos blocos).
 - Um trecho vai do bloco "startIndex" até o bloco "endIndex", inclusive. Use apenas números de blocos que existem.
-- O primeiro bloco deve ser o gancho.
+- O primeiro bloco deve ser o gancho.${brollRules}
 
 Formato de cada item do array:
 {
@@ -77,7 +81,7 @@ Formato de cada item do array:
   "title": título curto e chamativo (até 60 caracteres),
   "hook": a frase de abertura ou o motivo de prender a atenção,
   "score": nota de 0 a 100 para o potencial viral,
-  "reason": uma frase explicando por que esse trecho funciona
+  "reason": uma frase explicando por que esse trecho funciona${opts.useBroll ? ',\n  "brolls": [\n    { "offsetSec": 4.0, "durationSec": 3.0, "keyword": "money investment" }\n  ]' : ""}
 }
 
 TRANSCRIÇÃO:
@@ -131,6 +135,11 @@ export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: 
       reason: c.reason,
       start: a.start,
       end: b.end,
+      brolls: c.brolls?.map((br) => ({
+        offsetSec: Math.max(0, Number(br.offsetSec) || 0),
+        durationSec: Math.min(5, Math.max(2, Number(br.durationSec) || 3)),
+        keyword: String(br.keyword || "").trim(),
+      })),
     });
   }
 
