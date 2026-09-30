@@ -39,11 +39,20 @@ function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: s
       if (line && onLog) onLog(line);
     });
 
+    const BENIGN_WARNINGS = [
+      "mmco: unref",
+      "Last message repeated",
+      "non-existing PPS",
+      "no frame!",
+      "deprecated pixel format",
+    ];
+
     p.stderr?.on("data", (d) => {
       const str = d.toString();
       stderrChunks.push(str);
       const line = str.trim();
-      if (line && onLog) onLog(line);
+      const isBenign = BENIGN_WARNINGS.some((w) => line.includes(w));
+      if (line && onLog && !isBenign) onLog(line);
     });
 
     p.on("error", (err) => {
