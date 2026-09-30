@@ -1,0 +1,21 @@
+import { redirect } from "next/navigation";
+import Dashboard from "@/components/Dashboard";
+import { createClient } from "@/lib/supabase/server";
+import type { Job } from "@/lib/types";
+
+export default async function HomePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: jobs } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return <Dashboard userId={user.id} initialJobs={(jobs ?? []) as Job[]} />;
+}
