@@ -332,7 +332,7 @@ async function processJob(job: Job) {
       });
     } else {
       console.error(`[${job.id}] erro:`, err);
-      const errMsg = err instanceof UserError ? err.message : "Falha ao processar o vídeo. Tente novamente.";
+      const errMsg = err instanceof UserError ? err.message : (err?.message || "Falha ao processar o vídeo. Tente novamente.");
       await pushLog(`[ERRO] ${errMsg}`);
       await updateJob(job.id, {
         status: "failed",
