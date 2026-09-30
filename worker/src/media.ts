@@ -1,5 +1,7 @@
 import { execFile, spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Orientation, VerticalMode } from "./types.js";
@@ -164,6 +166,23 @@ export function normalizeVideoUrl(rawUrl: string): { url: string; referer?: stri
   return { url: rawUrl };
 }
 
+let cookiesFilePath: string | null = null;
+function getCookiesPath(): string | null {
+  if (cookiesFilePath && existsSync(cookiesFilePath)) return cookiesFilePath;
+  const rawCookies = process.env.YOUTUBE_COOKIES?.trim();
+  if (rawCookies) {
+    try {
+      const p = path.join(os.tmpdir(), "yt_cookies.txt");
+      writeFileSync(p, rawCookies, "utf-8");
+      cookiesFilePath = p;
+      return p;
+    } catch (e) {
+      console.error("Falha ao salvar YOUTUBE_COOKIES temporário:", e);
+    }
+  }
+  return null;
+}
+
 /** Baixa o vídeo de um link (YouTube, Vimeo etc.) em MP4, até 1080p. */
 export async function downloadVideo(url: string, outPath: string, signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
   const norm = normalizeVideoUrl(url);
@@ -178,6 +197,18 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
 
   if (norm.referer) {
     args.push("--referer", norm.referer);
+  }
+
+  // Drible de bloqueio anti-bot do YouTube:
+  // 1. Alterna o cliente para iOS e Android (que não passam pelo bot-check restritivo de browser)
+  if (/youtube\.com|youtu\.be/i.test(norm.url)) {
+    args.push("--extractor-args", "youtube:player_client=ios,android,web");
+    
+    // 2. Se houver cookies configurados via env var YOUTUBE_COOKIES, injeta automaticamente
+    const cookiesPath = getCookiesPath();
+    if (cookiesPath) {
+      args.push("--cookies", cookiesPath);
+    }
   }
 
   args.push(norm.url);
