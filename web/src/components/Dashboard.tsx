@@ -348,14 +348,21 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                             </div>
 
                             {/* Título do Corte */}
-                            <h4 style={{ fontSize: "0.95rem", lineHeight: 1.35, margin: 0 }}>
+                            <h4 style={{ fontSize: "1rem", lineHeight: 1.35, margin: 0, fontWeight: 700 }}>
                               {clip.position}. {clip.title}
                             </h4>
 
                             {/* Gancho Forte (Hook) */}
                             {clip.hook && (
-                              <p className="clip-hook">
-                                &ldquo;{clip.hook}&rdquo;
+                              <p className="clip-hook" title="Gancho inicial forte detectado pela IA">
+                                <strong>🎯 Gancho:</strong> &ldquo;{clip.hook}&rdquo;
+                              </p>
+                            )}
+
+                            {/* Justificativa / Por que é viral (Claude AI) */}
+                            {clip.reason && (
+                              <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
+                                <strong style={{ color: "#c7d2fe" }}>💡 Por que viraliza:</strong> {clip.reason}
                               </p>
                             )}
 
