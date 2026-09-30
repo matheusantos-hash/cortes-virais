@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Job } from "@/lib/types";
 import AdminDashboard from "@/components/admin/AdminDashboard";
@@ -38,12 +38,13 @@ export default async function AdminPage() {
   if (!user) redirect("/login");
 
   // Barreira: só is_xandao = true entra
-  const { data: me } = await supabase
+  const { data: me, error: meError } = await supabase
     .from("usuarios")
     .select("is_xandao")
-    .eq("id", user.id)
+    .eq("id", user!.id)
     .maybeSingle();
-  if (!me?.is_xandao) notFound();
+  console.log("[admin] me=", me, "error=", meError, "userId=", user!.id);
+  if (!me?.is_xandao) redirect("/");
 
   // Carrega dados em paralelo
   const [
