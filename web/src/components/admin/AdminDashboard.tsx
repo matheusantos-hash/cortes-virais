@@ -6,6 +6,7 @@ import type { Job } from "@/lib/types";
 import UsersTab from "./UsersTab";
 import ResourcesTab from "./ResourcesTab";
 import PerformanceTab from "./PerformanceTab";
+import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon } from "@/components/Icons";
 
 interface Props {
   users: AdminUsuario[];
@@ -15,12 +16,6 @@ interface Props {
 
 type TabKey = "users" | "resources" | "performance";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "users", label: "Usuários", icon: "👥" },
-  { key: "resources", label: "Recursos", icon: "🖥️" },
-  { key: "performance", label: "Desempenho", icon: "📊" },
-];
-
 export default function AdminDashboard({ users, jobs, stats }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("users");
 
@@ -29,7 +24,9 @@ export default function AdminDashboard({ users, jobs, stats }: Props) {
       {/* Header */}
       <div className="admin-header">
         <div className="admin-header-title">
-          <span className="admin-header-icon">⚙️</span>
+          <div className="brand-icon-wrap" style={{ width: 44, height: 44, borderRadius: 12 }}>
+            <ShieldIcon size={24} />
+          </div>
           <div>
             <h1 className="admin-title">Painel Administrativo</h1>
             <p className="admin-subtitle">Visão interna do sistema · acesso restrito</p>
@@ -71,16 +68,27 @@ export default function AdminDashboard({ users, jobs, stats }: Props) {
 
       {/* Tab bar */}
       <div className="admin-tabbar">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`admin-tab ${activeTab === t.key ? "active" : ""}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            <span>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+        <button
+          className={`admin-tab ${activeTab === "users" ? "active" : ""}`}
+          onClick={() => setActiveTab("users")}
+        >
+          <UsersIcon size={18} />
+          <span>Usuários</span>
+        </button>
+        <button
+          className={`admin-tab ${activeTab === "resources" ? "active" : ""}`}
+          onClick={() => setActiveTab("resources")}
+        >
+          <CpuIcon size={18} />
+          <span>Recursos</span>
+        </button>
+        <button
+          className={`admin-tab ${activeTab === "performance" ? "active" : ""}`}
+          onClick={() => setActiveTab("performance")}
+        >
+          <BarChartIcon size={18} />
+          <span>Desempenho</span>
+        </button>
       </div>
 
       {/* Tab content */}

@@ -3,6 +3,20 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
+import {
+  LinkIcon,
+  UploadIcon,
+  SmartphoneIcon,
+  MonitorIcon,
+  CropIcon,
+  LayersIcon,
+  ColumnsIcon,
+  SparklesIcon,
+  SlidersIcon,
+  XIcon,
+  VideoIcon,
+  FlameIcon,
+} from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024; // acima disso, usa envio retomável (TUS)
@@ -224,31 +238,31 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       </div>
 
       {/* Abas de Origem (Tabs) */}
-      <div className="tabs" role="tablist">
+      <div className="segmented-control" role="tablist">
         <button
           type="button"
-          className={mode === "link" ? "tab active" : "tab"}
+          className={`segmented-btn ${mode === "link" ? "active" : ""}`}
           onClick={() => { setMode("link"); setError(null); }}
         >
-          <span>🔗 Link de Vídeo</span>
-          <small style={{ fontSize: "0.72rem", opacity: 0.8 }}>YouTube / Web</small>
+          <LinkIcon size={16} />
+          <span>Link de Vídeo</span>
         </button>
         <button
           type="button"
-          className={mode === "upload" ? "tab active" : "tab"}
+          className={`segmented-btn ${mode === "upload" ? "active" : ""}`}
           onClick={() => { setMode("upload"); setError(null); }}
         >
-          <span>📁 Enviar Arquivo</span>
-          <small style={{ fontSize: "0.72rem", opacity: 0.8 }}>Upload direto</small>
+          <UploadIcon size={16} />
+          <span>Enviar Arquivo</span>
         </button>
       </div>
 
       {mode === "link" ? (
         <label>
-          URL do Vídeo (YouTube)
+          URL do Vídeo (YouTube / Vimeo / Web)
           <input
             type="url"
-            placeholder="https://www.youtube.com/watch?v=…"
+            placeholder="https://www.youtube.com/watch?v=… ou Vimeo"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             required
@@ -259,7 +273,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
         <div>
           <label style={{ marginBottom: "0.4rem" }}>Arquivo de Vídeo (.mp4, .mov, .mkv)</label>
           <div
-            className={`dropzone ${dragOver ? "dragover" : ""}`}
+            className={`dropzone ${dragOver ? "active" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
@@ -275,29 +289,31 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 if (f) setFile(f);
               }}
             />
-            <span className="dropzone-icon">📥</span>
+            <div className="dropzone-icon">
+              <UploadIcon size={22} />
+            </div>
             {file ? (
               <div>
                 <strong style={{ color: "var(--text)", display: "block" }}>{file.name}</strong>
                 <span className="muted small">{formatBytes(file.size)}</span>
                 <button
                   type="button"
-                  className="link danger small"
-                  style={{ display: "block", marginTop: "0.4rem" }}
+                  className="btn-danger-outline"
+                  style={{ marginTop: "0.5rem" }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setFile(null);
                   }}
                 >
-                  ✕ Remover arquivo
+                  <XIcon size={14} /> Remover arquivo
                 </button>
               </div>
             ) : (
               <div>
-                <strong style={{ color: "var(--text)", display: "block", fontSize: "0.95rem" }}>
+                <strong className="dropzone-title">
                   Arraste e solte o vídeo aqui
                 </strong>
-                <span className="muted small">ou clique para selecionar do computador (até {MAX_UPLOAD_MB} MB)</span>
+                <span className="dropzone-subtitle" style={{ display: "block" }}>ou clique para selecionar do computador (até {MAX_UPLOAD_MB} MB)</span>
               </div>
             )}
           </div>
@@ -307,56 +323,55 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       {/* Seletor Visual de Formato (Cards Clicáveis) */}
       <div>
         <label style={{ marginBottom: "0.4rem" }}>Formato de Saída:</label>
-        <div className="format-grid">
+        <div className="selection-grid">
           <div
-            className={`format-card ${orientation === "vertical" ? "active" : ""}`}
+            className={`selection-card ${orientation === "vertical" ? "active" : ""}`}
             onClick={() => setOrientation("vertical")}
           >
-            <div className="format-card-title">
-              <span>📱 Vertical (9:16)</span>
-              <span className="format-tag">Viral</span>
-            </div>
-            <span className="muted small">Otimizado para TikTok, Reels e YouTube Shorts.</span>
+            <SmartphoneIcon size={24} style={{ color: orientation === "vertical" ? "var(--primary)" : "var(--text-muted)" }} />
+            <div className="selection-card-title">Vertical (9:16)</div>
+            <span className="selection-card-desc">Otimizado para TikTok, Reels e YouTube Shorts.</span>
           </div>
 
           <div
-            className={`format-card ${orientation === "horizontal" ? "active" : ""}`}
+            className={`selection-card ${orientation === "horizontal" ? "active" : ""}`}
             onClick={() => setOrientation("horizontal")}
           >
-            <div className="format-card-title">
-              <span>🖥️ Horizontal (16:9)</span>
-              <span className="format-tag" style={{ background: "rgba(255,255,255,0.08)", color: "#cbd5e1" }}>Padrão</span>
-            </div>
-            <span className="muted small">Widescreen para YouTube tradicional e sites.</span>
+            <MonitorIcon size={24} style={{ color: orientation === "horizontal" ? "var(--primary)" : "var(--text-muted)" }} />
+            <div className="selection-card-title">Horizontal (16:9)</div>
+            <span className="selection-card-desc">Widescreen para YouTube tradicional e sites.</span>
           </div>
         </div>
       </div>
 
       {/* Opções de Enquadramento Vertical (somente se 9:16 estiver ativo) */}
       {orientation === "vertical" && (
-        <div className="card" style={{ background: "rgba(0,0,0,0.25)", borderColor: "var(--card-border)", padding: "0.9rem" }}>
-          <label style={{ marginBottom: "0.45rem" }}>Enquadramento da Câmera Vertical:</label>
-          <div className="framing-grid">
+        <div className="card" style={{ background: "var(--bg-subtle)", padding: "1rem" }}>
+          <label style={{ marginBottom: "0.5rem" }}>Enquadramento da Câmera Vertical:</label>
+          <div className="selection-grid-3">
             <div
-              className={`framing-card ${verticalMode === "crop" ? "active" : ""}`}
+              className={`selection-card ${verticalMode === "crop" ? "active" : ""}`}
               onClick={() => setVerticalMode("crop")}
             >
-              📱 <strong>Preencher (Crop)</strong>
-              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Corta as laterais</small>
+              <CropIcon size={20} style={{ color: verticalMode === "crop" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Preencher (Crop)</strong>
+              <small className="selection-card-desc">Corta as laterais</small>
             </div>
             <div
-              className={`framing-card ${verticalMode === "blur" ? "active" : ""}`}
+              className={`selection-card ${verticalMode === "blur" ? "active" : ""}`}
               onClick={() => setVerticalMode("blur")}
             >
-              🎞️ <strong>Fundo Blur</strong>
-              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Vídeo + desfoque</small>
+              <LayersIcon size={20} style={{ color: verticalMode === "blur" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Fundo Blur</strong>
+              <small className="selection-card-desc">Vídeo + desfoque</small>
             </div>
             <div
-              className={`framing-card ${verticalMode === "split" ? "active" : ""}`}
+              className={`selection-card ${verticalMode === "split" ? "active" : ""}`}
               onClick={() => setVerticalMode("split")}
             >
-              🎙️ <strong>Split Screen</strong>
-              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Podcast 2 câmeras</small>
+              <ColumnsIcon size={20} style={{ color: verticalMode === "split" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Split Screen</strong>
+              <small className="selection-card-desc">2 câmeras</small>
             </div>
           </div>
 
@@ -581,7 +596,10 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             "Processando pedido…"
           )
         ) : (
-          "✨ Gerar Cortes com IA"
+          <>
+            <SparklesIcon size={18} />
+            <span>Gerar Cortes com IA</span>
+          </>
         )}
       </button>
     </form>

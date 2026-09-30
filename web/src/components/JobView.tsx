@@ -8,6 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job } from "@/lib/types";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
+import {
+  DownloadIcon,
+  FlameIcon,
+  SparklesIcon,
+  SmartphoneIcon,
+  MonitorIcon,
+  XIcon,
+} from "./Icons";
 
 export default function JobView({ initialJob, initialClips }: { initialJob: Job; initialClips: Clip[] }) {
   const supabase = useMemo(() => createClient(), []);
@@ -209,7 +217,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
 
                   <div className="row" style={{ marginTop: "0.2rem" }}>
                     <span className="badge-viral">
-                      🔥 Pontuação: {clip.score ?? 95}/100
+                      <FlameIcon size={14} />
+                      {clip.score ?? 95}/100
                     </span>
                     <span className="muted small">
                       {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
@@ -222,23 +231,24 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
 
                   {clip.hook && (
                     <p className="clip-hook" title="Gancho inicial forte detectado pela IA">
-                      <strong>🎯 Gancho:</strong> &ldquo;{clip.hook}&rdquo;
+                      <strong>Gancho:</strong> &ldquo;{clip.hook}&rdquo;
                     </p>
                   )}
 
                   {clip.reason && (
                     <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
-                      <strong style={{ color: "#c7d2fe" }}>💡 Por que viraliza:</strong> {clip.reason}
+                      <strong>Por que viraliza:</strong> {clip.reason}
                     </p>
                   )}
 
                   <button
                     type="button"
-                    className="btn-download"
+                    className="btn-cta"
+                    style={{ padding: "0.6rem 1rem", fontSize: "0.88rem", marginTop: "auto" }}
                     onClick={() => download(clip)}
                     disabled={downloading === clip.id}
                   >
-                    <span>⬇</span>
+                    <DownloadIcon size={16} />
                     <span>{downloading === clip.id ? "Preparando…" : "Baixar Clipe MP4"}</span>
                   </button>
                 </div>

@@ -9,6 +9,17 @@ import type { Clip, Job, JobStatus } from "@/lib/types";
 import NewJobForm from "./NewJobForm";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
+import {
+  DownloadIcon,
+  TrashIcon,
+  FlameIcon,
+  SparklesIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  SmartphoneIcon,
+  MonitorIcon,
+} from "./Icons";
 
 function getStageDescription(status: JobStatus): string {
   switch (status) {
@@ -254,8 +265,9 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                   <div style={{ flex: 1, minWidth: "200px" }}>
                     <div className="row" style={{ justifyContent: "flex-start", gap: "0.5rem", marginBottom: "0.25rem" }}>
                       <StatusBadge status={job.status} />
-                      <span className="badge" style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1" }}>
-                        {vertical ? "📱 9:16 Vertical" : "🖥️ 16:9 Horizontal"}
+                      <span className="badge-status" style={{ background: "var(--bg-subtle)", color: "var(--text-muted)", border: "1px solid var(--card-border)" }}>
+                        {vertical ? <SmartphoneIcon size={13} /> : <MonitorIcon size={13} />}
+                        {vertical ? "Vertical (9:16)" : "Horizontal (16:9)"}
                       </span>
                       <span className="muted small">· {fmtDate(job.created_at)}</span>
                     </div>
@@ -267,17 +279,18 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                   </div>
 
                   <div className="row" style={{ gap: "0.5rem" }}>
-                    <Link className="btn btn-small btn-secondary" href={`/jobs/${job.id}`}>
-                      Ver detalhes &amp; logs ↗
+                    <Link className="btn-secondary" href={`/jobs/${job.id}`} style={{ fontSize: "0.84rem", padding: "0.45rem 0.85rem", textDecoration: "none" }}>
+                      Ver detalhes
                     </Link>
                     <button
                       type="button"
-                      className="btn btn-small btn-danger-outline"
+                      className="btn-danger-outline"
                       onClick={() => handleDelete(job.id)}
                       disabled={deletingId === job.id}
                       title="Excluir este projeto e todos os clipes"
                     >
-                      {deletingId === job.id ? "Excluindo…" : "🗑️ Excluir"}
+                      <TrashIcon size={14} />
+                      <span>{deletingId === job.id ? "Excluindo…" : "Excluir"}</span>
                     </button>
                   </div>
                 </div>
@@ -311,8 +324,9 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                 {job.status === "done" && jobClips.length > 0 && (
                   <div className="stack" style={{ marginTop: "0.75rem", borderTop: "1px solid var(--card-border)", paddingTop: "1rem" }}>
                     <div className="row">
-                      <strong style={{ fontSize: "0.95rem", color: "var(--text)" }}>
-                        ✨ {jobClips.length} Clipes Gerados pela IA
+                      <strong style={{ fontSize: "0.95rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <SparklesIcon size={16} style={{ color: "var(--primary)" }} />
+                        {jobClips.length} Clipes Gerados pela IA
                       </strong>
                     </div>
 
@@ -340,7 +354,8 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                             {/* Informações e Badge de Viralidade */}
                             <div className="row" style={{ marginTop: "0.2rem" }}>
                               <span className="badge-viral">
-                                🔥 Pontuação: {clip.score ?? 95}/100
+                                <FlameIcon size={14} />
+                                {clip.score ?? 95}/100
                               </span>
                               <span className="muted small">
                                 {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
@@ -355,25 +370,26 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                             {/* Gancho Forte (Hook) */}
                             {clip.hook && (
                               <p className="clip-hook" title="Gancho inicial forte detectado pela IA">
-                                <strong>🎯 Gancho:</strong> &ldquo;{clip.hook}&rdquo;
+                                <strong>Gancho:</strong> &ldquo;{clip.hook}&rdquo;
                               </p>
                             )}
 
                             {/* Justificativa / Por que é viral (Claude AI) */}
                             {clip.reason && (
                               <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
-                                <strong style={{ color: "#c7d2fe" }}>💡 Por que viraliza:</strong> {clip.reason}
+                                <strong>Por que viraliza:</strong> {clip.reason}
                               </p>
                             )}
 
                             {/* Botão de Download Direto */}
                             <button
                               type="button"
-                              className="btn-download"
+                              className="btn-cta"
+                              style={{ padding: "0.6rem 1rem", fontSize: "0.88rem", marginTop: "auto" }}
                               onClick={() => download(clip)}
                               disabled={downloadingId === clip.id}
                             >
-                              <span>⬇</span>
+                              <DownloadIcon size={16} />
                               <span>{downloadingId === clip.id ? "Preparando…" : "Baixar Clipe MP4"}</span>
                             </button>
                           </div>

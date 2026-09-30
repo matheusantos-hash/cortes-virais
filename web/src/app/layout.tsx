@@ -4,6 +4,8 @@ import { signOut } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
+import { ScissorsIcon, ShieldIcon, LogOutIcon } from "@/components/Icons";
+
 export const metadata: Metadata = {
   title: "Cortes Virais",
   description: "Transforme vídeos longos em cortes prontos para as redes sociais.",
@@ -35,7 +37,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="topbar">
           <div className="topbar-inner">
             <Link href="/" className="brand-logo">
-              <span className="brand-icon">🎬</span>
+              <span className="brand-icon-wrap">
+                <ScissorsIcon size={19} />
+              </span>
               <span className="brand-text">Cortes Virais AI</span>
             </Link>
 
@@ -51,11 +55,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <span className="user-email hide-sm">{user.email}</span>
                   {isAdmin && (
                     <Link href="/admin" className="navlink-admin">
+                      <ShieldIcon size={15} />
                       Admin
                     </Link>
                   )}
                   <form action={signOut} style={{ display: "inline" }}>
                     <button className="btn-logout" title="Encerrar sessão">
+                      <LogOutIcon size={15} />
                       Sair
                     </button>
                   </form>
