@@ -204,13 +204,16 @@ async function processJob(job: Job) {
         if (direct === "not-direct") {
           await pushLog("Baixando stream de vídeo em alta qualidade com yt-dlp...");
           await flushLogs();
-          await downloadVideo(job.source_url!, sourcePath, abortCtrl.signal);
+          await downloadVideo(job.source_url!, sourcePath, abortCtrl.signal, pushLog);
         }
         await pushLog("Download do vídeo finalizado com sucesso.");
       } catch (err) {
         if (err instanceof CanceledError) throw err;
         if (err instanceof UserError) throw err;
-        console.error(`[${job.id}] download do link falhou:`, err);
+        const rawErr = err instanceof Error ? err.message : String(err);
+        console.error(`[${job.id}] download do link falhou:`, rawErr);
+        await pushLog(`[ERRO] ${rawErr}`);
+        await flushLogs();
         throw new UserError(
           "Não foi possível baixar o vídeo desse link. Ele pode estar privado, bloqueado ou ter expirado. Gere um link novo ou envie o arquivo."
         );

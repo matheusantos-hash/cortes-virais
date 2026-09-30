@@ -188,7 +188,7 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
   const norm = normalizeVideoUrl(url);
   const args = [
     "-f",
-    "bv*[height<=1080]+ba/b[height<=1080]",
+    "bv*[height<=1080]+ba/b[height<=1080]/best",
     "--merge-output-format",
     "mp4",
     "-o",
