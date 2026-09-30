@@ -165,7 +165,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       }
     }
 
-    const { error: insError } = await supabase.from("jobs").insert({
+    const payload: Record<string, any> = {
       ...source,
       orientation,
       vertical_mode: orientation === "vertical" ? verticalMode : "crop",
@@ -181,7 +181,29 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       design_instructions: showRefSection && designInstructions.trim() ? designInstructions.trim() : null,
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
-    });
+    };
+
+    let { error: insError } = await supabase.from("jobs").insert(payload);
+
+    // Se o banco ainda não tiver as colunas de B-Roll, tenta novamente sem elas
+    if (insError && (insError.message.includes("broll_source") || insError.message.includes("use_broll"))) {
+      delete payload.use_broll;
+      delete payload.broll_source;
+      const retry = await supabase.from("jobs").insert(payload);
+      insError = retry.error;
+    }
+
+    // Se o banco ainda não tiver as colunas de Referência/Design, tenta novamente sem elas
+    if (insError && (insError.message.includes("reference_") || insError.message.includes("design_instructions") || insError.message.includes("vertical_mode"))) {
+      delete payload.reference_type;
+      delete payload.reference_url;
+      delete payload.reference_path;
+      delete payload.reference_style;
+      delete payload.design_instructions;
+      delete payload.vertical_mode;
+      const retry = await supabase.from("jobs").insert(payload);
+      insError = retry.error;
+    }
 
     setBusy(false);
     if (insError) return setError(`Não foi possível criar o pedido: ${insError.message}`);
