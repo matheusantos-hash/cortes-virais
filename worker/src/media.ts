@@ -137,19 +137,54 @@ export async function tryDirectDownload(url: string, dest: string, signal?: Abor
   return "ok";
 }
 
-/** Baixa o vídeo de um link (YouTube etc.) em MP4, até 1080p. */
+/**
+ * Normaliza URLs de plataformas conhecidas para contornar proteções ou exigências de login.
+ * Exemplo: Vimeo bloqueia requisições em 'vimeo.com/<id>' exigindo login, mas aceita
+ * 'player.vimeo.com/video/<id>' sem autenticação e sem restrições.
+ */
+export function normalizeVideoUrl(rawUrl: string): { url: string; referer?: string } {
+  try {
+    const parsed = new URL(rawUrl);
+    // Trata links do Vimeo
+    if (/vimeo\.com$/i.test(parsed.hostname) && !parsed.hostname.startsWith("player.")) {
+      // Suporta vimeo.com/123456789 e vimeo.com/123456789/hash-de-privacidade
+      const matches = parsed.pathname.match(/\/(\d{5,})(?:\/([a-zA-Z0-9]+))?/);
+      if (matches) {
+        const id = matches[1];
+        const hash = matches[2];
+        const embedUrl = hash 
+          ? `https://player.vimeo.com/video/${id}?h=${hash}`
+          : `https://player.vimeo.com/video/${id}`;
+        return { url: embedUrl, referer: "https://vimeo.com/" };
+      }
+    }
+  } catch {
+    // segue com a url original se houver erro de parse
+  }
+  return { url: rawUrl };
+}
+
+/** Baixa o vídeo de um link (YouTube, Vimeo etc.) em MP4, até 1080p. */
 export async function downloadVideo(url: string, outPath: string, signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
+  const norm = normalizeVideoUrl(url);
+  const args = [
+    "-f",
+    "bv*[height<=1080]+ba/b[height<=1080]",
+    "--merge-output-format",
+    "mp4",
+    "-o",
+    outPath,
+  ];
+
+  if (norm.referer) {
+    args.push("--referer", norm.referer);
+  }
+
+  args.push(norm.url);
+
   await run(
     "yt-dlp",
-    [
-      "-f",
-      "bv*[height<=1080]+ba/b[height<=1080]",
-      "--merge-output-format",
-      "mp4",
-      "-o",
-      outPath,
-      url,
-    ],
+    args,
     signal,
     onLog
   );
