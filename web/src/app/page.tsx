@@ -12,10 +12,10 @@ export default async function HomePage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("*")
+    .select("*, clips (*)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(30);
 
   return <Dashboard userId={user.id} initialJobs={(jobs ?? []) as Job[]} />;
 }

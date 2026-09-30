@@ -97,6 +97,24 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; erro
   return { success: true };
 }
 
+/** Exclui um job pertencente ao usuário. */
+export async function deleteUserJob(jobId: string): Promise<{ success: boolean; error?: string }> {
+  if (!jobId) return { success: false, error: "ID não fornecido" };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Não autenticado" };
+
+  const { error } = await supabase
+    .from("jobs")
+    .delete()
+    .eq("id", jobId)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/");
+  return { success: true };
+}
+
 /** Só admin (usuarios.xandao = 1). O RLS também barra quem não for. */
 export async function deleteJob(formData: FormData) {
   const id = String(formData.get("id") ?? "");

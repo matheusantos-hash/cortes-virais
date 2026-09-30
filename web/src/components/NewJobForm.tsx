@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
 
-// Limite de upload exibido no site. Deve ser <= ao limite configurado em Storage > Settings do Supabase.
-// Plano gratuito: 50. Depois de subir o limite no plano Pro, ajuste NEXT_PUBLIC_MAX_UPLOAD_MB.
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024; // acima disso, usa envio retomável (TUS)
 
@@ -15,6 +13,14 @@ function safeName(name: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .slice(-80);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 const STYLE_PRESETS = [
@@ -29,15 +35,19 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [mode, setMode] = useState<"link" | "upload">("link");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [orientation, setOrientation] = useState<"vertical" | "horizontal">("vertical");
   const [verticalMode, setVerticalMode] = useState<"crop" | "blur" | "split">("crop");
   const [cropPct, setCropPct] = useState(50);
-  const [clipCount, setClipCount] = useState(10);
+  const [clipCount, setClipCount] = useState(5);
   const [minSeconds, setMinSeconds] = useState(30);
   const [maxSeconds, setMaxSeconds] = useState(90);
   const [language, setLanguage] = useState("pt-BR");
+  const [dryRun, setDryRun] = useState(false);
 
-  // Opções de Vídeo de Referência e Design dos Cortes
+  // Opções de Vídeo de Referência e Design
   const [showRefSection, setShowRefSection] = useState(false);
   const [refMode, setRefMode] = useState<"none" | "link" | "upload">("none");
   const [refUrl, setRefUrl] = useState("");
@@ -45,13 +55,26 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [refStyle, setRefStyle] = useState(STYLE_PRESETS[0].name);
   const [designInstructions, setDesignInstructions] = useState("");
 
-  // Opções de B-Roll / Vídeos de apoio
+  // Opções de B-Roll
   const [useBroll, setUseBroll] = useState(false);
   const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield">("pexels");
 
   const [busy, setBusy] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.type.startsWith("video/") || /\.(mp4|mov|mkv|avi|webm)$/i.test(droppedFile.name)) {
+        setFile(droppedFile);
+      } else {
+        setError("Por favor, selecione um arquivo de vídeo válido (.mp4, .mov, .mkv).");
+      }
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +83,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     if (minSeconds < 5 || maxSeconds > 180 || minSeconds >= maxSeconds) {
       return setError("A duração mínima deve ser de pelo menos 5 s, a máxima de até 180 s, e a mínima menor que a máxima.");
     }
-    if (clipCount < 1 || clipCount > 30) return setError("A quantidade de clipes deve ficar entre 1 e 30.");
+    if (clipCount < 1 || clipCount > 20) {
+      return setError("A quantidade de cortes deve ficar entre 1 e 20.");
+    }
 
     const supabase = createClient();
     let source: Record<string, string>;
@@ -77,21 +102,21 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       }
       if (/(^|\.)(drive|docs)\.google\.com$/.test(parsed.hostname)) {
         setBusy(false);
-        return setError("Links do Google Drive ainda não são suportados. Use um link de vídeo (ex.: YouTube) ou envie o arquivo.");
+        return setError("Links do Google Drive ainda não são suportados. Use um link do YouTube ou envie o arquivo.");
       }
       source = { source_type: "link", source_url: parsed.toString() };
     } else {
       if (!file) {
         setBusy(false);
-        return setError("Escolha um arquivo de vídeo principal.");
+        return setError("Selecione ou arraste um arquivo de vídeo principal.");
       }
-      if (!file.type.startsWith("video/")) {
+      if (!file.type.startsWith("video/") && !/\.(mp4|mov|mkv|avi|webm)$/i.test(file.name)) {
         setBusy(false);
-        return setError("O arquivo principal precisa ser um vídeo.");
+        return setError("O arquivo principal precisa ser um vídeo (.mp4, .mov, .mkv).");
       }
       if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
         setBusy(false);
-        return setError(`O arquivo tem mais de ${MAX_UPLOAD_MB} MB. Use um link do vídeo no lugar.`);
+        return setError(`O arquivo tem mais de ${MAX_UPLOAD_MB} MB. Cole um link do YouTube no lugar.`);
       }
       const path = `${userId}/${crypto.randomUUID()}-${safeName(file.name)}`;
       let upError: string | null = null;
@@ -110,7 +135,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             onProgress: setUploadPct,
           });
         } else {
-          const { error } = await supabase.storage.from("sources").upload(path, file, { contentType: file.type });
+          const { error } = await supabase.storage.from("sources").upload(path, file, { contentType: file.type || "video/mp4" });
           if (error) throw new Error(error.message);
         }
       } catch (err) {
@@ -127,13 +152,11 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     // Processamento do Vídeo de Referência (se fornecido)
     let refPath: string | null = null;
     if (showRefSection && refMode === "upload" && refFile) {
-      if (!refFile.type.startsWith("video/")) {
-        setBusy(false);
-        return setError("O arquivo de referência precisa ser um vídeo.");
-      }
       const refStoragePath = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
       try {
-        const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, { contentType: refFile.type });
+        const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
+          contentType: refFile.type || "video/mp4",
+        });
         if (refUpError) throw new Error(refUpError.message);
         refPath = refStoragePath;
       } catch (err) {
@@ -159,6 +182,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
     });
+
     setBusy(false);
     if (insError) return setError(`Não foi possível criar o pedido: ${insError.message}`);
 
@@ -172,21 +196,34 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
   return (
     <form onSubmit={submit} className="card stack">
-      <h2>Novo pedido de cortes</h2>
+      <div className="row" style={{ alignItems: "center" }}>
+        <h2>Criar Cortes com IA</h2>
+        <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>Claude 3.5 + FFmpeg</span>
+      </div>
 
-      {/* Tipo de Entrada do Vídeo Principal */}
+      {/* Abas de Origem (Tabs) */}
       <div className="tabs" role="tablist">
-        <button type="button" className={mode === "link" ? "tab active" : "tab"} onClick={() => setMode("link")}>
-          Link do vídeo
+        <button
+          type="button"
+          className={mode === "link" ? "tab active" : "tab"}
+          onClick={() => { setMode("link"); setError(null); }}
+        >
+          <span>🔗 Link de Vídeo</span>
+          <small style={{ fontSize: "0.72rem", opacity: 0.8 }}>YouTube / Web</small>
         </button>
-        <button type="button" className={mode === "upload" ? "tab active" : "tab"} onClick={() => setMode("upload")}>
-          Enviar arquivo
+        <button
+          type="button"
+          className={mode === "upload" ? "tab active" : "tab"}
+          onClick={() => { setMode("upload"); setError(null); }}
+        >
+          <span>📁 Enviar Arquivo</span>
+          <small style={{ fontSize: "0.72rem", opacity: 0.8 }}>Upload direto</small>
         </button>
       </div>
 
       {mode === "link" ? (
         <label>
-          Link do vídeo principal
+          URL do Vídeo (YouTube)
           <input
             type="url"
             placeholder="https://www.youtube.com/watch?v=…"
@@ -194,84 +231,182 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             onChange={(e) => setUrl(e.target.value)}
             required
           />
+          <small>Cole o link de podcasts, palestras ou entrevistas para cortar trechos virais.</small>
         </label>
       ) : (
-        <label>
-          Arquivo de vídeo principal (até {MAX_UPLOAD_MB} MB)
-          <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
-          {MAX_UPLOAD_MB <= 50 && <small>Para vídeos maiores, use o link.</small>}
-        </label>
+        <div>
+          <label style={{ marginBottom: "0.4rem" }}>Arquivo de Vídeo (.mp4, .mov, .mkv)</label>
+          <div
+            className={`dropzone ${dragOver ? "dragover" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*,.mp4,.mov,.mkv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setFile(f);
+              }}
+            />
+            <span className="dropzone-icon">📥</span>
+            {file ? (
+              <div>
+                <strong style={{ color: "var(--text)", display: "block" }}>{file.name}</strong>
+                <span className="muted small">{formatBytes(file.size)}</span>
+                <button
+                  type="button"
+                  className="link danger small"
+                  style={{ display: "block", marginTop: "0.4rem" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFile(null);
+                  }}
+                >
+                  ✕ Remover arquivo
+                </button>
+              </div>
+            ) : (
+              <div>
+                <strong style={{ color: "var(--text)", display: "block", fontSize: "0.95rem" }}>
+                  Arraste e solte o vídeo aqui
+                </strong>
+                <span className="muted small">ou clique para selecionar do computador (até {MAX_UPLOAD_MB} MB)</span>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* Configurações de Formato e Idioma */}
-      <div className="grid2">
-        <label>
-          Formato dos cortes
-          <select value={orientation} onChange={(e) => setOrientation(e.target.value as "vertical" | "horizontal")}>
-            <option value="vertical">Vertical (9:16) — Reels / TikTok / Shorts</option>
-            <option value="horizontal">Horizontal (16:9) — YouTube / Web</option>
-          </select>
-        </label>
-        <label>
-          Idioma falado no vídeo
-          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-            <option value="pt-BR">Português (Brasil)</option>
-            <option value="en">Inglês</option>
-            <option value="es">Espanhol</option>
-          </select>
-        </label>
+      {/* Seletor Visual de Formato (Cards Clicáveis) */}
+      <div>
+        <label style={{ marginBottom: "0.4rem" }}>Formato de Saída:</label>
+        <div className="format-grid">
+          <div
+            className={`format-card ${orientation === "vertical" ? "active" : ""}`}
+            onClick={() => setOrientation("vertical")}
+          >
+            <div className="format-card-title">
+              <span>📱 Vertical (9:16)</span>
+              <span className="format-tag">Viral</span>
+            </div>
+            <span className="muted small">Otimizado para TikTok, Reels e YouTube Shorts.</span>
+          </div>
+
+          <div
+            className={`format-card ${orientation === "horizontal" ? "active" : ""}`}
+            onClick={() => setOrientation("horizontal")}
+          >
+            <div className="format-card-title">
+              <span>🖥️ Horizontal (16:9)</span>
+              <span className="format-tag" style={{ background: "rgba(255,255,255,0.08)", color: "#cbd5e1" }}>Padrão</span>
+            </div>
+            <span className="muted small">Widescreen para YouTube tradicional e sites.</span>
+          </div>
+        </div>
       </div>
 
-      {/* Opções de Enquadramento para Vertical */}
+      {/* Opções de Enquadramento Vertical (somente se 9:16 estiver ativo) */}
       {orientation === "vertical" && (
-        <div className="card" style={{ background: "rgba(0,0,0,0.02)", borderColor: "var(--line)" }}>
-          <label style={{ fontWeight: 600, marginBottom: "0.4rem" }}>Layout de Design Vertical:</label>
-          <div className="grid3" style={{ marginBottom: "0.75rem" }}>
-            <button
-              type="button"
-              className={`tab ${verticalMode === "crop" ? "active" : ""}`}
+        <div className="card" style={{ background: "rgba(0,0,0,0.25)", borderColor: "var(--card-border)", padding: "0.9rem" }}>
+          <label style={{ marginBottom: "0.45rem" }}>Enquadramento da Câmera Vertical:</label>
+          <div className="framing-grid">
+            <div
+              className={`framing-card ${verticalMode === "crop" ? "active" : ""}`}
               onClick={() => setVerticalMode("crop")}
             >
-              📱 <strong>Crop Focado</strong>
-              <small style={{ display: "block", fontSize: "0.75rem", opacity: 0.85 }}>Preenche tela 9:16</small>
-            </button>
-            <button
-              type="button"
-              className={`tab ${verticalMode === "blur" ? "active" : ""}`}
+              📱 <strong>Preencher (Crop)</strong>
+              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Corta as laterais</small>
+            </div>
+            <div
+              className={`framing-card ${verticalMode === "blur" ? "active" : ""}`}
               onClick={() => setVerticalMode("blur")}
             >
-              🎞️ <strong>Fundo Desfocado</strong>
-              <small style={{ display: "block", fontSize: "0.75rem", opacity: 0.85 }}>Vídeo central + Blur</small>
-            </button>
-            <button
-              type="button"
-              className={`tab ${verticalMode === "split" ? "active" : ""}`}
+              🎞️ <strong>Fundo Blur</strong>
+              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Vídeo + desfoque</small>
+            </div>
+            <div
+              className={`framing-card ${verticalMode === "split" ? "active" : ""}`}
               onClick={() => setVerticalMode("split")}
             >
               🎙️ <strong>Split Screen</strong>
-              <small style={{ display: "block", fontSize: "0.75rem", opacity: 0.85 }}>Podcast (Topo/Base)</small>
-            </button>
+              <small style={{ display: "block", opacity: 0.8, fontSize: "0.72rem" }}>Podcast 2 câmeras</small>
+            </div>
           </div>
 
           {verticalMode === "crop" && (
-            <label>
-              Ajuste de posição horizontal: {cropPct}% ({cropPct < 40 ? "Esquerda" : cropPct > 60 ? "Direita" : "Centro"})
-              <input type="range" min={0} max={100} value={cropPct} onChange={(e) => setCropPct(Number(e.target.value))} />
-              <small>Posiciona a câmera vertical no ponto principal do vídeo.</small>
-            </label>
+            <div style={{ marginTop: "0.75rem" }}>
+              <label>
+                Posição do corte: {cropPct}% ({cropPct < 40 ? "Esquerda" : cropPct > 60 ? "Direita" : "Centro"})
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={cropPct}
+                  onChange={(e) => setCropPct(Number(e.target.value))}
+                />
+              </label>
+            </div>
           )}
         </div>
       )}
 
+      {/* Controles de Ajuste Numérico */}
+      <div className="grid3">
+        <label>
+          Qtd. de cortes
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={clipCount}
+            onChange={(e) => setClipCount(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          Duração Mín. (s)
+          <input
+            type="number"
+            min={5}
+            max={170}
+            value={minSeconds}
+            onChange={(e) => setMinSeconds(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          Duração Máx. (s)
+          <input
+            type="number"
+            min={10}
+            max={180}
+            value={maxSeconds}
+            onChange={(e) => setMaxSeconds(Number(e.target.value))}
+          />
+        </label>
+      </div>
+
+      <label>
+        Idioma Falado no Vídeo
+        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+          <option value="pt-BR">Português (Brasil)</option>
+          <option value="en">Inglês</option>
+          <option value="es">Espanhol</option>
+        </select>
+      </label>
+
       {/* SEÇÃO: VÍDEO DE REFERÊNCIA & DIRETRIZES DE DESIGN */}
-      <div className="card" style={{ border: "1px dashed var(--accent)", background: "rgba(91, 61, 245, 0.03)" }}>
+      <div className="card" style={{ border: "1px dashed rgba(99, 102, 241, 0.4)", background: "rgba(99, 102, 241, 0.03)", padding: "0.85rem" }}>
         <div className="row" style={{ cursor: "pointer" }} onClick={() => setShowRefSection(!showRefSection)}>
           <div>
-            <strong style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--accent)" }}>
-              <span>🎨</span> Vídeo de Referência &amp; Design dos Cortes
+            <strong style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--primary)" }}>
+              <span>🎨</span> Vídeo de Referência &amp; Design
             </strong>
-            <small style={{ display: "block", color: "var(--muted)" }}>
-              Defina o estilo visual, ritmo, dinâmica ou use um vídeo de exemplo (TikTok/Reels) como modelo.
+            <small style={{ display: "block", color: "var(--text-muted)" }}>
+              Instruções de estilo ou link de corte viral como modelo.
             </small>
           </div>
           <button
@@ -282,14 +417,14 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               setShowRefSection(!showRefSection);
             }}
           >
-            {showRefSection ? "Recolher ▲" : "+ Configurar Referência ▼"}
+            {showRefSection ? "Recolher ▲" : "+ Configurar ▼"}
           </button>
         </div>
 
         {showRefSection && (
-          <div className="stack" style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--line)" }}>
+          <div className="stack" style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
             <label>
-              <strong>Estilo Viral Predeterminado:</strong>
+              Estilo Viral Predeterminado:
               <select value={refStyle} onChange={(e) => setRefStyle(e.target.value)}>
                 {STYLE_PRESETS.map((p) => (
                   <option key={p.id} value={p.name}>
@@ -300,136 +435,132 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             </label>
 
             <label>
-              <strong>Como deseja fornecer o Vídeo de Referência?</strong>
-              <div className="tabs" style={{ marginTop: "0.3rem" }}>
+              Origem do Vídeo de Referência:
+              <div className="tabs" style={{ marginTop: "0.25rem" }}>
                 <button
                   type="button"
                   className={refMode === "none" ? "tab active" : "tab"}
                   onClick={() => setRefMode("none")}
                 >
-                  Apenas Preset / Instruções
+                  Nenhum
                 </button>
                 <button
                   type="button"
                   className={refMode === "link" ? "tab active" : "tab"}
                   onClick={() => setRefMode("link")}
                 >
-                  Link do Vídeo
+                  Link
                 </button>
                 <button
                   type="button"
                   className={refMode === "upload" ? "tab active" : "tab"}
                   onClick={() => setRefMode("upload")}
                 >
-                  Enviar Arquivo
+                  Arquivo
                 </button>
               </div>
             </label>
 
             {refMode === "link" && (
               <label>
-                Link do vídeo de referência (TikTok, Instagram Reels, Shorts, etc.)
+                Link de Referência (TikTok, Reels, Shorts)
                 <input
                   type="url"
-                  placeholder="https://www.tiktok.com/@exemplo/video/… ou https://www.instagram.com/reels/…"
+                  placeholder="https://www.tiktok.com/@exemplo/video/…"
                   value={refUrl}
                   onChange={(e) => setRefUrl(e.target.value)}
                 />
-                <small>A IA usará o estilo, ritmo e estrutura deste vídeo como guia de corte.</small>
               </label>
             )}
 
             {refMode === "upload" && (
               <label>
-                Arquivo de vídeo de referência (até {MAX_UPLOAD_MB} MB)
+                Arquivo de Exemplo
                 <input type="file" accept="video/*" onChange={(e) => setRefFile(e.target.files?.[0] ?? null)} />
-                <small>Envie um clipe de exemplo que represente o design ou formato que você deseja.</small>
               </label>
             )}
 
             <label>
-              <strong>Diretrizes de Edição &amp; Design (Prompt para a IA):</strong>
+              Diretrizes de Edição (Prompt para o Claude AI):
               <textarea
-                rows={3}
-                style={{
-                  font: "inherit",
-                  padding: "0.55rem 0.65rem",
-                  border: "1px solid var(--line)",
-                  borderRadius: "8px",
-                  background: "var(--bg)",
-                  color: "var(--text)",
-                  width: "100%",
-                  resize: "vertical",
-                }}
-                placeholder="Exemplo: Quero cortes com falas polêmicas ou curiosas no gancho inicial. Mantenha os cortes com ritmo dinâmico e conclua sempre na punchline."
+                rows={2}
+                placeholder="Exemplo: Priorize momentos polêmicos ou lições de negócio com gancho forte."
                 value={designInstructions}
                 onChange={(e) => setDesignInstructions(e.target.value)}
               />
-              <small>Instruções adicionais para o Claude selecionar os melhores momentos seguindo seu estilo.</small>
             </label>
           </div>
         )}
       </div>
 
-      {/* SEÇÃO: VÍDEOS DE APOIO / B-ROLL AUTOMÁTICO */}
-      <div className="card" style={{ border: "1px dashed var(--ok)", background: "rgba(22, 121, 76, 0.03)" }}>
+      {/* SEÇÃO: B-ROLL AUTOMÁTICO VIA PEXELS */}
+      <div className="card" style={{ border: "1px dashed rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.03)", padding: "0.85rem" }}>
         <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.65rem", cursor: "pointer" }}>
           <input
             type="checkbox"
-            style={{ width: "1.25rem", height: "1.25rem", accentColor: "var(--accent)", cursor: "pointer" }}
+            style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary)", cursor: "pointer" }}
             checked={useBroll}
             onChange={(e) => setUseBroll(e.target.checked)}
           />
           <div>
-            <strong style={{ fontSize: "0.95rem", color: "var(--text)" }}>🎬 Inserir Vídeos de Apoio (B-Rolls) nos momentos-chave</strong>
-            <small style={{ display: "block", color: "var(--muted)" }}>
-              A IA identifica conceitos visuais no áudio e intercala vídeos de alta qualidade automaticamente para aumentar a retenção.
+            <strong style={{ fontSize: "0.92rem", color: "var(--text)" }}>🎬 Inserir B-Rolls automáticos nos momentos-chave</strong>
+            <small style={{ display: "block", color: "var(--text-muted)" }}>
+              Intercala vídeos de apoio em Full HD para aumentar a retenção.
             </small>
           </div>
         </label>
 
         {useBroll && (
-          <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--line)" }}>
+          <div style={{ marginTop: "0.75rem", paddingTop: "0.65rem", borderTop: "1px solid var(--card-border)" }}>
             <label>
-              <strong>Provedor de B-Roll:</strong>
+              Provedor de B-Roll:
               <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}>
-                <option value="pexels">Pexels (Vídeos reais em Full HD gratuitos &amp; rápidos)</option>
-                <option value="higgsfield">Higgsfield AI (Animações geradas por IA)</option>
+                <option value="pexels">Pexels (Vídeos Full HD gratuitos &amp; rápidos)</option>
+                <option value="higgsfield">Higgsfield AI (Animações IA)</option>
               </select>
-              <small>
-                {brollSource === "pexels"
-                  ? "✓ Recomendado: busca automática em acervo de vídeos reais Full HD correspondentes ao que é dito (sem custo por vídeo)."
-                  : "Animações personalizadas geradas com inteligência artificial (requer HIGGSFIELD_API_KEY no Railway)."}
-              </small>
             </label>
           </div>
         )}
       </div>
 
-      {/* Limites de Clipes e Duração */}
-      <div className="grid3">
-        <label>
-          Qtd. de clipes
-          <input type="number" min={1} max={30} value={clipCount} onChange={(e) => setClipCount(Number(e.target.value))} />
-        </label>
-        <label>
-          Mínimo (s)
-          <input type="number" min={5} max={170} value={minSeconds} onChange={(e) => setMinSeconds(Number(e.target.value))} />
-        </label>
-        <label>
-          Máximo (s)
-          <input type="number" min={10} max={180} value={maxSeconds} onChange={(e) => setMaxSeconds(Number(e.target.value))} />
-        </label>
-      </div>
+      {/* Modo Rascunho */}
+      <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+          checked={dryRun}
+          onChange={(e) => setDryRun(e.target.checked)}
+        />
+        <span style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>
+          Modo Rascunho (apenas escolhe os trechos, sem cortar os arquivos)
+        </span>
+      </label>
 
       {uploadPct !== null && (
-        <div className="bar">
-          <div className="bar-fill" style={{ width: `${uploadPct}%` }} />
+        <div>
+          <div className="row" style={{ marginBottom: "0.3rem" }}>
+            <small>Enviando vídeo para o servidor…</small>
+            <small><strong>{uploadPct}%</strong></small>
+          </div>
+          <div className="bar">
+            <div className="bar-fill" style={{ width: `${uploadPct}%` }} />
+          </div>
         </div>
       )}
+
       {error && <p className="error">{error}</p>}
-      <button className="btn" disabled={busy}>
-        {busy ? (uploadPct !== null ? `Enviando… ${uploadPct}%` : "Enviando…") : "Gerar cortes com IA"}
+
+      {/* Botão de Ação Principal (CTA) */}
+      <button type="submit" className="btn-cta" disabled={busy}>
+        {busy ? (
+          uploadPct !== null ? (
+            `Enviando vídeo… ${uploadPct}%`
+          ) : (
+            "Processando pedido…"
+          )
+        ) : (
+          "✨ Gerar Cortes com IA"
+        )}
       </button>
     </form>
   );

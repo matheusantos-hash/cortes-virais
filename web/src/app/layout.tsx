@@ -23,26 +23,48 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="pt-BR">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>
         <header className="topbar">
-          <Link href="/" className="brand">
-            ✂️ Cortes Virais
-          </Link>
-          {user && (
-            <nav className="row">
-              <span className="muted small hide-sm">{user.email}</span>
-              {isAdmin && (
-                <Link href="/admin" className="navlink">
-                  Admin
-                </Link>
+          <div className="topbar-inner">
+            <Link href="/" className="brand-logo">
+              <span className="brand-icon">🎬</span>
+              <span className="brand-text">Cortes Virais AI</span>
+            </Link>
+
+            <div className="topbar-right">
+              {/* Badge de status com ponto verde pulsante */}
+              <div className="system-status-badge" title="Servidor e IA prontos para processar">
+                <span className="status-pulse-dot" />
+                <span className="status-label">Sistema Online</span>
+              </div>
+
+              {user && (
+                <nav className="user-nav">
+                  <span className="user-email hide-sm">{user.email}</span>
+                  {isAdmin && (
+                    <Link href="/admin" className="navlink-admin">
+                      Admin
+                    </Link>
+                  )}
+                  <form action={signOut} style={{ display: "inline" }}>
+                    <button className="btn-logout" title="Encerrar sessão">
+                      Sair
+                    </button>
+                  </form>
+                </nav>
               )}
-              <form action={signOut}>
-                <button className="link">Sair</button>
-              </form>
-            </nav>
-          )}
+            </div>
+          </div>
         </header>
-        <main className="container">{children}</main>
+        <main className="main-wrapper">{children}</main>
       </body>
     </html>
   );

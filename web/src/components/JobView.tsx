@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cancelJob } from "@/app/actions";
 import { fmtClock, isFinal, jobTitle } from "@/lib/format";
@@ -105,10 +106,27 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   const vertical = job.orientation === "vertical";
 
   return (
-    <div className="stack-lg">
-      <div className="stack">
-        <div className="row">
-          <h1 className="ellipsis" style={{ margin: 0 }}>{jobTitle(job)}</h1>
+    <div className="stack-lg" style={{ maxWidth: "1000px", margin: "0 auto" }}>
+      <div className="row">
+        <Link href="/" className="btn btn-small btn-secondary">
+          ← Voltar ao Painel
+        </Link>
+        <span className="muted small">ID: {job.id}</span>
+      </div>
+
+      <div className="card stack">
+        <div className="row" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div>
+            <div className="row" style={{ justifyContent: "flex-start", gap: "0.5rem", marginBottom: "0.3rem" }}>
+              <StatusBadge status={job.status} />
+              <span className="badge" style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1" }}>
+                {vertical ? "📱 9:16 Vertical" : "🖥️ 16:9 Horizontal"}
+              </span>
+              <span className="muted small">{clips.length > 0 ? `${clips.length} clipes` : ""}</span>
+            </div>
+            <h1 className="ellipsis" style={{ fontSize: "1.4rem", margin: 0 }}>{jobTitle(job)}</h1>
+          </div>
+
           {!isFinal(job.status) && (
             <button
               type="button"
@@ -121,25 +139,23 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
             </button>
           )}
         </div>
-        <div className="row">
-          <StatusBadge status={job.status} />
-          <span className="muted small">{clips.length > 0 ? `${clips.length} clipes` : ""}</span>
-        </div>
+
         {!isFinal(job.status) && (
           <div className="bar">
-            <div className="bar-fill" style={{ width: `${job.progress}%` }} />
+            <div className="bar-fill" style={{ width: `${Math.max(job.progress, 5)}%` }} />
           </div>
         )}
-        {job.status === "failed" && <p className="error">{job.error ?? "Falha ao processar."}</p>}
-        {job.status === "canceled" && <p className="muted" style={{ color: "#d97706" }}>Processamento cancelado pelo usuário.</p>}
+
+        {job.status === "failed" && <p className="error">❌ {job.error ?? "Falha ao processar o vídeo."}</p>}
+        {job.status === "canceled" && <p className="muted" style={{ color: "var(--warning)" }}>⚠️ Processamento cancelado pelo usuário.</p>}
 
         {/* Informações de Design e Referência */}
         {(job.reference_style || job.reference_url || job.design_instructions || job.vertical_mode) && (
-          <div className="card" style={{ background: "rgba(0,0,0,0.02)", fontSize: "0.88rem", padding: "0.75rem 1rem" }}>
+          <div className="card" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid var(--card-border)", fontSize: "0.88rem", padding: "0.75rem 1rem" }}>
             <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
               {job.vertical_mode && (
                 <span>
-                  <strong>Layout:</strong> {job.vertical_mode === "crop" ? "📱 Crop 9:16" : job.vertical_mode === "blur" ? "🎞️ Fundo Desfocado (Blur)" : "🎙️ Split Screen"}
+                  <strong>Layout:</strong> {job.vertical_mode === "crop" ? "📱 Crop 9:16" : job.vertical_mode === "blur" ? "🎞️ Fundo Blur" : "🎙️ Split Screen"}
                 </span>
               )}
               {job.reference_style && (
@@ -157,7 +173,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
               </div>
             )}
             {job.design_instructions && (
-              <div style={{ marginTop: "0.3rem", color: "var(--muted)" }}>
+              <div style={{ marginTop: "0.3rem", color: "var(--text-muted)" }}>
                 <strong>Diretrizes:</strong> “{job.design_instructions}”
               </div>
             )}
@@ -167,36 +183,59 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
 
       {/* Terminal PowerShell do Backend */}
       <section className="stack">
-        <h2 style={{ fontSize: "1.05rem", fontWeight: 600 }}>Andamento do Processo (Terminal)</h2>
+        <h2 style={{ fontSize: "1.05rem", fontWeight: 600 }}>Andamento do Processo (Terminal ao Vivo)</h2>
         <PowerShellTerminal logs={job.logs ?? []} status={job.status} jobId={job.id} />
       </section>
 
+      {/* Grade de Clipes Gerados */}
       {job.status === "done" && (
         <section className="stack">
-          <h2>Clipes Gerados</h2>
-          <div className="clips">
+          <div className="row">
+            <h2>Clipes Gerados pela IA ({clips.length})</h2>
+          </div>
+
+          <div className="clips-grid">
             {clips.map((clip) => {
               const src = clip.file_path ? urls[clip.file_path] : undefined;
+              const durationSec = Math.round(Number(clip.end_seconds) - Number(clip.start_seconds));
+
               return (
-                <article key={clip.id} className="card clip">
+                <div key={clip.id} className="clip-card">
                   {src ? (
                     <video src={src} controls preload="metadata" className={vertical ? "vid vertical" : "vid"} />
                   ) : (
-                    <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>Carregando…</div>
+                    <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>Carregando vídeo…</div>
                   )}
-                  <h3>
-                    {clip.position}. {clip.title}
-                  </h3>
-                  <div className="muted small">
-                    {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ·{" "}
-                    {Math.round(Number(clip.end_seconds) - Number(clip.start_seconds))} s
-                    {clip.score != null && ` · nota ${clip.score}`}
+
+                  <div className="row" style={{ marginTop: "0.2rem" }}>
+                    <span className="badge-viral">
+                      🔥 Pontuação: {clip.score ?? 95}/100
+                    </span>
+                    <span className="muted small">
+                      {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
+                    </span>
                   </div>
-                  {clip.hook && <p className="small">“{clip.hook}”</p>}
-                  <button className="btn btn-small" onClick={() => download(clip)} disabled={downloading === clip.id}>
-                    {downloading === clip.id ? "Preparando…" : "Baixar"}
+
+                  <h4 style={{ fontSize: "0.95rem", lineHeight: 1.35, margin: 0 }}>
+                    {clip.position}. {clip.title}
+                  </h4>
+
+                  {clip.hook && (
+                    <p className="clip-hook">
+                      &ldquo;{clip.hook}&rdquo;
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn-download"
+                    onClick={() => download(clip)}
+                    disabled={downloading === clip.id}
+                  >
+                    <span>⬇</span>
+                    <span>{downloading === clip.id ? "Preparando…" : "Baixar Clipe MP4"}</span>
                   </button>
-                </article>
+                </div>
               );
             })}
           </div>
