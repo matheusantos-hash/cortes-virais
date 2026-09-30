@@ -269,6 +269,16 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                         {vertical ? <SmartphoneIcon size={13} /> : <MonitorIcon size={13} />}
                         {vertical ? "Vertical (9:16)" : "Horizontal (16:9)"}
                       </span>
+                      {job.vertical_mode === "face_tracking" && (
+                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)" }}>
+                          👤 Auto-Face IA
+                        </span>
+                      )}
+                      {job.vertical_mode === "split_face" && (
+                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)" }}>
+                          👥 Podcast IA
+                        </span>
+                      )}
                       <span className="muted small">· {fmtDate(job.created_at)}</span>
                     </div>
                     <h3 className="ellipsis" style={{ fontSize: "1.1rem" }}>

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
+import { VerticalMode } from "@/lib/types";
 import {
   LinkIcon,
   UploadIcon,
@@ -11,6 +12,8 @@ import {
   CropIcon,
   LayersIcon,
   ColumnsIcon,
+  UserIcon,
+  UsersIcon,
   SparklesIcon,
   SlidersIcon,
   XIcon,
@@ -53,7 +56,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [orientation, setOrientation] = useState<"vertical" | "horizontal">("vertical");
-  const [verticalMode, setVerticalMode] = useState<"crop" | "blur" | "split">("crop");
+  const [verticalMode, setVerticalMode] = useState<VerticalMode>("crop");
   const [cropPct, setCropPct] = useState(50);
   const [clipCount, setClipCount] = useState(5);
   const [minSeconds, setMinSeconds] = useState(30);
@@ -347,16 +350,43 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       {/* Opções de Enquadramento Vertical (somente se 9:16 estiver ativo) */}
       {orientation === "vertical" && (
         <div className="card" style={{ background: "var(--bg-subtle)", padding: "1rem" }}>
-          <label style={{ marginBottom: "0.5rem" }}>Enquadramento da Câmera Vertical:</label>
-          <div className="selection-grid-3">
+          <label style={{ marginBottom: "0.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Enquadramento da Câmera Vertical:</span>
+            {(verticalMode === "face_tracking" || verticalMode === "split_face") && (
+              <span className="badge badge-done" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
+                <SparklesIcon size={12} /> Detecção Facial com IA
+              </span>
+            )}
+          </label>
+
+          <div className="selection-grid-framing">
+            <div
+              className={`selection-card ${verticalMode === "face_tracking" ? "active" : ""}`}
+              onClick={() => setVerticalMode("face_tracking")}
+            >
+              <UserIcon size={20} style={{ color: verticalMode === "face_tracking" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Auto-Face (IA)</strong>
+              <small className="selection-card-desc">Centraliza o rosto</small>
+            </div>
+
+            <div
+              className={`selection-card ${verticalMode === "split_face" ? "active" : ""}`}
+              onClick={() => setVerticalMode("split_face")}
+            >
+              <UsersIcon size={20} style={{ color: verticalMode === "split_face" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Podcast IA</strong>
+              <small className="selection-card-desc">Host + Convidado</small>
+            </div>
+
             <div
               className={`selection-card ${verticalMode === "crop" ? "active" : ""}`}
               onClick={() => setVerticalMode("crop")}
             >
               <CropIcon size={20} style={{ color: verticalMode === "crop" ? "var(--primary)" : "var(--text-muted)" }} />
-              <strong className="selection-card-title">Preencher (Crop)</strong>
-              <small className="selection-card-desc">Corta as laterais</small>
+              <strong className="selection-card-title">Preencher</strong>
+              <small className="selection-card-desc">Corte manual/fixo</small>
             </div>
+
             <div
               className={`selection-card ${verticalMode === "blur" ? "active" : ""}`}
               onClick={() => setVerticalMode("blur")}
@@ -365,15 +395,30 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               <strong className="selection-card-title">Fundo Blur</strong>
               <small className="selection-card-desc">Vídeo + desfoque</small>
             </div>
+
             <div
               className={`selection-card ${verticalMode === "split" ? "active" : ""}`}
               onClick={() => setVerticalMode("split")}
             >
               <ColumnsIcon size={20} style={{ color: verticalMode === "split" ? "var(--primary)" : "var(--text-muted)" }} />
-              <strong className="selection-card-title">Split Screen</strong>
-              <small className="selection-card-desc">2 câmeras</small>
+              <strong className="selection-card-title">Split 50/50</strong>
+              <small className="selection-card-desc">Divisão fixa</small>
             </div>
           </div>
+
+          {verticalMode === "face_tracking" && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <SparklesIcon size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <span>A IA analisa os frames do vídeo para detectar e centralizar automaticamente a pessoa que está em foco.</span>
+            </div>
+          )}
+
+          {verticalMode === "split_face" && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <UsersIcon size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <span>Ideal para Podcasts com 2 participantes: a IA detecta os rostos dos dois lados e enquadra o Host no topo e o Convidado na base.</span>
+            </div>
+          )}
 
           {verticalMode === "crop" && (
             <div style={{ marginTop: "0.75rem" }}>

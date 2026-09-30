@@ -1,16 +1,27 @@
 import { execFile, spawn } from "node:child_process";
 import { createWriteStream, existsSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Orientation, VerticalMode } from "./types.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class CanceledError extends Error {
   constructor(message = "Processamento cancelado pelo usuário.") {
     super(message);
     this.name = "CanceledError";
   }
+}
+
+export interface ActiveBroll {
+  filePath: string;
+  offsetSec: number;
+  durationSec: number;
 }
 
 function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
@@ -236,10 +247,56 @@ export async function extractAudio(videoPath: string, audioPath: string, signal?
   );
 }
 
-export interface ActiveBroll {
-  offsetSec: number;
-  durationSec: number;
-  filePath: string;
+export interface FaceTrackingResult {
+  primaryCenterX: number;
+  leftFaceCenterX: number;
+  rightFaceCenterX: number;
+  detectedCount: number;
+}
+
+/** Extrai um frame do vídeo no segundo especificado e executa detect_faces.py */
+export async function detectFacesInVideo(videoPath: string, timestampSec: number): Promise<FaceTrackingResult> {
+  const framePath = path.join(os.tmpdir(), `frame_${crypto.randomUUID()}.jpg`);
+  try {
+    await run("ffmpeg", [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-ss", timestampSec.toFixed(3),
+      "-i", videoPath,
+      "-vframes", "1",
+      "-q:v", "2",
+      framePath
+    ]);
+
+    if (!existsSync(framePath)) {
+      return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0 };
+    }
+
+    const scriptPath = path.join(__dirname, "detect_faces.py");
+    const out = await new Promise<string>((resolve) => {
+      execFile("python3", [scriptPath, framePath], (err, stdout) => {
+        if (err) {
+          execFile("python", [scriptPath, framePath], (err2, stdout2) => {
+            if (err2) resolve("{}");
+            else resolve(stdout2);
+          });
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+
+    const parsed = JSON.parse(out);
+    return {
+      primaryCenterX: typeof parsed.primary_center_x === "number" ? parsed.primary_center_x : 0.5,
+      leftFaceCenterX: typeof parsed.left_face_center_x === "number" ? parsed.left_face_center_x : 0.25,
+      rightFaceCenterX: typeof parsed.right_face_center_x === "number" ? parsed.right_face_center_x : 0.75,
+      detectedCount: (parsed.faces ?? []).length
+    };
+  } catch (e) {
+    return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0 };
+  } finally {
+    rm(framePath, { force: true }).catch(() => {});
+  }
 }
 
 /** Corta um trecho e já enquadra conforme a orientação, aplicando B-Rolls se houver. */
@@ -285,20 +342,55 @@ export async function cutClip(opts: {
   const targetWidth = orientation === "vertical" ? 1080 : 1920;
   const targetHeight = orientation === "vertical" ? 1920 : 1080;
 
+  let effectiveCropX = cropX;
+  let splitLeftX = 0.25;
+  let splitRightX = 0.75;
+
+  // Detecção Facial Ativa para podcast / rostos inteligentes
+  if (orientation === "vertical" && (verticalMode === "face_tracking" || verticalMode === "split_face")) {
+    const midpoint = start + duration / 2;
+    onLog?.(`[ROSTOS IA] Mapeando rostos no frame em ${midpoint.toFixed(1)}s...`);
+    const faces = await detectFacesInVideo(input, midpoint);
+
+    if (faces.detectedCount > 0) {
+      onLog?.(`[ROSTOS IA] ${faces.detectedCount} rosto(s) identificado(s) na cena.`);
+    } else {
+      onLog?.(`[ROSTOS IA] Nenhum rosto isolado de alto contraste; usando enquadramento balanceado.`);
+    }
+
+    if (verticalMode === "face_tracking") {
+      effectiveCropX = faces.primaryCenterX;
+      onLog?.(`[ROSTOS IA] Câmera vertical 9:16 centralizada no rosto (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+    } else if (verticalMode === "split_face") {
+      splitLeftX = faces.leftFaceCenterX;
+      splitRightX = faces.rightFaceCenterX;
+      onLog?.(`[ROSTOS IA] Podcast Split: Topo centralizado no Host (X = ${(splitLeftX * 100).toFixed(0)}%), Base centralizada no Convidado (X = ${(splitRightX * 100).toFixed(0)}%).`);
+    }
+  }
+
   // Filtro de corte vertical seguro (funciona para qualquer proporção de entrada sem estourar dimensões)
-  const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${cropX}:y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
+  const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
 
   // 1. Gera o filtro base para o vídeo do orador
   let baseFilter = "";
   if (orientation === "horizontal") {
     baseFilter = `[0:v]scale=-2:min(1080\\,ih),setsar=1[base_v]`;
-  } else if (verticalMode === "crop") {
+  } else if (verticalMode === "crop" || verticalMode === "face_tracking") {
     baseFilter = `[0:v]${cropVf}[base_v]`;
   } else if (verticalMode === "split") {
     baseFilter =
       "[0:v]split=2[top_in][bot_in];" +
       "[top_in]crop=iw/2:ih:0:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[top];" +
       "[bot_in]crop=iw/2:ih:iw/2:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[bot];" +
+      "[top][bot]vstack[base_v]";
+  } else if (verticalMode === "split_face") {
+    // Split inteligente centralizado exatamente no rosto detectado do host e do convidado
+    const cropTopX = `max(0\\,min(iw-iw*9/16\\,iw*${splitLeftX}-iw*9/32))`;
+    const cropBotX = `max(0\\,min(iw-iw*9/16\\,iw*${splitRightX}-iw*9/32))`;
+    baseFilter =
+      "[0:v]split=2[top_in][bot_in];" +
+      `[top_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropTopX}:y=0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[top];` +
+      `[bot_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropBotX}:y=0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[bot];` +
       "[top][bot]vstack[base_v]";
   } else {
     // "blur"
@@ -315,7 +407,7 @@ export async function cutClip(opts: {
       await run("ffmpeg", [...baseInputs, "-vf", "scale=-2:min(1080\\,ih),setsar=1", ...encode], signal, onLog);
       return;
     }
-    if (verticalMode === "crop") {
+    if (verticalMode === "crop" || verticalMode === "face_tracking") {
       await run("ffmpeg", [...baseInputs, "-vf", cropVf, ...encode], signal, onLog);
       return;
     }

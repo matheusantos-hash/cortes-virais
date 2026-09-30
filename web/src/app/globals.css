@@ -497,6 +497,13 @@ button:disabled, .button:disabled {
   gap: 0.65rem;
 }
 
+.selection-grid-framing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+
+
 .selection-card {
   background: #FFFFFF;
   border: 2px solid var(--card-border);

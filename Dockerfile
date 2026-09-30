@@ -3,7 +3,7 @@ FROM node:22-bookworm-slim
 
 # ffmpeg (cortes) + python3 (necessário para o yt-dlp) + curl/certificados
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg python3 curl ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg python3 python3-opencv curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 # yt-dlp

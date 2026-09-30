@@ -8,6 +8,8 @@ export type JobStatus =
   | "failed"
   | "canceled";
 
+export type VerticalMode = "crop" | "blur" | "split" | "face_tracking" | "split_face";
+
 export interface Job {
   id: string;
   user_id: string;
@@ -15,7 +17,7 @@ export interface Job {
   source_url: string | null;
   source_path: string | null;
   orientation: "vertical" | "horizontal";
-  vertical_mode?: "crop" | "blur" | "split";
+  vertical_mode?: VerticalMode;
   crop_x: number;
   clip_count: number;
   min_seconds: number;

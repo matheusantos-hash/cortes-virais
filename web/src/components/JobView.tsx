@@ -163,7 +163,18 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
             <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
               {job.vertical_mode && (
                 <span>
-                  <strong>Layout:</strong> {job.vertical_mode === "crop" ? "📱 Crop 9:16" : job.vertical_mode === "blur" ? "🎞️ Fundo Blur" : "🎙️ Split Screen"}
+                  <strong>Layout:</strong>{" "}
+                  {job.vertical_mode === "face_tracking"
+                    ? "👤 Auto-Face (IA)"
+                    : job.vertical_mode === "split_face"
+                    ? "👥 Podcast IA (Split Rostos)"
+                    : job.vertical_mode === "crop"
+                    ? "📱 Crop 9:16"
+                    : job.vertical_mode === "blur"
+                    ? "🎞️ Fundo Blur"
+                    : job.vertical_mode === "split"
+                    ? "🎙️ Split Screen"
+                    : job.vertical_mode}
                 </span>
               )}
               {job.reference_style && (
