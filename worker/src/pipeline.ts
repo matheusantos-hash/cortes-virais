@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
-import { cutClip, extractAudio } from "./media.js";
+import { CanceledError, cutClip, extractAudio } from "./media.js";
 import { transcribe } from "./transcribe.js";
 import type { Clip, Options, Word } from "./types.js";
 
@@ -11,6 +11,12 @@ export type Stage = "transcribing" | "analyzing" | "cutting";
 export interface Hooks {
   /** Chamado ao entrar em cada etapa, com o progresso (0–100) do job. */
   onStage?: (stage: Stage, progress: number) => void | Promise<void>;
+  /** Chamado para registrar logs de execução do backend */
+  onLog?: (message: string) => void | Promise<void>;
+  /** Verifica se o job foi cancelado e lança CanceledError se necessário */
+  checkCanceled?: () => Promise<void> | void;
+  /** Signal para cancelar subprocessos */
+  signal?: AbortSignal;
 }
 
 export const slug = (s: string) =>
@@ -40,57 +46,85 @@ export async function processVideo(args: {
 }): Promise<{ clips: Clip[]; files: string[] }> {
   const { sourcePath, workDir, opts, hooks } = args;
 
+  await hooks?.checkCanceled?.();
+
   // Áudio
   const audioPath = path.join(workDir, "audio.mp3");
   if (opts.force || !existsSync(audioPath)) {
+    await hooks?.onLog?.("Extraindo áudio do vídeo para transcrição (FFmpeg)...");
     console.log("Extraindo o áudio…");
-    await extractAudio(sourcePath, audioPath);
+    await extractAudio(sourcePath, audioPath, hooks?.signal);
   }
+
+  await hooks?.checkCanceled?.();
 
   // Transcrição (em cache no disco, para não pagar de novo ao ajustar o prompt)
   await hooks?.onStage?.("transcribing", 25);
   const transcriptPath = path.join(workDir, "transcript.json");
   let words: Word[];
   if (opts.force || !existsSync(transcriptPath)) {
+    await hooks?.onLog?.(`Enviando áudio para transcrição no Deepgram (idioma: ${opts.language})...`);
     console.log("Transcrevendo no Deepgram…");
     words = await transcribe(audioPath, opts.language);
     await writeFile(transcriptPath, JSON.stringify(words));
   } else {
+    await hooks?.onLog?.("Transcrição existente encontrada em cache, reutilizando.");
     console.log("Transcrição já existe, reaproveitando.");
     words = JSON.parse(await readFile(transcriptPath, "utf8"));
   }
+
+  await hooks?.checkCanceled?.();
+
   const blocks = buildBlocks(words);
+  const wordCountMsg = `Transcrição concluída: ${words.length} palavras identificadas agrupadas em ${blocks.length} blocos de contexto.`;
+  await hooks?.onLog?.(wordCountMsg);
   console.log(`  ${words.length} palavras, ${blocks.length} blocos.`);
 
   // Claude escolhe os trechos
   await hooks?.onStage?.("analyzing", 50);
+  await hooks?.onLog?.("Enviando transcrição para IA (Claude 3.5 Sonnet) analisar melhores ganchos e momentos virais...");
   console.log("Claude analisando a transcrição…");
+  
+  await hooks?.checkCanceled?.();
   const candidates = await findCandidates(blocks, opts);
+  await hooks?.checkCanceled?.();
+
   const clips = selectClips(candidates, blocks, opts);
+  await hooks?.onLog?.(`IA encontrou ${candidates.length} trechos candidatos. ${clips.length} clipes foram aprovados após validação.`);
   console.log(`  ${candidates.length} candidatos, ${clips.length} aprovados.`);
+
   if (!clips.length) {
-    throw new Error("Nenhum trecho passou na validação. Tente --min/--max diferentes ou ajuste o prompt.");
+    throw new Error("Nenhum trecho passou na validação. Tente durações diferentes (--min/--max) ou ajuste o prompt.");
   }
   await writeFile(path.join(workDir, "clips.json"), JSON.stringify(clips, null, 2));
 
   console.log("\nTrechos escolhidos:");
-  clips.forEach((c, i) => {
-    console.log(`  ${String(i + 1).padStart(2, "0")}. [${fmt(c.start)}–${fmt(c.end)}] (${c.score}) ${c.title}`);
+  for (const [i, c] of clips.entries()) {
+    const info = `  ${String(i + 1).padStart(2, "0")}. [${fmt(c.start)}–${fmt(c.end)}] (Nota ${c.score}) "${c.title}"`;
+    await hooks?.onLog?.(info);
+    console.log(info);
     console.log(`      gancho: ${c.hook}`);
-  });
+  }
 
   if (opts.dryRun) {
+    await hooks?.onLog?.("--dry-run: pulando etapa de renderização de cortes. Veja clips.json.");
     console.log("\n--dry-run: pulando os cortes. Veja clips.json.");
     return { clips, files: [] };
   }
 
   // Cortes
+  await hooks?.onLog?.(`Iniciando corte e renderização de ${clips.length} clipes com FFmpeg...`);
   console.log("\nCortando os clipes…");
   const files: string[] = [];
   for (const [i, c] of clips.entries()) {
-    await hooks?.onStage?.("cutting", Math.round(60 + (i / clips.length) * 35));
+    await hooks?.checkCanceled?.();
+    const progressVal = Math.round(60 + (i / clips.length) * 35);
+    await hooks?.onStage?.("cutting", progressVal);
     const file = path.join(workDir, `clip-${String(i + 1).padStart(2, "0")}-${slug(c.title)}.mp4`);
+    
+    await hooks?.onLog?.(`[Render ${i + 1}/${clips.length}] Cortando [${fmt(c.start)} - ${fmt(c.end)}] -> ${path.basename(file)}`);
     console.log(`  ${path.basename(file)}`);
+    
     await cutClip({
       input: sourcePath,
       output: file,
@@ -99,6 +133,7 @@ export async function processVideo(args: {
       orientation: opts.orientation,
       verticalMode: opts.verticalMode,
       cropX: opts.cropX,
+      signal: hooks?.signal,
     });
     files.push(file);
   }

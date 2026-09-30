@@ -33,7 +33,8 @@ export interface Clip {
 }
 
 export type Orientation = "vertical" | "horizontal";
-export type VerticalMode = "blur" | "crop";
+export type VerticalMode = "blur" | "crop" | "split";
+export type ReferenceType = "link" | "upload" | "preset" | "none";
 
 export interface Options {
   orientation: Orientation;
@@ -43,6 +44,11 @@ export interface Options {
   language: string;
   verticalMode: VerticalMode;
   cropX: number;
+  referenceType?: ReferenceType;
+  referenceUrl?: string | null;
+  referencePath?: string | null;
+  referenceStyle?: string | null;
+  designInstructions?: string | null;
   force: boolean;
   dryRun: boolean;
 }

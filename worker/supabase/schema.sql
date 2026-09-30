@@ -14,16 +14,25 @@ create table if not exists public.jobs (
   source_path   text,
 
   orientation   text not null default 'vertical' check (orientation in ('vertical', 'horizontal')),
+  vertical_mode text not null default 'crop' check (vertical_mode in ('crop', 'blur', 'split')),
   crop_x        numeric not null default 0.5 check (crop_x between 0 and 1),
   clip_count    int  not null default 10 check (clip_count between 1 and 30),
   min_seconds   int  not null default 30 check (min_seconds >= 5),
   max_seconds   int  not null default 90 check (max_seconds <= 180),
   language      text not null default 'pt-BR',
 
+  -- Vídeo de Referência e Diretrizes de Design
+  reference_type       text not null default 'none' check (reference_type in ('link', 'upload', 'preset', 'none')),
+  reference_url        text,
+  reference_path       text,
+  reference_style      text,
+  design_instructions  text,
+
   status        text not null default 'queued'
-                check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed')),
+                check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed','canceled')),
   progress      int  not null default 0 check (progress between 0 and 100),
   error         text,
+  logs          text[] not null default '{}',
 
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
@@ -119,6 +128,34 @@ create policy "jobs: criar os proprios" on public.jobs
 create policy "jobs: apagar os proprios" on public.jobs
   for delete to authenticated
   using (user_id = auth.uid());
+
+drop policy if exists "jobs: cancelar os proprios" on public.jobs;
+create policy "jobs: cancelar os proprios" on public.jobs
+  for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and status = 'canceled');
+
+-- ---------- Cancelar job de forma atômica ----------------------------
+create or replace function public.cancel_job(job_id uuid)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  update public.jobs
+     set status = 'canceled',
+         finished_at = now(),
+         error = coalesce(error, 'Cancelado pelo usuário.')
+   where id = job_id
+     and (user_id = v_uid or v_uid is null)
+     and status not in ('done', 'failed', 'canceled');
+  return found;
+end;
+$$;
+
+grant execute on function public.cancel_job(uuid) to authenticated, anon, service_role;
 
 create policy "clips: ver os proprios" on public.clips
   for select to authenticated

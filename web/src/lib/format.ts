@@ -8,9 +8,10 @@ export const STATUS_LABEL: Record<JobStatus, string> = {
   cutting: "Cortando os clipes",
   done: "Pronto",
   failed: "Falhou",
+  canceled: "Cancelado",
 };
 
-export const isFinal = (s: JobStatus) => s === "done" || s === "failed";
+export const isFinal = (s: JobStatus) => s === "done" || s === "failed" || s === "canceled";
 
 export function fmtClock(sec: number): string {
   const s = Math.floor(Number(sec));

@@ -4,15 +4,60 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { Orientation, VerticalMode } from "./types.js";
 
-function run(cmd: string, args: string[]): Promise<void> {
+export class CanceledError extends Error {
+  constructor(message = "Processamento cancelado pelo usuário.") {
+    super(message);
+    this.name = "CanceledError";
+  }
+}
+
+function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { stdio: ["ignore", "inherit", "inherit"] });
-    p.on("error", (err) =>
-      reject(new Error(`Não consegui executar "${cmd}". Ele está instalado e no PATH? (${err.message})`))
-    );
-    p.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${cmd} terminou com código ${code}`))
-    );
+    if (signal?.aborted) {
+      return reject(new CanceledError());
+    }
+
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+
+    const handleAbort = () => {
+      try {
+        p.kill("SIGTERM");
+        setTimeout(() => {
+          if (!p.killed) p.kill("SIGKILL");
+        }, 1000);
+      } catch {}
+      reject(new CanceledError());
+    };
+
+    if (signal) {
+      signal.addEventListener("abort", handleAbort, { once: true });
+    }
+
+    p.stdout?.on("data", (d) => {
+      const line = d.toString().trim();
+      if (line && onLog) onLog(line);
+    });
+
+    p.stderr?.on("data", (d) => {
+      const line = d.toString().trim();
+      if (line && onLog) onLog(line);
+    });
+
+    p.on("error", (err) => {
+      if (signal) signal.removeEventListener("abort", handleAbort);
+      reject(new Error(`Não consegui executar "${cmd}". Ele está instalado e no PATH? (${err.message})`));
+    });
+
+    p.on("close", (code) => {
+      if (signal) signal.removeEventListener("abort", handleAbort);
+      if (signal?.aborted) {
+        reject(new CanceledError());
+      } else if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${cmd} terminou com código ${code}`));
+      }
+    });
   });
 }
 
@@ -39,9 +84,14 @@ export type DirectResult = "ok" | "not-direct" | "too-large";
  * Só baixa se o servidor responder com um tipo de vídeo/binário; páginas HTML e streams
  * (m3u8) devolvem "not-direct" e ficam para o yt-dlp.
  */
-export async function tryDirectDownload(url: string, dest: string): Promise<DirectResult> {
+export async function tryDirectDownload(url: string, dest: string, signal?: AbortSignal): Promise<DirectResult> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 30_000); // só para receber os cabeçalhos
+  
+  if (signal) {
+    signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+  }
+
   let res: Response;
   try {
     res = await fetch(url, {
@@ -49,6 +99,9 @@ export async function tryDirectDownload(url: string, dest: string): Promise<Dire
       signal: ctrl.signal,
       headers: { "User-Agent": "Mozilla/5.0 (cortes-virais-worker)" },
     });
+  } catch (err: any) {
+    if (signal?.aborted) throw new CanceledError();
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -66,31 +119,41 @@ export async function tryDirectDownload(url: string, dest: string): Promise<Dire
     return "too-large";
   }
 
-  await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest));
+  await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest), { signal });
   return "ok";
 }
 
 /** Baixa o vídeo de um link (YouTube etc.) em MP4, até 1080p. */
-export async function downloadVideo(url: string, outPath: string): Promise<void> {
-  await run("yt-dlp", [
-    "-f",
-    "bv*[height<=1080]+ba/b[height<=1080]",
-    "--merge-output-format",
-    "mp4",
-    "-o",
-    outPath,
-    url,
-  ]);
+export async function downloadVideo(url: string, outPath: string, signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
+  await run(
+    "yt-dlp",
+    [
+      "-f",
+      "bv*[height<=1080]+ba/b[height<=1080]",
+      "--merge-output-format",
+      "mp4",
+      "-o",
+      outPath,
+      url,
+    ],
+    signal,
+    onLog
+  );
 }
 
 /** Extrai só o áudio (mono, leve) para mandar à transcrição. */
-export async function extractAudio(videoPath: string, audioPath: string): Promise<void> {
-  await run("ffmpeg", [
-    "-hide_banner", "-loglevel", "error", "-y",
-    "-i", videoPath,
-    "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k",
-    audioPath,
-  ]);
+export async function extractAudio(videoPath: string, audioPath: string, signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
+  await run(
+    "ffmpeg",
+    [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-i", videoPath,
+      "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k",
+      audioPath,
+    ],
+    signal,
+    onLog
+  );
 }
 
 /** Corta um trecho e já enquadra conforme a orientação. */
@@ -102,8 +165,10 @@ export async function cutClip(opts: {
   orientation: Orientation;
   verticalMode: VerticalMode;
   cropX: number;
+  signal?: AbortSignal;
+  onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, start, end, orientation, verticalMode, cropX } = opts;
+  const { input, output, start, end, orientation, verticalMode, cropX, signal, onLog } = opts;
   const duration = end - start;
 
   const base = [
@@ -121,14 +186,25 @@ export async function cutClip(opts: {
   ];
 
   if (orientation === "horizontal") {
-    await run("ffmpeg", [...base, "-vf", "scale=-2:min(1080\\,ih)", ...encode]);
+    await run("ffmpeg", [...base, "-vf", "scale=-2:min(1080\\,ih)", ...encode], signal, onLog);
     return;
   }
 
   if (verticalMode === "crop") {
     // Preenche o quadro 9:16 cortando as laterais. cropX: 0 = esquerda, 0.5 = centro, 1 = direita.
     const vf = `crop=ih*9/16:ih:(iw-ow)*${cropX}:0,scale=1080:1920`;
-    await run("ffmpeg", [...base, "-vf", vf, ...encode]);
+    await run("ffmpeg", [...base, "-vf", vf, ...encode], signal, onLog);
+    return;
+  }
+
+  if (verticalMode === "split") {
+    // Split screen (Podcast / 2 oradores): divide o vídeo horizontal em topo e base
+    const filter =
+      "[0:v]split=2[top_in][bot_in];" +
+      "[top_in]crop=iw/2:ih:0:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960[top];" +
+      "[bot_in]crop=iw/2:ih:iw/2:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960[bot];" +
+      "[top][bot]vstack[v]";
+    await run("ffmpeg", [...base, "-filter_complex", filter, "-map", "[v]", "-map", "0:a?", ...encode], signal, onLog);
     return;
   }
 
@@ -138,7 +214,7 @@ export async function cutClip(opts: {
     "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5[bgb];" +
     "[fg]scale=1080:-2[fgs];" +
     "[bgb][fgs]overlay=(W-w)/2:(H-h)/2[v]";
-  await run("ffmpeg", [...base, "-filter_complex", filter, "-map", "[v]", "-map", "0:a?", ...encode]);
+  await run("ffmpeg", [...base, "-filter_complex", filter, "-map", "[v]", "-map", "0:a?", ...encode], signal, onLog);
 }
 
 /** Duração do vídeo em segundos (usa o ffprobe, que vem junto com o ffmpeg). */

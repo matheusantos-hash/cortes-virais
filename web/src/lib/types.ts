@@ -5,7 +5,8 @@ export type JobStatus =
   | "analyzing"
   | "cutting"
   | "done"
-  | "failed";
+  | "failed"
+  | "canceled";
 
 export interface Job {
   id: string;
@@ -14,14 +15,21 @@ export interface Job {
   source_url: string | null;
   source_path: string | null;
   orientation: "vertical" | "horizontal";
+  vertical_mode?: "crop" | "blur" | "split";
   crop_x: number;
   clip_count: number;
   min_seconds: number;
   max_seconds: number;
   language: string;
+  reference_type?: "link" | "upload" | "preset" | "none";
+  reference_url?: string | null;
+  reference_path?: string | null;
+  reference_style?: string | null;
+  design_instructions?: string | null;
   status: JobStatus;
   progress: number;
   error: string | null;
+  logs?: string[];
   created_at: string;
   started_at: string | null;
   finished_at: string | null;

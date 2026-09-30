@@ -52,8 +52,19 @@ Responda SOMENTE com um array JSON, sem texto antes ou depois e sem markdown.`;
 function buildUserPrompt(blocks: Block[], opts: Options, candidateCount: number): string {
   const transcript = blocks.map((b) => `#${b.index} [${fmt(b.start)}] ${b.text}`).join("\n");
 
-  return `Abaixo está a transcrição dividida em blocos numerados. Cada linha tem o número do bloco (#), o horário de início e o texto.
+  let referenceGuidelines = "";
+  if (opts.referenceStyle || opts.designInstructions || opts.referenceUrl) {
+    referenceGuidelines = `\n---
+DIRETRIZES DE DESIGN E ESTILO DO VÍDEO DE REFERÊNCIA:
+${opts.referenceStyle ? `- Estilo de Referência Selecionado: "${opts.referenceStyle}"` : ""}
+${opts.designInstructions ? `- Instruções de Design & Dinâmica do Usuário: "${opts.designInstructions}"` : ""}
+${opts.referenceUrl ? `- Vídeo de Referência (TikTok/Reels/Shorts): ${opts.referenceUrl}` : ""}
+IMPORTANTE: Priorize selecionar trechos, ganchos e momentos que correspondam estritamente ao tom, energia e ritmo solicitado nas diretrizes acima!
+---\n`;
+  }
 
+  return `Abaixo está a transcrição dividida em blocos numerados. Cada linha tem o número do bloco (#), o horário de início e o texto.
+${referenceGuidelines}
 Encontre até ${candidateCount} trechos candidatos. Regras:
 - Duração de cada trecho: entre ${opts.minSeconds} e ${opts.maxSeconds} segundos (estime pelos horários de início dos blocos).
 - Um trecho vai do bloco "startIndex" até o bloco "endIndex", inclusive. Use apenas números de blocos que existem.

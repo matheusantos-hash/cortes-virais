@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { downloadVideo, probeDuration, tryDirectDownload } from "./media.js";
+import { CanceledError, downloadVideo, probeDuration, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
 import type { Options, Orientation } from "./types.js";
 
@@ -49,11 +49,17 @@ interface Job {
   source_url: string | null;
   source_path: string | null;
   orientation: Orientation;
+  vertical_mode?: "blur" | "crop" | "split";
   crop_x: number | string;
   clip_count: number;
   min_seconds: number;
   max_seconds: number;
   language: string;
+  reference_type?: "link" | "upload" | "preset" | "none";
+  reference_url?: string | null;
+  reference_path?: string | null;
+  reference_style?: string | null;
+  design_instructions?: string | null;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -61,6 +67,11 @@ class UserError extends Error {}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let stopping = false;
+
+function timeStamp(): string {
+  const d = new Date();
+  return d.toTimeString().split(" ")[0]; // "HH:MM:SS"
+}
 
 async function updateJob(id: string, patch: Record<string, unknown>) {
   const { error } = await supabase.from("jobs").update(patch).eq("id", id);
@@ -74,43 +85,120 @@ async function claimNextJob(): Promise<Job | null> {
 }
 
 /** Baixa o arquivo enviado pelo usuário (bucket "sources") direto para o disco. */
-async function downloadUpload(storagePath: string, dest: string) {
+async function downloadUpload(storagePath: string, dest: string, signal?: AbortSignal) {
   const { data, error } = await supabase.storage.from("sources").createSignedUrl(storagePath, 3600);
   if (error || !data) throw new UserError("Não encontrei o arquivo enviado. Envie o vídeo novamente.");
-  const res = await fetch(data.signedUrl);
+  const res = await fetch(data.signedUrl, { signal });
   if (!res.ok || !res.body) throw new UserError("Não consegui ler o arquivo enviado. Envie o vídeo novamente.");
-  await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest));
+  await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest), { signal });
 }
 
 async function processJob(job: Job) {
   const workDir = path.join(os.tmpdir(), "cortes-virais", job.id);
+  const logs: string[] = [];
+  const abortCtrl = new AbortController();
+  let syncTimer: NodeJS.Timeout | null = null;
+  let hasPendingLogs = false;
+
+  const pushLog = async (msg: string) => {
+    const formatted = `[${timeStamp()}] ${msg}`;
+    logs.push(formatted);
+    console.log(`[${job.id}] ${msg}`);
+    hasPendingLogs = true;
+  };
+
+  const flushLogs = async () => {
+    if (!hasPendingLogs) return;
+    hasPendingLogs = false;
+    await updateJob(job.id, { logs: [...logs] });
+  };
+
+  // Sincroniza logs periodicamente para não saturar requisições
+  const startLogSync = () => {
+    syncTimer = setInterval(() => {
+      if (hasPendingLogs) flushLogs().catch(() => {});
+    }, 1000);
+  };
+
+  const stopLogSync = () => {
+    if (syncTimer) {
+      clearInterval(syncTimer);
+      syncTimer = null;
+    }
+  };
+
+  const checkCanceled = async () => {
+    if (abortCtrl.signal.aborted) {
+      throw new CanceledError();
+    }
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("status")
+      .eq("id", job.id)
+      .single();
+
+    if (!error && data?.status === "canceled") {
+      abortCtrl.abort();
+      throw new CanceledError();
+    }
+  };
+
+  // Monitor em segundo plano para capturar cancelamento via interface web rapidamente
+  const cancelWatcher = setInterval(() => {
+    checkCanceled().catch(() => {});
+  }, 2000);
+
   console.log(`\n=== Job ${job.id} (${job.source_type}) ===`);
 
   try {
+    startLogSync();
+    await pushLog(`Inicializando processamento do pedido [${job.id}]`);
+    const vertMode = job.vertical_mode ?? "crop";
+    await pushLog(`Configurações: Formato ${job.orientation} (Layout: ${vertMode}) | Meta: ${job.clip_count} clipes (${job.min_seconds}s a ${job.max_seconds}s) | Idioma: ${job.language}`);
+    
+    if (job.reference_style || job.reference_url || job.design_instructions) {
+      if (job.reference_style) await pushLog(`[DESIGN] Estilo de Referência: ${job.reference_style}`);
+      if (job.reference_url) await pushLog(`[DESIGN] Vídeo de Referência: ${job.reference_url}`);
+      if (job.design_instructions) await pushLog(`[DESIGN] Diretrizes de Edição: "${job.design_instructions}"`);
+    }
+    await flushLogs();
+
     await mkdir(workDir, { recursive: true });
     const sourcePath = path.join(workDir, "source.mp4");
+
+    await checkCanceled();
 
     // 1. Obter o vídeo
     await updateJob(job.id, { status: "downloading", progress: 5 });
     if (job.source_type === "upload") {
-      await downloadUpload(job.source_path!, sourcePath);
+      await pushLog("Baixando arquivo enviado pelo usuário no Storage...");
+      await flushLogs();
+      await downloadUpload(job.source_path!, sourcePath, abortCtrl.signal);
+      await pushLog("Arquivo transferido para ambiente de processamento local com sucesso.");
     } else if (job.source_type === "link") {
       try {
+        await pushLog(`Analisando link de vídeo: ${job.source_url}`);
+        await flushLogs();
         // 1º: link direto de arquivo (Box, Dropbox…). 2º: sites de vídeo via yt-dlp.
         let direct: "ok" | "not-direct" | "too-large" = "not-direct";
         try {
-          direct = await tryDirectDownload(job.source_url!, sourcePath);
+          direct = await tryDirectDownload(job.source_url!, sourcePath, abortCtrl.signal);
         } catch (err) {
+          if (err instanceof CanceledError) throw err;
           console.error(`[${job.id}] download direto falhou, tentando yt-dlp:`, err);
-          await rm(sourcePath, { force: true }); // não deixar arquivo pela metade
+          await rm(sourcePath, { force: true });
         }
         if (direct === "too-large") {
           throw new UserError("O arquivo desse link é grande demais para processar.");
         }
         if (direct === "not-direct") {
-          await downloadVideo(job.source_url!, sourcePath);
+          await pushLog("Baixando stream de vídeo em alta qualidade com yt-dlp...");
+          await flushLogs();
+          await downloadVideo(job.source_url!, sourcePath, abortCtrl.signal);
         }
+        await pushLog("Download do vídeo finalizado com sucesso.");
       } catch (err) {
+        if (err instanceof CanceledError) throw err;
         if (err instanceof UserError) throw err;
         console.error(`[${job.id}] download do link falhou:`, err);
         throw new UserError(
@@ -121,6 +209,8 @@ async function processJob(job: Job) {
       throw new UserError("Este tipo de origem ainda não é suportado.");
     }
 
+    await checkCanceled();
+
     // 2. Limite de duração (controle de custo)
     let seconds: number;
     try {
@@ -129,12 +219,14 @@ async function processJob(job: Job) {
       throw new UserError("O arquivo baixado não parece ser um vídeo válido.");
     }
     const minutes = seconds / 60;
+    await pushLog(`Duração detectada do vídeo: ${Math.floor(minutes)}m ${Math.floor(seconds % 60)}s (${seconds.toFixed(1)}s total)`);
     if (minutes > MAX_VIDEO_MINUTES) {
       throw new UserError(
         `O vídeo tem ${Math.round(minutes)} minutos. O limite é de ${MAX_VIDEO_MINUTES} minutos.`
       );
     }
     await updateJob(job.id, { progress: 20 });
+    await flushLogs();
 
     // 3. Pipeline (áudio → transcrição → Claude → cortes)
     const opts: Options = {
@@ -143,8 +235,13 @@ async function processJob(job: Job) {
       minSeconds: job.min_seconds,
       maxSeconds: job.max_seconds,
       language: job.language,
-      verticalMode: "crop",
+      verticalMode: job.vertical_mode ?? "crop",
       cropX: Number(job.crop_x),
+      referenceType: job.reference_type,
+      referenceUrl: job.reference_url,
+      referencePath: job.reference_path,
+      referenceStyle: job.reference_style,
+      designInstructions: job.design_instructions,
       force: false,
       dryRun: false,
     };
@@ -153,13 +250,28 @@ async function processJob(job: Job) {
       sourcePath,
       workDir,
       opts,
-      hooks: { onStage: (status, progress) => updateJob(job.id, { status, progress }) },
+      hooks: {
+        onStage: async (status, progress) => {
+          await updateJob(job.id, { status, progress });
+        },
+        onLog: async (msg) => {
+          await pushLog(msg);
+        },
+        checkCanceled,
+        signal: abortCtrl.signal,
+      },
     });
 
+    await checkCanceled();
+
     // 4. Enviar os clipes ao Storage e registrar no banco
+    await pushLog("Iniciando upload dos clipes finalizados para o Storage Supabase...");
     await updateJob(job.id, { status: "cutting", progress: 95 });
+    await flushLogs();
+
     const rows = [];
     for (const [i, clip] of clips.entries()) {
+      await checkCanceled();
       const storagePath = `${job.user_id}/${job.id}/clip-${String(i + 1).padStart(2, "0")}.mp4`;
       const { error } = await supabase.storage
         .from("clips")
@@ -180,25 +292,46 @@ async function processJob(job: Job) {
       });
     }
 
-    await supabase.from("clips").delete().eq("job_id", job.id); // evita duplicar se o job for refeito
+    await supabase.from("clips").delete().eq("job_id", job.id);
     const { error: insertError } = await supabase.from("clips").insert(rows);
     if (insertError) throw new Error(`gravar clipes: ${insertError.message}`);
+
+    await pushLog(`Concluído com sucesso! ${rows.length} clipes prontos para visualização e download.`);
+    stopLogSync();
 
     await updateJob(job.id, {
       status: "done",
       progress: 100,
       error: null,
+      logs: [...logs],
       finished_at: new Date().toISOString(),
     });
     console.log(`=== Job ${job.id} concluído: ${rows.length} clipes ===`);
-  } catch (err) {
-    console.error(`[${job.id}] erro:`, err);
-    await updateJob(job.id, {
-      status: "failed",
-      error: err instanceof UserError ? err.message : "Falha ao processar o vídeo. Tente novamente.",
-      finished_at: new Date().toISOString(),
-    });
+  } catch (err: any) {
+    stopLogSync();
+    if (err instanceof CanceledError || abortCtrl.signal.aborted) {
+      console.log(`[${job.id}] Job cancelado pelo usuário.`);
+      await pushLog("Operação cancelada pelo usuário. Recursos temporários liberados.");
+      await updateJob(job.id, {
+        status: "canceled",
+        error: "Cancelado pelo usuário.",
+        logs: [...logs],
+        finished_at: new Date().toISOString(),
+      });
+    } else {
+      console.error(`[${job.id}] erro:`, err);
+      const errMsg = err instanceof UserError ? err.message : "Falha ao processar o vídeo. Tente novamente.";
+      await pushLog(`[ERRO] ${errMsg}`);
+      await updateJob(job.id, {
+        status: "failed",
+        error: errMsg,
+        logs: [...logs],
+        finished_at: new Date().toISOString(),
+      });
+    }
   } finally {
+    clearInterval(cancelWatcher);
+    stopLogSync();
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 }
@@ -240,3 +373,4 @@ async function main() {
 }
 
 main();
+
