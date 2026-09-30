@@ -94,8 +94,8 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     e.preventDefault();
     setError(null);
 
-    if (minSeconds < 5 || maxSeconds > 180 || minSeconds >= maxSeconds) {
-      return setError("A duração mínima deve ser de pelo menos 5 s, a máxima de até 180 s, e a mínima menor que a máxima.");
+    if (minSeconds < 5 || minSeconds >= maxSeconds) {
+      return setError("A duração mínima deve ser de pelo menos 5 s e a mínima menor que a máxima.");
     }
     if (clipCount < 1 || clipCount > 20) {
       return setError("A quantidade de cortes deve ficar entre 1 e 20.");
@@ -409,20 +409,26 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
           <input
             type="number"
             min={5}
-            max={170}
+            max={3600}
             value={minSeconds}
             onChange={(e) => setMinSeconds(Number(e.target.value))}
           />
+          {minSeconds >= 60 && (
+            <small className="muted">{Math.floor(minSeconds / 60)}m {minSeconds % 60 ? `${minSeconds % 60}s` : ""}</small>
+          )}
         </label>
         <label>
           Duração Máx. (s)
           <input
             type="number"
             min={10}
-            max={180}
+            max={3600}
             value={maxSeconds}
             onChange={(e) => setMaxSeconds(Number(e.target.value))}
           />
+          {maxSeconds >= 60 && (
+            <small className="muted">{Math.floor(maxSeconds / 60)}m {maxSeconds % 60 ? `${maxSeconds % 60}s` : ""}</small>
+          )}
         </label>
       </div>
 
