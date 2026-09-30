@@ -4,33 +4,92 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { supabaseUrl } from "@/lib/supabase/env";
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
 }
 
-/** Cancela um job em andamento pertencente ao usuário. */
-export async function cancelJob(jobId: string) {
-  if (!jobId) return { error: "ID do job não fornecido" };
+/** Cancela um job em andamento pertencente ao usuário (ou por admin). */
+export async function cancelJob(jobId: string): Promise<{ success: boolean; error?: string }> {
+  if (!jobId) return { success: false, error: "ID do job não fornecido" };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Não autenticado");
+  if (!user) return { success: false, error: "Usuário não autenticado." };
 
-  // Tenta chamar a RPC 'cancel_job' se existir
-  const { error: rpcError } = await supabase.rpc("cancel_job", { job_id: jobId });
-  if (rpcError) {
-    // Fallback: update direto
-    const { error: updateError } = await supabase
+  // 1. Verifica se o job existe e confere a posse (ou se é admin)
+  const { data: job, error: jobErr } = await supabase
+    .from("jobs")
+    .select("id, user_id, status")
+    .eq("id", jobId)
+    .single();
+
+  if (jobErr || !job) {
+    return { success: false, error: "Pedido não encontrado ou sem permissão." };
+  }
+
+  if (job.user_id !== user.id) {
+    const { data: isAdmin } = await supabase.rpc("is_admin");
+    if (!isAdmin) {
+      return { success: false, error: "Você não tem permissão para cancelar este pedido." };
+    }
+  }
+
+  if (["done", "failed", "canceled"].includes(job.status)) {
+    return { success: true };
+  }
+
+  // 2. Tenta chamar a RPC 'cancel_job' se existir no Supabase
+  try {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("cancel_job", { job_id: jobId });
+    if (!rpcError && rpcResult) {
+      revalidatePath(`/jobs/${jobId}`);
+      revalidatePath("/");
+      return { success: true };
+    }
+  } catch {
+    // segue para fallback
+  }
+
+  // 3. Fallback: Se houver chave Service Role no ambiente (Vercel), usa client com bypass de RLS
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+
+  const now = new Date().toISOString();
+  let { error: updateError } = await clientToUse
+    .from("jobs")
+    .update({
+      status: "canceled",
+      finished_at: now,
+      error: "Cancelado pelo usuário.",
+    })
+    .eq("id", jobId);
+
+  // Se a tabela tiver constraint antiga que não inclui 'canceled', atualiza para 'failed'
+  if (updateError && (updateError.message.includes("jobs_status_check") || updateError.message.includes("check constraint"))) {
+    const { error: failedError } = await clientToUse
       .from("jobs")
       .update({
-        status: "canceled",
-        finished_at: new Date().toISOString(),
+        status: "failed",
+        finished_at: now,
         error: "Cancelado pelo usuário.",
       })
-      .eq("id", jobId)
-      .eq("user_id", user.id);
-    if (updateError) return { error: updateError.message };
+      .eq("id", jobId);
+    updateError = failedError;
+  }
+
+  if (updateError) {
+    console.error(`[cancelJob] erro ao atualizar job ${jobId}:`, updateError);
+    if (updateError.message.includes("row-level security") || updateError.message.includes("policy")) {
+      return {
+        success: false,
+        error: "Permissão de atualização negada pelo Supabase. Execute o script SQL no Supabase para liberar o cancelamento.",
+      };
+    }
+    return { success: false, error: updateError.message };
   }
 
   revalidatePath(`/jobs/${jobId}`);

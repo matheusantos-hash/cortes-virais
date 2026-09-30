@@ -55,11 +55,20 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
     if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;
     setCanceling(true);
     try {
-      await cancelJob(job.id);
+      const res = await cancelJob(job.id);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível cancelar: ${res.error}`);
+        return;
+      }
+      setJob((prev) => ({
+        ...prev,
+        status: "canceled",
+        error: "Cancelado pelo usuário.",
+      }));
       await refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Falha ao cancelar:", err);
-      alert("Não foi possível cancelar o processo. Tente novamente.");
+      alert(`Erro inesperado ao cancelar: ${err?.message || "Tente novamente."}`);
     } finally {
       setCanceling(false);
     }

@@ -23,11 +23,18 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     if (!confirm("Tem certeza que deseja cancelar o processamento deste pedido?")) return;
     setCancelingId(jobId);
     try {
-      await cancelJob(jobId);
+      const res = await cancelJob(jobId);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível cancelar: ${res.error}`);
+        return;
+      }
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: "canceled", error: "Cancelado pelo usuário." } : j))
+      );
       await refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao cancelar:", err);
-      alert("Não foi possível cancelar o pedido. Tente novamente.");
+      alert(`Erro inesperado ao cancelar: ${err?.message || "Tente novamente."}`);
     } finally {
       setCancelingId(null);
     }

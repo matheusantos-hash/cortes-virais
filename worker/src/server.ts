@@ -77,7 +77,12 @@ function timeStamp(): string {
 
 async function updateJob(id: string, patch: Record<string, unknown>) {
   const { error } = await supabase.from("jobs").update(patch).eq("id", id);
-  if (error) console.error(`[${id}] falha ao atualizar o job:`, error.message);
+  if (error) {
+    console.error(`[${id}] falha ao atualizar o job:`, error.message);
+    if (patch.status === "canceled" && (error.message.includes("jobs_status_check") || error.message.includes("check constraint"))) {
+      await supabase.from("jobs").update({ ...patch, status: "failed" }).eq("id", id);
+    }
+  }
 }
 
 async function claimNextJob(): Promise<Job | null> {
@@ -135,11 +140,11 @@ async function processJob(job: Job) {
     }
     const { data, error } = await supabase
       .from("jobs")
-      .select("status")
+      .select("status, error")
       .eq("id", job.id)
       .single();
 
-    if (!error && data?.status === "canceled") {
+    if (!error && (data?.status === "canceled" || data?.error?.includes("Cancelado pelo usuário") || (data?.status === "failed" && data?.error?.includes("Cancelado")))) {
       abortCtrl.abort();
       throw new CanceledError();
     }

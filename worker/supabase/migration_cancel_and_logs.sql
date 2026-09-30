@@ -11,14 +11,14 @@ alter table public.jobs add constraint jobs_status_check
 -- 2. Adiciona a coluna de logs (array de texto) caso ainda não exista
 alter table public.jobs add column if not exists logs text[] not null default '{}';
 
--- 3. Permite ao usuário autenticado cancelar seus próprios jobs (RLS)
+-- 3. Permite ao usuário autenticado atualizar/cancelar seus próprios jobs (RLS)
 drop policy if exists "jobs: cancelar os proprios" on public.jobs;
 create policy "jobs: cancelar os proprios" on public.jobs
   for update to authenticated
   using (user_id = auth.uid())
-  with check (user_id = auth.uid() and status = 'canceled');
+  with check (user_id = auth.uid());
 
--- 4. Função segura para cancelar job
+-- 4. Função segura para cancelar job (UUID)
 create or replace function public.cancel_job(job_id uuid)
 returns boolean
 language plpgsql
@@ -38,4 +38,19 @@ begin
 end;
 $$;
 
+-- 5. Sobrecarga de texto para chamadas RPC via cliente JS/HTTP sem conversão estrita de tipo
+create or replace function public.cancel_job(job_id text)
+returns boolean
+language plpgsql
+security definer
+as $$
+begin
+  return public.cancel_job(job_id::uuid);
+exception
+  when others then
+    return false;
+end;
+$$;
+
 grant execute on function public.cancel_job(uuid) to authenticated, anon, service_role;
+grant execute on function public.cancel_job(text) to authenticated, anon, service_role;
