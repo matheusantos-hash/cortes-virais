@@ -17,8 +17,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   let isAdmin = false;
   if (user) {
-    const { data } = await supabase.from("usuarios").select("xandao").eq("id", user.id).maybeSingle();
-    isAdmin = data?.xandao === 1;
+    const { data } = await supabase.from("usuarios").select("is_xandao").eq("id", user.id).maybeSingle();
+    isAdmin = data?.is_xandao === true;
   }
 
   return (
