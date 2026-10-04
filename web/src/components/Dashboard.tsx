@@ -30,7 +30,7 @@ function getStageDescription(status: JobStatus): string {
     case "transcribing":
       return "Transcrevendo áudio e sincronizando falas com Deepgram AI…";
     case "analyzing":
-      return "Claude 3.5 Sonnet analisando ganchos virais e roteiro…";
+      return "Claude Sonnet analisando ganchos virais e roteiro…";
     case "cutting":
       return "Renderizando cortes e sobrepondo B-rolls com FFmpeg…";
     case "done":
@@ -68,7 +68,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     const allPaths: string[] = [];
     jobs.forEach((j) => {
       j.clips?.forEach((c) => {
-        if (c.file_path && !urls[c.file_path]) {
+        if (c.file_path) {
           allPaths.push(c.file_path);
         }
       });
@@ -76,20 +76,28 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
 
     if (allPaths.length === 0) return;
 
-    supabase.storage
-      .from("clips")
-      .createSignedUrls(allPaths, 3600)
-      .then(({ data }) => {
-        if (!data) return;
-        setUrls((prev) => {
-          const next = { ...prev };
-          data.forEach((d) => {
-            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
+    // Filtra apenas caminhos que ainda não têm URL gerada
+    setUrls((prev) => {
+      const missing = allPaths.filter((p) => !prev[p]);
+      if (missing.length === 0) return prev;
+
+      supabase.storage
+        .from("clips")
+        .createSignedUrls(missing, 3600)
+        .then(({ data }) => {
+          if (!data) return;
+          setUrls((current) => {
+            const next = { ...current };
+            data.forEach((d) => {
+              if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
+            });
+            return next;
           });
-          return next;
         });
-      });
-  }, [jobs, supabase, urls]);
+
+      return prev;
+    });
+  }, [jobs, supabase]);
 
   async function handleCancel(jobId: string) {
     if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;
@@ -152,11 +160,11 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     };
   }, [supabase, userId, refresh]);
 
-  // Polling auxiliar enquanto houver job rodando
+  // Polling auxiliar enquanto houver job rodando (Realtime cuida das atualizações em tempo real)
   const hasActive = jobs.some((j) => !isFinal(j.status));
   useEffect(() => {
     if (!hasActive) return;
-    const t = setInterval(refresh, 3000);
+    const t = setInterval(refresh, 6000);
     return () => clearInterval(t);
   }, [hasActive, refresh]);
 
@@ -166,7 +174,13 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   return (
     <div className="app-grid">
       {/* COLUNA ESQUERDA (460px): Formulário de Criação */}
-      <aside>
+      <aside className="stack">
+        <Link href="/ajuda" className="help-banner">
+          <span>
+            📘 <strong>Primeira vez aqui?</strong> Veja como funcionam legendas, B-Rolls com IA e as demais funções.
+          </span>
+          <span className="help-banner-arrow">Central de Ajuda →</span>
+        </Link>
         <NewJobForm userId={userId} onCreated={refresh} />
       </aside>
 

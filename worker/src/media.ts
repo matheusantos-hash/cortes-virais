@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { ensureSfxAssets, type SfxEvent } from "./sfx.js";
 import type { Orientation, VerticalMode } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -309,10 +310,29 @@ export async function cutClip(opts: {
   verticalMode: VerticalMode;
   cropX: number;
   brolls?: ActiveBroll[];
+  subtitlesPath?: string;
+  dynamicPacingSec?: number;
+  colorGrade?: boolean;
+  sfxEvents?: SfxEvent[];
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, start, end, orientation, verticalMode, cropX, brolls = [], signal, onLog } = opts;
+  const {
+    input,
+    output,
+    start,
+    end,
+    orientation,
+    verticalMode,
+    cropX,
+    brolls = [],
+    subtitlesPath,
+    dynamicPacingSec,
+    colorGrade = false,
+    sfxEvents = [],
+    signal,
+    onLog,
+  } = opts;
   const duration = end - start;
 
   const validBrolls = brolls.filter((b) => b.filePath && b.durationSec > 0 && b.offsetSec < duration);
@@ -371,10 +391,18 @@ export async function cutClip(opts: {
   // Filtro de corte vertical seguro (funciona para qualquer proporção de entrada sem estourar dimensões)
   const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
 
-  // 1. Gera o filtro base para o vídeo do orador
+  // 1. Gera o filtro base para o vídeo do orador (com suporte a cortes dinâmicos de câmera / punch-in zooms)
   let baseFilter = "";
   if (orientation === "horizontal") {
     baseFilter = `[0:v]scale=-2:min(1080\\,ih),setsar=1[base_v]`;
+  } else if ((verticalMode === "crop" || verticalMode === "face_tracking") && dynamicPacingSec && dynamicPacingSec > 0) {
+    const pSec = Math.max(1.8, Math.min(5.0, dynamicPacingSec)).toFixed(2);
+    onLog?.(`[EDIÇÃO DINÂMICA] Ativando cortes de câmera / punch zoom a cada ${pSec}s (ritmo clonado da referência).`);
+    baseFilter =
+      `[0:v]split=2[v_wide_in][v_zoom_in];` +
+      `[v_wide_in]crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920,setsar=1[w_out];` +
+      `[v_zoom_in]crop=w=min(iw\\,ih*9/16)*0.82:h=min(ih\\,iw*16/9)*0.82:x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920,setsar=1[z_out];` +
+      `[w_out][z_out]overlay=enable='mod(floor(t/${pSec})\\,2)'[base_v]`;
   } else if (verticalMode === "crop" || verticalMode === "face_tracking") {
     baseFilter = `[0:v]${cropVf}[base_v]`;
   } else if (verticalMode === "split") {
@@ -384,7 +412,6 @@ export async function cutClip(opts: {
       "[bot_in]crop=iw/2:ih:iw/2:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[bot];" +
       "[top][bot]vstack[base_v]";
   } else if (verticalMode === "split_face") {
-    // Split inteligente centralizado exatamente no rosto detectado do host e do convidado
     const cropTopX = `max(0\\,min(iw-iw*9/16\\,iw*${splitLeftX}-iw*9/32))`;
     const cropBotX = `max(0\\,min(iw-iw*9/16\\,iw*${splitRightX}-iw*9/32))`;
     baseFilter =
@@ -401,8 +428,74 @@ export async function cutClip(opts: {
       "[bgb][fgs]overlay=(W-w)/2:(H-h)/2[base_v]";
   }
 
-  // Se não houver B-rolls, executa diretamente com -vf (mais rápido e sem conflito de streams)
-  if (!validBrolls.length) {
+  let currentLayer = "base_v";
+  const filterParts = [baseFilter];
+
+  // 2. Correção de cor e contraste viral (se solicitado)
+  if (colorGrade) {
+    const gradedLayer = "graded_v";
+    filterParts.push(`[${currentLayer}]eq=contrast=1.12:saturation=1.20:brightness=0.01[${gradedLayer}]`);
+    currentLayer = gradedLayer;
+  }
+
+  // 3. Encadeia B-rolls (se houver)
+  validBrolls.forEach((b, idx) => {
+    const inputIdx = idx + 1;
+    const scaledBroll = `br_scale_${idx}`;
+    const nextLayer = `layer_br_${idx}`;
+    const tStart = b.offsetSec.toFixed(2);
+    const tEnd = (b.offsetSec + b.durationSec).toFixed(2);
+
+    filterParts.push(
+      `[${inputIdx}:v]setpts=PTS-STARTPTS+${tStart}/TB,fps=30,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},setsar=1[${scaledBroll}]`
+    );
+    filterParts.push(
+      `[${currentLayer}][${scaledBroll}]overlay=enable='between(t,${tStart},${tEnd})':eof_action=pass[${nextLayer}]`
+    );
+    currentLayer = nextLayer;
+  });
+
+  // 4. Renderização de Legendas Dinâmicas Animadas (ASS)
+  if (subtitlesPath && existsSync(subtitlesPath)) {
+    onLog?.(`[LEGENDAS] Queimando legendas animadas palavra por palavra no vídeo...`);
+    const safeAssPath = subtitlesPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+    const subbedLayer = "subbed_v";
+    filterParts.push(`[${currentLayer}]ass='${safeAssPath}'[${subbedLayer}]`);
+    currentLayer = subbedLayer;
+  }
+
+  // 5. Configuração e mixagem de Sound Design (SFX)
+  const validSfx = sfxEvents.filter((ev) => ev.timeSec >= 0 && ev.timeSec < duration);
+  const sfxInputs: string[] = [];
+  let audioMapArg = "-map 0:a?";
+
+  if (validSfx.length > 0) {
+    onLog?.(`[SOUND DESIGN] Mixando ${validSfx.length} efeito(s) sonoro(s) sincronizado(s) no clipe...`);
+    const sfxPaths = ensureSfxAssets();
+    const sfxStartIndex = 1 + validBrolls.length;
+
+    validSfx.forEach((ev, idx) => {
+      let fPath = sfxPaths.whooshPath;
+      if (ev.type === "pop") fPath = sfxPaths.popPath;
+      if (ev.type === "ding") fPath = sfxPaths.dingPath;
+
+      sfxInputs.push("-i", fPath);
+      const inputIdx = sfxStartIndex + idx;
+      const delayMs = Math.max(0, Math.round(ev.timeSec * 1000));
+      const vol = ev.volume ?? 0.35;
+      filterParts.push(`[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=${vol}[sfx_a_${idx}]`);
+    });
+
+    const mixInputs = [`[0:a]`];
+    for (let i = 0; i < validSfx.length; i++) {
+      mixInputs.push(`[sfx_a_${i}]`);
+    }
+    filterParts.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2[final_a]`);
+    audioMapArg = "-map [final_a]";
+  }
+
+  // Se não houver B-rolls, nem grading, nem legendas, nem zoom, nem SFX, atalho simples:
+  if (!validBrolls.length && !colorGrade && !subtitlesPath && (!dynamicPacingSec || dynamicPacingSec <= 0) && !validSfx.length) {
     if (orientation === "horizontal") {
       await run("ffmpeg", [...baseInputs, "-vf", "scale=-2:min(1080\\,ih),setsar=1", ...encode], signal, onLog);
       return;
@@ -411,28 +504,11 @@ export async function cutClip(opts: {
       await run("ffmpeg", [...baseInputs, "-vf", cropVf, ...encode], signal, onLog);
       return;
     }
-    await run("ffmpeg", [...baseInputs, "-filter_complex", baseFilter, "-map", "[base_v]", "-map", "0:a?", ...encode], signal, onLog);
-    return;
   }
 
-  // 2. Encadeia os B-rolls sobre o [base_v]
-  let currentLayer = "base_v";
-  const filterParts = [baseFilter];
-
-  validBrolls.forEach((b, idx) => {
-    const inputIdx = idx + 1;
-    const scaledBroll = `br_scale_${idx}`;
-    const nextLayer = idx === validBrolls.length - 1 ? "final_v" : `layer_${idx}`;
-    const tStart = b.offsetSec.toFixed(2);
-    const tEnd = (b.offsetSec + b.durationSec).toFixed(2);
-
-    filterParts.push(`[${inputIdx}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},setsar=1[${scaledBroll}]`);
-    filterParts.push(`[${currentLayer}][${scaledBroll}]overlay=enable='between(t,${tStart},${tEnd})':format=auto[${nextLayer}]`);
-    currentLayer = nextLayer;
-  });
-
   const fullFilter = filterParts.join(";");
-  await run("ffmpeg", [...baseInputs, ...brollInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, "-map", "0:a?", ...encode], signal, onLog);
+  const audioMapArgs = audioMapArg === "-map [final_a]" ? ["-map", "[final_a]"] : ["-map", "0:a?"];
+  await run("ffmpeg", [...baseInputs, ...brollInputs, ...sfxInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, ...audioMapArgs, ...encode], signal, onLog);
 }
 
 /** Duração do vídeo em segundos (usa o ffprobe, que vem junto com o ffmpeg). */

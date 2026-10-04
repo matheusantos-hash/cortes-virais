@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job } from "@/lib/types";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
+import ClipEditorModal from "./ClipEditorModal";
 import {
   DownloadIcon,
   FlameIcon,
@@ -24,6 +25,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [downloading, setDownloading] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
+  const [editingClip, setEditingClip] = useState<Clip | null>(null);
 
   const refresh = useCallback(async () => {
     const { data: j } = await supabase.from("jobs").select("*").eq("id", initialJob.id).single();
@@ -252,21 +254,51 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     </p>
                   )}
 
-                  <button
-                    type="button"
-                    className="btn-cta"
-                    style={{ padding: "0.6rem 1rem", fontSize: "0.88rem", marginTop: "auto" }}
-                    onClick={() => download(clip)}
-                    disabled={downloading === clip.id}
-                  >
-                    <DownloadIcon size={16} />
-                    <span>{downloading === clip.id ? "Preparando…" : "Baixar Clipe MP4"}</span>
-                  </button>
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: "0.6rem 0.5rem", fontSize: "0.85rem" }}
+                      onClick={() => setEditingClip(clip)}
+                      title="Ajustar tempo de corte e criar capa personalizada"
+                    >
+                      ✏️ Editar & Capa
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-cta"
+                      style={{ flex: 1, padding: "0.6rem 0.5rem", fontSize: "0.85rem" }}
+                      onClick={() => download(clip)}
+                      disabled={downloading === clip.id}
+                    >
+                      <DownloadIcon size={15} />
+                      <span>{downloading === clip.id ? "…" : "Baixar"}</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         </section>
+      )}
+
+      {/* Modal Interativo de Trimming & Gerador de Capas (Fase 5) */}
+      {editingClip && (
+        <ClipEditorModal
+          clip={editingClip}
+          videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
+          onClose={() => setEditingClip(null)}
+          onUpdateClipTime={async (clipId, newStart, newEnd) => {
+            setClips((prev) =>
+              prev.map((c) => (c.id === clipId ? { ...c, start_seconds: newStart, end_seconds: newEnd } : c))
+            );
+            try {
+              await supabase.from("clips").update({ start_seconds: newStart, end_seconds: newEnd }).eq("id", clipId);
+            } catch (err) {
+              console.error("Falha ao salvar timestamps:", err);
+            }
+          }}
+        />
       )}
     </div>
   );

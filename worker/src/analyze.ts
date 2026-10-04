@@ -53,7 +53,18 @@ function buildUserPrompt(blocks: Block[], opts: Options, candidateCount: number)
   const transcript = blocks.map((b) => `#${b.index} [${fmt(b.start)}] ${b.text}`).join("\n");
 
   let referenceGuidelines = "";
-  if (opts.referenceStyle || opts.designInstructions || opts.referenceUrl) {
+  if (opts.styleBlueprint) {
+    const bp = opts.styleBlueprint;
+    referenceGuidelines = `\n---
+PERFIL DE ESTILO CLONADO DO VÍDEO DE REFERÊNCIA (IA):
+- Ritmo de Edição: ${bp.pacing.toUpperCase()} (troca de cenas média a cada ${bp.averageCutDurationSec} segundos).
+- Estilo Visual & Atmosfera: "${bp.aestheticStyle}".
+- Dicas de Direção: "${bp.editingTips}".
+- Temas Visuais Recomendados: ${bp.suggestedBrollKeywords.join(", ")}.
+${opts.designInstructions ? `- Instruções Adicionais do Usuário: "${opts.designInstructions}"` : ""}
+IMPORTANTE: Selecione trechos cujo gancho e clímax sigam estritamente o ritmo e intensidade deste perfil clonado!
+---\n`;
+  } else if (opts.referenceStyle || opts.designInstructions || opts.referenceUrl) {
     referenceGuidelines = `\n---
 DIRETRIZES DE DESIGN E ESTILO DO VÍDEO DE REFERÊNCIA:
 ${opts.referenceStyle ? `- Estilo de Referência Selecionado: "${opts.referenceStyle}"` : ""}
@@ -63,9 +74,14 @@ IMPORTANTE: Priorize selecionar trechos, ganchos e momentos que correspondam est
 ---\n`;
   }
 
-  const brollRules = opts.useBroll
-    ? `\n- B-ROLLS / VÍDEOS DE APOIO: Para cada trecho, identifique de 1 a 3 momentos visuais onde um vídeo de apoio (B-Roll) enriqueceria o corte. No campo "brolls", informe o "offsetSec" (segundos após o início do clipe), "durationSec" (entre 2 e 4 segundos) e "keyword" (termo de busca em inglês curto e visual para o Pexels, ex: "luxury car", "person thinking", "money stack", "bitcoin graphic").`
-    : "";
+  let brollRules = "";
+  if (opts.useBroll) {
+    if (opts.brollSource === "higgsfield") {
+      brollRules = `\n- B-ROLLS VIA HIGGSFIELD AI: Para cada clipe, identifique o momento de MAIOR impacto visual (preferencialmente nos primeiros 4 segundos para reforçar o gancho) onde um vídeo cinemático gerado por IA multiplicará a retenção. No campo "brolls", informe o "offsetSec" (ex: 2.0 ou 3.0), "durationSec" (entre 2.5 e 4.0 segundos) e "keyword" (uma descrição visual cinematográfica em inglês detalhada, ex: "cyberpunk glowing data visualization", "luxurious private jet interior dramatic lighting", "macro human eye dilating with reflection").`;
+    } else {
+      brollRules = `\n- B-ROLLS / VÍDEOS DE APOIO: Para cada trecho, identifique de 1 a 3 momentos visuais onde um vídeo de apoio enriqueceria o corte. No campo "brolls", informe o "offsetSec" (segundos após o início do clipe), "durationSec" (entre 2 e 4 segundos) e "keyword" (termo de busca em inglês curto e visual para banco de vídeos, ex: "luxury car", "person thinking", "money stack", "bitcoin graphic").`;
+    }
+  }
 
   return `Abaixo está a transcrição dividida em blocos numerados. Cada linha tem o número do bloco (#), o horário de início e o texto.
 ${referenceGuidelines}
@@ -89,25 +105,45 @@ ${transcript}`;
 }
 
 function parseCandidates(text: string): ClipCandidate[] {
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error("A resposta do Claude não contém um JSON válido:\n" + text);
+  // Remove markdown de codeblocks caso o Claude retorne com ```json ... ```
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
   }
-  return JSON.parse(text.slice(start, end + 1));
+
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error("A resposta do Claude não contém um array JSON válido:\n" + text.slice(0, 300));
+  }
+
+  let jsonStr = cleaned.slice(start, end + 1);
+  // Remove trailing commas acidentais antes de fechamento de objeto ou array
+  jsonStr = jsonStr.replace(/,\s*([\]}])/g, "$1");
+
+  return JSON.parse(jsonStr);
 }
 
-/** Pede ao Claude os trechos candidatos. */
+/** Pede ao Claude os trechos candidatos com Prompt Caching da Anthropic para economizar tokens. */
 export async function findCandidates(blocks: Block[], opts: Options): Promise<ClipCandidate[]> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY no .env");
 
   const client = new Anthropic();
   const candidateCount = Math.ceil(opts.clips * 1.5); // pede a mais; alguns serão descartados
+  const model = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
+  const dynamicMaxTokens = Math.min(4000, Math.max(1500, candidateCount * 280));
 
   const res = await client.messages.create({
-    model: process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5",
-    max_tokens: 8000,
-    system: SYSTEM,
+    model,
+    max_tokens: dynamicMaxTokens,
+    system: [
+      {
+        type: "text",
+        text: SYSTEM,
+        // Ativa Prompt Caching na Anthropic (90% de desconto de tokens no prompt do sistema)
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
   });
 
@@ -141,6 +177,26 @@ export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: 
         keyword: String(br.keyword || "").trim(),
       })),
     });
+  }
+
+  // Fallback resiliente: se a duração estimada pelo Claude exceder levemente o range, ajusta os limites
+  if (!valid.length && candidates.length > 0) {
+    for (const c of candidates) {
+      const a = blocks[c.startIndex];
+      const b = blocks[c.endIndex];
+      if (a && b && c.endIndex >= c.startIndex) {
+        const rawDur = b.end - a.start;
+        const clampedEnd = rawDur > opts.maxSeconds ? a.start + opts.maxSeconds : b.end;
+        valid.push({
+          title: c.title,
+          hook: c.hook,
+          score: c.score,
+          reason: c.reason,
+          start: a.start,
+          end: Math.max(a.start + Math.min(10, opts.minSeconds), clampedEnd),
+        });
+      }
+    }
   }
 
   valid.sort((x, y) => y.score - x.score);

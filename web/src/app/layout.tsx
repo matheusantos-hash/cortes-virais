@@ -53,6 +53,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {user && (
                 <nav className="user-nav">
                   <span className="user-email hide-sm">{user.email}</span>
+                  <Link href="/ajuda" className="navlink-help" title="Central de Ajuda">
+                    ❓ Ajuda
+                  </Link>
                   {isAdmin && (
                     <Link href="/admin" className="navlink-admin">
                       <ShieldIcon size={15} />

@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { CanceledError, downloadVideo, probeDuration, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
-import type { Options, Orientation } from "./types.js";
+import type { Options, Orientation, VerticalMode } from "./types.js";
 
 const rawUrl = process.env.SUPABASE_URL?.trim();
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -49,7 +49,7 @@ interface Job {
   source_url: string | null;
   source_path: string | null;
   orientation: Orientation;
-  vertical_mode?: "blur" | "crop" | "split";
+  vertical_mode?: VerticalMode;
   crop_x: number | string;
   clip_count: number;
   min_seconds: number;
@@ -62,6 +62,9 @@ interface Job {
   design_instructions?: string | null;
   use_broll?: boolean;
   broll_source?: "pexels" | "higgsfield" | "none";
+  subtitle_style?: import("./types.js").SubtitleStyle;
+  enable_sfx?: boolean;
+  enable_emojis?: boolean;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -117,7 +120,8 @@ async function processJob(job: Job) {
   const flushLogs = async () => {
     if (!hasPendingLogs) return;
     hasPendingLogs = false;
-    await updateJob(job.id, { logs: [...logs] });
+    // Limita aos últimos 200 logs para manter queries leves no banco
+    await updateJob(job.id, { logs: logs.slice(-200) });
   };
 
   // Sincroniza logs periodicamente para não saturar requisições
@@ -224,6 +228,32 @@ async function processJob(job: Job) {
 
     await checkCanceled();
 
+    // 1.1 Obter o vídeo de referência se fornecido (para clonagem de estilo)
+    let localRefPath: string | null = null;
+    if (job.reference_path) {
+      try {
+        localRefPath = path.join(workDir, "ref_source.mp4");
+        await pushLog("Baixando vídeo modelo de referência enviado para clonagem de estilo...");
+        await downloadUpload(job.reference_path, localRefPath, abortCtrl.signal);
+        await pushLog("Vídeo de referência transferido com sucesso para análise de estilo.");
+      } catch (err) {
+        console.error(`[${job.id}] Falha ao baixar vídeo de referência:`, err);
+        await pushLog("[AVISO] Não foi possível baixar o vídeo de referência do Storage. Prosseguindo com preset de estilo.");
+        localRefPath = null;
+      }
+    } else if (job.reference_url) {
+      try {
+        localRefPath = path.join(workDir, "ref_source.mp4");
+        await pushLog(`Baixando vídeo de referência do link: ${job.reference_url}...`);
+        await downloadVideo(job.reference_url, localRefPath, abortCtrl.signal, pushLog);
+        await pushLog("Vídeo de referência baixado com sucesso.");
+      } catch (err) {
+        console.error(`[${job.id}] Falha ao baixar link de referência:`, err);
+        await pushLog("[AVISO] Não foi possível baixar o link da referência externa. Prosseguindo com preset de estilo.");
+        localRefPath = null;
+      }
+    }
+
     // 2. Limite de duração (controle de custo)
     let seconds: number;
     try {
@@ -252,11 +282,14 @@ async function processJob(job: Job) {
       cropX: Number(job.crop_x),
       referenceType: job.reference_type,
       referenceUrl: job.reference_url,
-      referencePath: job.reference_path,
+      referencePath: localRefPath,
       referenceStyle: job.reference_style,
       designInstructions: job.design_instructions,
       useBroll: job.use_broll ?? false,
       brollSource: job.broll_source ?? "pexels",
+      subtitleStyle: job.subtitle_style,
+      enableSfx: job.enable_sfx ?? true,
+      enableEmojis: job.enable_emojis ?? true,
       force: false,
       dryRun: false,
     };

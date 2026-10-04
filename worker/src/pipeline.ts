@@ -2,8 +2,12 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
+import { fetchHiggsfieldBroll } from "./higgsfield.js";
 import { type ActiveBroll, CanceledError, cutClip, extractAudio } from "./media.js";
-import { fetchPexelsBroll } from "./pexels.js";
+import { fetchStockBroll } from "./stock.js";
+import { extractReferenceStyle } from "./ref_analyzer.js";
+import { generateViralAssSubtitles } from "./subtitles.js";
+import { type SfxEvent } from "./sfx.js";
 import { transcribe } from "./transcribe.js";
 import type { Clip, Options, Word } from "./types.js";
 
@@ -83,7 +87,19 @@ export async function processVideo(args: {
 
   // Claude escolhe os trechos
   await hooks?.onStage?.("analyzing", 50);
-  await hooks?.onLog?.("Enviando transcrição para IA (Claude 3.5 Sonnet) analisar melhores ganchos e momentos virais...");
+
+  // Extrai perfil de estilo do vídeo de referência caso fornecido
+  if (!opts.styleBlueprint && opts.referencePath && existsSync(opts.referencePath)) {
+    await hooks?.onLog?.("Iniciando extração do estilo de edição do vídeo de referência com IA...");
+    opts.styleBlueprint = await extractReferenceStyle({
+      referenceVideoPath: opts.referencePath,
+      workDir,
+      signal: hooks?.signal,
+      onLog: hooks?.onLog,
+    });
+  }
+
+  await hooks?.onLog?.("Enviando transcrição para IA (Claude Sonnet) analisar melhores ganchos e momentos virais...");
   console.log("Claude analisando a transcrição…");
   
   await hooks?.checkCanceled?.();
@@ -126,29 +142,125 @@ export async function processVideo(args: {
     await hooks?.onLog?.(`[Render ${i + 1}/${clips.length}] Cortando [${fmt(c.start)} - ${fmt(c.end)}] -> ${path.basename(file)}`);
     console.log(`  ${path.basename(file)}`);
 
-    // Busca e baixa B-rolls no Pexels se solicitado
+    // Busca e baixa B-rolls (Higgsfield AI ou Pexels) se solicitado
     const activeBrolls: ActiveBroll[] = [];
-    if (opts.useBroll && (opts.brollSource === "pexels" || !opts.brollSource) && c.brolls?.length) {
-      for (const [bIdx, broll] of c.brolls.entries()) {
+    if (opts.useBroll && c.brolls?.length) {
+      if (opts.brollSource === "higgsfield") {
+        // Gera 1 B-Roll de impacto com IA generativa por clipe
+        const topBroll = c.brolls[0];
         await hooks?.checkCanceled?.();
-        const brollFile = path.join(workDir, `broll-c${i + 1}-${bIdx + 1}.mp4`);
-        const downloaded = await fetchPexelsBroll({
-          query: broll.keyword,
+        const brollFile = path.join(workDir, `broll-higgs-c${i + 1}.mp4`);
+        await hooks?.onLog?.(`[B-ROLL IA] Gerando B-Roll exclusivo via Higgsfield para o clipe ${i + 1}...`);
+        
+        const downloaded = await fetchHiggsfieldBroll({
+          keyword: topBroll.keyword,
+          styleModifier: opts.styleBlueprint?.higgsfieldPromptModifier,
           outPath: brollFile,
           orientation: opts.orientation === "vertical" ? "portrait" : "landscape",
+          durationSec: topBroll.durationSec || 3,
           signal: hooks?.signal,
           onLog: hooks?.onLog,
         });
+
         if (downloaded) {
           activeBrolls.push({
-            offsetSec: broll.offsetSec,
-            durationSec: broll.durationSec,
+            offsetSec: topBroll.offsetSec,
+            durationSec: topBroll.durationSec || 3,
             filePath: downloaded,
           });
+        } else {
+          // Fallback gracioso para banco de vídeos caso o Higgsfield esteja sem créditos ou indisponível
+          await hooks?.onLog?.(`[B-ROLL] Higgsfield indisponível. Tentando fallback automático para banco de vídeos (Pixabay)...`);
+          const fallbackFile = path.join(workDir, `broll-stock-fallback-c${i + 1}.mp4`);
+          const pexelsDownloaded = await fetchStockBroll({
+            query: topBroll.keyword,
+            outPath: fallbackFile,
+            orientation: opts.orientation === "vertical" ? "portrait" : "landscape",
+            signal: hooks?.signal,
+            onLog: hooks?.onLog,
+          });
+          if (pexelsDownloaded) {
+            activeBrolls.push({
+              offsetSec: topBroll.offsetSec,
+              durationSec: topBroll.durationSec || 3,
+              filePath: pexelsDownloaded,
+            });
+          }
+        }
+      } else if (opts.brollSource === "pexels" || !opts.brollSource) {
+        for (const [bIdx, broll] of c.brolls.entries()) {
+          await hooks?.checkCanceled?.();
+          const brollFile = path.join(workDir, `broll-c${i + 1}-${bIdx + 1}.mp4`);
+          const downloaded = await fetchStockBroll({
+            query: broll.keyword,
+            outPath: brollFile,
+            orientation: opts.orientation === "vertical" ? "portrait" : "landscape",
+            signal: hooks?.signal,
+            onLog: hooks?.onLog,
+          });
+          if (downloaded) {
+            activeBrolls.push({
+              offsetSec: broll.offsetSec,
+              durationSec: broll.durationSec,
+              filePath: downloaded,
+            });
+          }
         }
       }
     }
     
+    // Gera legendas dinâmicas animadas palavra por palavra (se ativado ou padrão para vertical)
+    let subFile: string | undefined = undefined;
+    const shouldAddSubs = opts.subtitles !== false && opts.orientation === "vertical";
+    if (shouldAddSubs && words?.length) {
+      const assPath = path.join(workDir, `subs-c${i + 1}.ass`);
+      const generated = await generateViralAssSubtitles({
+        words,
+        clipStart: c.start,
+        clipEnd: c.end,
+        outPath: assPath,
+        opts: {
+          style: opts.subtitleStyle ?? "hormozi",
+          enableEmojis: opts.enableEmojis !== false,
+        },
+      });
+      if (generated) {
+        subFile = generated;
+      }
+    }
+
+    const dynamicPacing = opts.dynamicZoom !== false 
+      ? (opts.styleBlueprint?.averageCutDurationSec || (opts.referenceStyle ? 2.8 : undefined))
+      : undefined;
+
+    const shouldColorGrade = opts.colorGrade !== false && Boolean(opts.styleBlueprint || opts.referenceStyle);
+
+    // Constrói eventos de Sound Design (SFX) para o corte
+    const sfxEvents: SfxEvent[] = [];
+    const clipDuration = c.end - c.start;
+    if (opts.enableSfx !== false) {
+      // 1. Gancho inicial: Ding sutil aos 0.35s para prender atenção
+      sfxEvents.push({ timeSec: 0.35, type: "ding", volume: 0.30 });
+
+      // 2. Transições de B-Roll: Whoosh na entrada de cada overlay
+      for (const b of activeBrolls) {
+        if (b.offsetSec > 0.5 && b.offsetSec < clipDuration - 0.5) {
+          sfxEvents.push({ timeSec: Math.max(0, b.offsetSec - 0.05), type: "whoosh", volume: 0.35 });
+        }
+      }
+
+      // 3. Zoom / Ritmo dinâmico: Whoosh sutil nos pontos de alternância de câmera
+      if (dynamicPacing && dynamicPacing > 0) {
+        for (let t = dynamicPacing; t < clipDuration - 1; t += dynamicPacing * 2) {
+          // Apenas se não colidir com um B-roll
+          const nearBroll = activeBrolls.some((b) => Math.abs(b.offsetSec - t) < 0.8);
+          if (!nearBroll) {
+            sfxEvents.push({ timeSec: t, type: "whoosh", volume: 0.22 });
+          }
+        }
+      }
+    }
+
     await cutClip({
       input: sourcePath,
       output: file,
@@ -158,6 +270,10 @@ export async function processVideo(args: {
       verticalMode: opts.verticalMode,
       cropX: opts.cropX,
       brolls: activeBrolls,
+      subtitlesPath: subFile,
+      dynamicPacingSec: dynamicPacing,
+      colorGrade: shouldColorGrade,
+      sfxEvents,
       signal: hooks?.signal,
       onLog: hooks?.onLog,
     });

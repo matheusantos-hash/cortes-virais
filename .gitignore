@@ -1,1 +1,7 @@
 worker/teste.mp4
+*.tsbuildinfo
+DB_MAP.md
+db_map.md
+ROADMAP.md
+roadmap.md
+.gemini/

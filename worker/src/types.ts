@@ -41,10 +41,21 @@ export interface Clip {
   brolls?: BrollItem[];
 }
 
+export interface StyleBlueprint {
+  pacing: "fast" | "moderate" | "dynamic";
+  averageCutDurationSec: number;
+  aestheticStyle: string;
+  higgsfieldPromptModifier: string;
+  suggestedBrollKeywords: string[];
+  editingTips: string;
+}
+
 export type Orientation = "vertical" | "horizontal";
 export type VerticalMode = "blur" | "crop" | "split" | "face_tracking" | "split_face";
 export type ReferenceType = "link" | "upload" | "preset" | "none";
 export type BrollSource = "pexels" | "higgsfield" | "none";
+
+export type SubtitleStyle = "hormozi" | "beast" | "apple" | "minimal";
 
 export interface Options {
   orientation: Orientation;
@@ -59,8 +70,17 @@ export interface Options {
   referencePath?: string | null;
   referenceStyle?: string | null;
   designInstructions?: string | null;
+  styleBlueprint?: StyleBlueprint | null;
   useBroll?: boolean;
   brollSource?: BrollSource;
+  subtitles?: boolean;
+  subtitleStyle?: SubtitleStyle;
+  enableSfx?: boolean;
+  enableEmojis?: boolean;
+  dynamicZoom?: boolean;
+  colorGrade?: boolean;
   force: boolean;
   dryRun: boolean;
 }
+
+

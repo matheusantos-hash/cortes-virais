@@ -64,9 +64,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [language, setLanguage] = useState("pt-BR");
   const [dryRun, setDryRun] = useState(false);
 
-  // Opções de Vídeo de Referência e Design
-  const [showRefSection, setShowRefSection] = useState(false);
-  const [refMode, setRefMode] = useState<"none" | "link" | "upload">("none");
+  // Opções de "Copiar Estilo" (Vídeo de Referência + Higgsfield AI)
+  const [copyStyle, setCopyStyle] = useState(false);
+  const [refMode, setRefMode] = useState<"upload" | "link">("upload");
   const [refUrl, setRefUrl] = useState("");
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refStyle, setRefStyle] = useState(STYLE_PRESETS[0].name);
@@ -74,7 +74,12 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
   // Opções de B-Roll
   const [useBroll, setUseBroll] = useState(false);
-  const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield">("pexels");
+  const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield">("higgsfield");
+
+  // Opções de Legendas & Sound Design (Fase 4 & HyperFrames)
+  const [subtitleStyle, setSubtitleStyle] = useState<"hormozi" | "apple" | "beast" | "minimal">("hormozi");
+  const [enableEmojis, setEnableEmojis] = useState(true);
+  const [enableSfx, setEnableSfx] = useState(true);
 
   const [busy, setBusy] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -166,9 +171,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       source = { source_type: "upload", source_path: path };
     }
 
-    // Processamento do Vídeo de Referência (se fornecido)
+    // Processamento de Copiar Estilo / Vídeo de Referência (se ativado)
     let refPath: string | null = null;
-    if (showRefSection && refMode === "upload" && refFile) {
+    if (copyStyle && refMode === "upload" && refFile) {
       const refStoragePath = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
       try {
         const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
@@ -191,16 +196,28 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       min_seconds: minSeconds,
       max_seconds: maxSeconds,
       language,
-      reference_type: showRefSection ? refMode : "none",
-      reference_url: showRefSection && refMode === "link" && refUrl.trim() ? refUrl.trim() : null,
+      reference_type: copyStyle ? refMode : "none",
+      reference_url: copyStyle && refMode === "link" && refUrl.trim() ? refUrl.trim() : null,
       reference_path: refPath,
-      reference_style: showRefSection ? refStyle : null,
-      design_instructions: showRefSection && designInstructions.trim() ? designInstructions.trim() : null,
+      reference_style: copyStyle ? refStyle : null,
+      design_instructions: copyStyle && designInstructions.trim() ? designInstructions.trim() : null,
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
+      subtitle_style: subtitleStyle,
+      enable_sfx: enableSfx,
+      enable_emojis: enableEmojis,
     };
 
     let { error: insError } = await supabase.from("jobs").insert(payload);
+
+    // Se o banco ainda não tiver as novas colunas de legendas/sfx, tenta novamente sem elas
+    if (insError && (insError.message.includes("subtitle_style") || insError.message.includes("enable_sfx") || insError.message.includes("enable_emojis"))) {
+      delete payload.subtitle_style;
+      delete payload.enable_sfx;
+      delete payload.enable_emojis;
+      const retry = await supabase.from("jobs").insert(payload);
+      insError = retry.error;
+    }
 
     // Se o banco ainda não tiver as colunas de B-Roll, tenta novamente sem elas
     if (insError && (insError.message.includes("broll_source") || insError.message.includes("use_broll"))) {
@@ -227,6 +244,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
     setUrl("");
     setFile(null);
+    setCopyStyle(false);
     setRefUrl("");
     setRefFile(null);
     setDesignInstructions("");
@@ -237,7 +255,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     <form onSubmit={submit} className="card stack">
       <div className="row" style={{ alignItems: "center" }}>
         <h2>Criar Cortes com IA</h2>
-        <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>Claude 3.5 + FFmpeg</span>
+        <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>Claude Sonnet + FFmpeg</span>
       </div>
 
       {/* Abas de Origem (Tabs) */}
@@ -486,129 +504,260 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
         </select>
       </label>
 
-      {/* SEÇÃO: VÍDEO DE REFERÊNCIA & DIRETRIZES DE DESIGN */}
-      <div className="card" style={{ border: "1px dashed rgba(99, 102, 241, 0.4)", background: "rgba(99, 102, 241, 0.03)", padding: "0.85rem" }}>
-        <div className="row" style={{ cursor: "pointer" }} onClick={() => setShowRefSection(!showRefSection)}>
-          <div>
-            <strong style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--primary)" }}>
-              <span>🎨</span> Vídeo de Referência &amp; Design
-            </strong>
-            <small style={{ display: "block", color: "var(--text-muted)" }}>
-              Instruções de estilo ou link de corte viral como modelo.
+      {/* SEÇÃO PRINCIPAL: COPIAR ESTILO COM HIGGSFIELD AI */}
+      <div
+        className="card"
+        style={{
+          border: copyStyle ? "1px solid var(--primary)" : "1px dashed rgba(99, 102, 241, 0.4)",
+          background: copyStyle ? "rgba(99, 102, 241, 0.06)" : "rgba(99, 102, 241, 0.02)",
+          padding: "1rem",
+          transition: "all 0.2s ease",
+        }}
+      >
+        <label
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: "0.75rem",
+            cursor: "pointer",
+            margin: 0,
+          }}
+        >
+          <input
+            type="checkbox"
+            style={{ width: "1.25rem", height: "1.25rem", accentColor: "var(--primary)", marginTop: "0.2rem", cursor: "pointer" }}
+            checked={copyStyle}
+            onChange={(e) => {
+              const val = e.target.checked;
+              setCopyStyle(val);
+              if (val) {
+                setUseBroll(true);
+                setBrollSource("higgsfield");
+              }
+            }}
+          />
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <strong style={{ fontSize: "1rem", color: "var(--primary)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span>✨</span> Copiar Estilo de Edição
+              </strong>
+              <span className="badge badge-done" style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem" }}>
+                <SparklesIcon size={12} /> Higgsfield AI + Claude Vision
+              </span>
+            </div>
+            <small style={{ display: "block", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+              Envie ou cole o link de um vídeo modelo (TikTok/Reels/Shorts). A IA clona o ritmo de cortes, aplica jump zooms dinâmicos, legendas animadas palavra por palavra e gera B-Rolls cinematográficos combinando com a estética.
             </small>
           </div>
-          <button
-            type="button"
-            className="btn btn-small btn-secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowRefSection(!showRefSection);
-            }}
-          >
-            {showRefSection ? "Recolher ▲" : "+ Configurar ▼"}
-          </button>
-        </div>
+        </label>
 
-        {showRefSection && (
-          <div className="stack" style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
+        {copyStyle && (
+          <div className="stack" style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
             <label>
-              Estilo Viral Predeterminado:
-              <select value={refStyle} onChange={(e) => setRefStyle(e.target.value)}>
-                {STYLE_PRESETS.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Origem do Vídeo de Referência:
-              <div className="tabs" style={{ marginTop: "0.25rem" }}>
+              Origem do Vídeo Modelo de Referência:
+              <div className="tabs" style={{ marginTop: "0.35rem" }}>
                 <button
                   type="button"
-                  className={refMode === "none" ? "tab active" : "tab"}
-                  onClick={() => setRefMode("none")}
+                  className={refMode === "upload" ? "tab active" : "tab"}
+                  onClick={() => setRefMode("upload")}
                 >
-                  Nenhum
+                  <UploadIcon size={14} style={{ marginRight: "0.35rem" }} /> Enviar Arquivo de Vídeo
                 </button>
                 <button
                   type="button"
                   className={refMode === "link" ? "tab active" : "tab"}
                   onClick={() => setRefMode("link")}
                 >
-                  Link
-                </button>
-                <button
-                  type="button"
-                  className={refMode === "upload" ? "tab active" : "tab"}
-                  onClick={() => setRefMode("upload")}
-                >
-                  Arquivo
+                  <LinkIcon size={14} style={{ marginRight: "0.35rem" }} /> Link (TikTok / Reels / Shorts)
                 </button>
               </div>
             </label>
 
+            {refMode === "upload" && (
+              <label>
+                Arquivo do Vídeo de Referência (.mp4, .mov)
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setRefFile(e.target.files?.[0] ?? null)}
+                  style={{ marginTop: "0.35rem" }}
+                />
+                {refFile && (
+                  <small style={{ color: "var(--primary)", marginTop: "0.25rem", display: "block" }}>
+                    ✓ Arquivo selecionado: <strong>{refFile.name}</strong> ({formatBytes(refFile.size)})
+                  </small>
+                )}
+              </label>
+            )}
+
             {refMode === "link" && (
               <label>
-                Link de Referência (TikTok, Reels, Shorts)
+                Link do Vídeo Modelo de Referência
                 <input
                   type="url"
-                  placeholder="https://www.tiktok.com/@exemplo/video/…"
+                  placeholder="https://www.tiktok.com/@exemplo/video/… ou https://www.instagram.com/reels/…"
                   value={refUrl}
                   onChange={(e) => setRefUrl(e.target.value)}
+                  style={{ marginTop: "0.35rem" }}
                 />
               </label>
             )}
 
-            {refMode === "upload" && (
-              <label>
-                Arquivo de Exemplo
-                <input type="file" accept="video/*" onChange={(e) => setRefFile(e.target.files?.[0] ?? null)} />
+            {/* Configuração de B-Rolls Inteligentes com Higgsfield */}
+            <div
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.75rem",
+                background: "rgba(0, 0, 0, 0.2)",
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
+              <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", cursor: "pointer", margin: 0 }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "1.15rem", height: "1.15rem", accentColor: "var(--primary)", cursor: "pointer" }}
+                  checked={useBroll}
+                  onChange={(e) => setUseBroll(e.target.checked)}
+                />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    🎬 Inserir B-Rolls Cinematográficos nos Ganchos
+                  </strong>
+                  <small style={{ display: "block", color: "var(--text-muted)", fontSize: "0.78rem" }}>
+                    Vídeos de apoio gerados para reforçar momentos de maior retenção.
+                  </small>
+                </div>
               </label>
-            )}
 
-            <label>
-              Diretrizes de Edição (Prompt para o Claude AI):
-              <textarea
-                rows={2}
-                placeholder="Exemplo: Priorize momentos polêmicos ou lições de negócio com gancho forte."
-                value={designInstructions}
-                onChange={(e) => setDesignInstructions(e.target.value)}
-              />
-            </label>
+              {useBroll && (
+                <div style={{ marginTop: "0.65rem", paddingTop: "0.5rem", borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                  <label style={{ fontSize: "0.82rem", margin: 0 }}>
+                    Motor de Geração de Vídeo:
+                    <select
+                      value={brollSource}
+                      onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}
+                      style={{ marginTop: "0.25rem", fontSize: "0.85rem" }}
+                    >
+                      <option value="higgsfield">🔥 Higgsfield AI (Vídeos Cinematográficos Gerados por IA)</option>
+                      <option value="pexels">Pixabay (Banco de Vídeos Gratuito)</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="grid2" style={{ marginTop: "0.5rem" }}>
+              <label>
+                Estilo / Vibe do Corte:
+                <select value={refStyle} onChange={(e) => setRefStyle(e.target.value)}>
+                  {STYLE_PRESETS.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Instruções Adicionais (Opcional):
+                <input
+                  type="text"
+                  placeholder="Ex: Focar em falas de superação ou ganchos polêmicos"
+                  value={designInstructions}
+                  onChange={(e) => setDesignInstructions(e.target.value)}
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>
 
-      {/* SEÇÃO: B-ROLL AUTOMÁTICO VIA PEXELS */}
-      <div className="card" style={{ border: "1px dashed rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.03)", padding: "0.85rem" }}>
-        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.65rem", cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary)", cursor: "pointer" }}
-            checked={useBroll}
-            onChange={(e) => setUseBroll(e.target.checked)}
-          />
-          <div>
-            <strong style={{ fontSize: "0.92rem", color: "var(--text)" }}>🎬 Inserir B-Rolls automáticos nos momentos-chave</strong>
-            <small style={{ display: "block", color: "var(--text-muted)" }}>
-              Intercala vídeos de apoio em Full HD para aumentar a retenção.
-            </small>
-          </div>
-        </label>
+      {/* SEÇÃO: B-ROLL ISOLADO (QUANDO NÃO USAR COPIAR ESTILO) */}
+      {!copyStyle && (
+        <div className="card" style={{ border: "1px dashed rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.03)", padding: "0.85rem" }}>
+          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.65rem", cursor: "pointer", margin: 0 }}>
+            <input
+              type="checkbox"
+              style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary)", cursor: "pointer" }}
+              checked={useBroll}
+              onChange={(e) => setUseBroll(e.target.checked)}
+            />
+            <div>
+              <strong style={{ fontSize: "0.92rem", color: "var(--text)" }}>🎬 Inserir B-Rolls automáticos nos momentos-chave</strong>
+              <small style={{ display: "block", color: "var(--text-muted)" }}>
+                Intercala vídeos de apoio em Full HD para aumentar a retenção.
+              </small>
+            </div>
+          </label>
 
-        {useBroll && (
-          <div style={{ marginTop: "0.75rem", paddingTop: "0.65rem", borderTop: "1px solid var(--card-border)" }}>
-            <label>
-              Provedor de B-Roll:
-              <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}>
-                <option value="pexels">Pexels (Vídeos Full HD gratuitos &amp; rápidos)</option>
-                <option value="higgsfield">Higgsfield AI (Animações IA)</option>
-              </select>
+          {useBroll && (
+            <div style={{ marginTop: "0.75rem", paddingTop: "0.65rem", borderTop: "1px solid var(--card-border)" }}>
+              <label>
+                Provedor de B-Roll:
+                <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}>
+                  <option value="higgsfield">Higgsfield AI (Animações e Cenas com IA)</option>
+                  <option value="pexels">Pixabay (Vídeos de Banco Gratuitos)</option>
+                </select>
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SEÇÃO: TIPOGRAFIA VIRAL & SOUND DESIGN (FASE 4 + HYPERFRAMES) */}
+      <div className="card stack" style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)", padding: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+          <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--primary)" }}>
+            <span>🎨</span> Estilo de Legenda & Sound Design
+          </strong>
+          <span className="badge" style={{ background: "rgba(99, 102, 241, 0.15)", color: "#a5b4fc", fontSize: "0.72rem" }}>
+            Alta Retenção
+          </span>
+        </div>
+
+        <div className="grid2" style={{ marginTop: "0.5rem" }}>
+          <label>
+            Estilo Visual das Legendas:
+            <select
+              value={subtitleStyle}
+              onChange={(e) => setSubtitleStyle(e.target.value as any)}
+              style={{ marginTop: "0.3rem" }}
+            >
+              <option value="hormozi">🔥 Hormozi Bold (Amarelo vibrante, contorno preto espesso)</option>
+              <option value="apple">🍏 Apple Minimal (Tipografia limpa, cantos suaves, estilo Apple)</option>
+              <option value="beast">⚡ Beast Pop (Cores neon dinâmicas e ritmo ultra-rápido)</option>
+              <option value="minimal">🎙️ Minimal Podcast (Subtítulo discreto e refinado na base)</option>
+            </select>
+          </label>
+
+          <div className="stack" style={{ gap: "0.5rem", justifyContent: "center" }}>
+            <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={enableEmojis}
+                onChange={(e) => setEnableEmojis(e.target.checked)}
+                style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
+                ✨ Injetar Emojis Automáticos (🔥, 🚀, 💰, ⚠️)
+              </span>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={enableSfx}
+                onChange={(e) => setEnableSfx(e.target.checked)}
+                style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
+                🔊 Sound Design (Whoosh, Pop e Ding sincronizados)
+              </span>
             </label>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modo Rascunho */}
