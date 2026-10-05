@@ -75,6 +75,7 @@ export interface Options {
   brollSource?: BrollSource;
   subtitles?: boolean;
   subtitleStyle?: SubtitleStyle;
+  highlightColor?: string;
   enableSfx?: boolean;
   enableEmojis?: boolean;
   dynamicZoom?: boolean;

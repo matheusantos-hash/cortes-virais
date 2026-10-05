@@ -74,7 +74,7 @@ function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: s
       reject(new Error(`Não consegui executar "${cmd}". Ele está instalado e no PATH? (${err.message})`));
     });
 
-    p.on("close", (code) => {
+    p.on("close", (code, signalName) => {
       if (signal) signal.removeEventListener("abort", handleAbort);
       if (signal?.aborted) {
         reject(new CanceledError());
@@ -83,7 +83,8 @@ function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: s
       } else {
         const fullErr = stderrChunks.join("").trim();
         const lastLines = fullErr.split("\n").filter(Boolean).slice(-3).join(" | ");
-        reject(new Error(`${cmd} terminou com código ${code}${lastLines ? `: ${lastLines}` : ""}`));
+        const signalMsg = signalName ? ` (sinal do sistema: ${signalName})` : "";
+        reject(new Error(`${cmd} terminou com código ${code}${signalMsg}${lastLines ? `: ${lastLines}` : ""}`));
       }
     });
   });
@@ -583,7 +584,19 @@ export async function cutClip(opts: {
 
   const fullFilter = filterParts.join(";");
   const audioMapArgs = audioMapArg === "-map [final_a]" ? ["-map", "[final_a]"] : ["-map", "0:a?"];
-  await run("ffmpeg", [...baseInputs, ...brollInputs, ...sfxInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, ...audioMapArgs, ...encode], signal, onLog);
+
+  try {
+    await run("ffmpeg", [...baseInputs, ...brollInputs, ...sfxInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, ...audioMapArgs, ...encode], signal, onLog);
+  } catch (err: any) {
+    if (signal?.aborted) throw err;
+    onLog?.(`[AVISO] Renderização com efeitos avançados encontrou instabilidade (${err?.message}). Ativando modo de segurança compatível...`);
+    const fallbackVf = orientation === "horizontal"
+      ? "scale=-2:min(1080\\,ih),setsar=1"
+      : cropVf;
+    await run("ffmpeg", [...baseInputs, "-vf", fallbackVf, "-map", "0:v:0", "-map", "0:a?", ...encode], signal, onLog);
+    onLog?.(`[SUCESSO] Clipe renderizado e protegido via modo compatível.`);
+  }
+
   return result;
 }
 

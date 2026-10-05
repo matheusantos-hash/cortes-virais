@@ -74,6 +74,19 @@ function getEmojiForWord(word: string): string | null {
   return EMOJI_MAP[clean] || null;
 }
 
+function hexToAssColor(color?: string, fallback = "&H0020FFFF&"): string {
+  if (!color) return fallback;
+  if (color.startsWith("&H")) return color;
+  const clean = color.replace("#", "").trim();
+  if (clean.length === 6) {
+    const r = clean.slice(0, 2);
+    const g = clean.slice(2, 4);
+    const b = clean.slice(4, 6);
+    return `&H00${b}${g}${r}&`;
+  }
+  return fallback;
+}
+
 /** Paleta de cores rotativas para o estilo Beast (formato BGR do ASS) */
 const BEAST_COLORS = [
   "&H0020FFFF&", // Amarelo vibrante
@@ -88,7 +101,6 @@ const BEAST_COLORS = [
  * - Suporte a múltiplos estilos: Hormozi, Apple Minimal, Beast Pop, Clean Minimal
  * - Frases curtas (2 a 4 palavras) para leitura instantânea
  * - Destaque dinâmico na palavra falada com escala e cor personalizada
- * - Injeção contextual inteligente de emojis
  */
 export async function generateViralAssSubtitles(params: {
   words: Word[];
@@ -109,14 +121,13 @@ export async function generateViralAssSubtitles(params: {
   }
 
   const styleType: SubtitleStyle = opts.style || "hormozi";
-  const enableEmojis = opts.enableEmojis !== false;
 
   let fontSize = opts.fontSize;
-  let highlightColor = opts.highlightColor;
-  let primaryColor = opts.primaryColor ?? "&H00FFFFFF&"; // Branco
-  let outlineColor = opts.outlineColor ?? "&H00000000&"; // Preto
+  let highlightColor = hexToAssColor(opts.highlightColor, "&H0020FFFF&");
+  let primaryColor = hexToAssColor(opts.primaryColor, "&H00FFFFFF&"); // Branco
+  let outlineColor = hexToAssColor(opts.outlineColor, "&H00000000&"); // Preto
   let backColor = "&H80000000&";
-  let fontName = opts.fontName ?? "Arial, Segoe UI Emoji";
+  let fontName = opts.fontName ?? "DejaVu Sans, Liberation Sans, Arial";
   let maxWordsPerLine = opts.maxWordsPerLine ?? 3;
   let marginV = opts.marginV ?? 420;
   let outlineWidth = 6;
@@ -128,8 +139,8 @@ export async function generateViralAssSubtitles(params: {
   switch (styleType) {
     case "apple":
       fontSize = fontSize ?? 58;
-      fontName = "SF Pro Display, Inter, Arial, Segoe UI Emoji";
-      highlightColor = highlightColor ?? "&H00FFA834&"; // Azul celeste Apple / Cyan moderno
+      fontName = "DejaVu Sans, Liberation Sans, Arial, Helvetica";
+      highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H00FFA834&"; // Azul celeste Apple / Cyan moderno
       outlineWidth = 3;
       shadowDepth = 4;
       marginV = opts.marginV ?? 380;
@@ -138,8 +149,8 @@ export async function generateViralAssSubtitles(params: {
 
     case "beast":
       fontSize = fontSize ?? 74;
-      fontName = "Impact, Arial Black, Segoe UI Emoji";
-      highlightColor = highlightColor ?? BEAST_COLORS[0];
+      fontName = "DejaVu Sans, Liberation Sans, Impact, Arial Black";
+      highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : BEAST_COLORS[0];
       outlineWidth = 8;
       shadowDepth = 4;
       marginV = opts.marginV ?? 440;
@@ -149,8 +160,8 @@ export async function generateViralAssSubtitles(params: {
 
     case "minimal":
       fontSize = fontSize ?? 52;
-      fontName = "Arial, Segoe UI";
-      highlightColor = highlightColor ?? "&H0020FFFF&";
+      fontName = "DejaVu Sans, Liberation Sans, Arial";
+      highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&";
       outlineWidth = 3;
       shadowDepth = 2;
       marginV = opts.marginV ?? 280;
@@ -161,8 +172,8 @@ export async function generateViralAssSubtitles(params: {
     case "hormozi":
     default:
       fontSize = fontSize ?? 70;
-      fontName = "Arial Black, Impact, Segoe UI Emoji";
-      highlightColor = highlightColor ?? "&H0020FFFF&"; // Amarelo clássico Hormozi
+      fontName = "DejaVu Sans, Liberation Sans, Impact, Arial Black";
+      highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&"; // Amarelo clássico Hormozi
       outlineWidth = 7;
       shadowDepth = 3;
       marginV = opts.marginV ?? 420;
@@ -230,15 +241,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const formattedLine = chunk
         .map((w, idx) => {
           let wordStr = (w.punctuated_word || w.word).replace(/[{}]/g, "");
+          // Remove emojis unicode que causam falha de segmentação (SIGSEGV) ou glifos corrompidos no libass
+          wordStr = wordStr.replace(/[\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim();
+          if (!wordStr) wordStr = w.word.replace(/[{}]/g, "");
+
           if (styleType !== "apple") {
             wordStr = wordStr.toUpperCase();
-          }
-
-          if (enableEmojis) {
-            const emoji = getEmojiForWord(w.word);
-            if (emoji) {
-              wordStr = `${emoji} ${wordStr}`;
-            }
           }
 
           if (idx === i) {

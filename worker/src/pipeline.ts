@@ -222,6 +222,7 @@ export async function processVideo(args: {
         outPath: assPath,
         opts: {
           style: opts.subtitleStyle ?? "hormozi",
+          highlightColor: opts.highlightColor,
           enableEmojis: opts.enableEmojis !== false,
         },
       });

@@ -73,6 +73,8 @@ interface Job {
   subtitle_style?: import("./types.js").SubtitleStyle;
   enable_sfx?: boolean;
   enable_emojis?: boolean;
+  manual_adjustments?: Record<string, any> | null;
+  export_settings?: Record<string, any> | null;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -433,6 +435,7 @@ async function processJob(job: Job) {
     await flushLogs();
 
     // 3. Pipeline (áudio → transcrição → Claude → cortes)
+    const manualAdj = (job.manual_adjustments as any) || {};
     const opts: Options = {
       orientation: job.orientation,
       clips: job.clip_count,
@@ -446,11 +449,13 @@ async function processJob(job: Job) {
       referencePath: localRefPath,
       referenceStyle: job.reference_style,
       designInstructions: job.design_instructions,
-      useBroll: job.use_broll ?? false,
-      brollSource: job.broll_source ?? "pexels",
-      subtitleStyle: job.subtitle_style,
-      enableSfx: job.enable_sfx ?? true,
-      enableEmojis: job.enable_emojis ?? true,
+      useBroll: job.use_broll ?? manualAdj?.brolls?.enabled ?? false,
+      brollSource: job.broll_source ?? manualAdj?.brolls?.source ?? "pexels",
+      subtitleStyle: job.subtitle_style ?? manualAdj?.subtitles?.style,
+      highlightColor: manualAdj?.subtitles?.highlightColor,
+      enableSfx: job.enable_sfx ?? manualAdj?.soundDesign?.enableSfx ?? true,
+      enableEmojis: job.enable_emojis ?? manualAdj?.subtitles?.enableEmojis ?? true,
+      dynamicZoom: manualAdj?.keyMoments?.smartPunchInZoom !== false,
       force: false,
       dryRun: false,
     };
