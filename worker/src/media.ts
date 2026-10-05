@@ -329,11 +329,13 @@ export async function trimClip(opts: {
 
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
-    "-threads", "2",
+    "-threads", "1",
     "-ss", trimStartSec.toFixed(3),
     "-i", input,
     "-t", duration.toFixed(3),
     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+    "-threads", "1",
+    "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
     "-c:a", "aac", "-b:a", "160k",
     "-avoid_negative_ts", "make_zero",
     output,
@@ -391,22 +393,24 @@ export async function cutClip(opts: {
 
   const baseInputs = [
     "-hide_banner", "-loglevel", "error", "-y",
-    "-threads", "2",
-    "-filter_threads", "2",
-    "-filter_complex_threads", "2",
+    "-threads", "1",
+    "-filter_threads", "1",
+    "-filter_complex_threads", "1",
     "-ss", start.toFixed(3),
     "-t", duration.toFixed(3),
     "-i", input,
   ];
 
-  // Adiciona cada vídeo B-Roll como input adicional
+  // Adiciona cada vídeo B-Roll como input adicional com threads limitadas
   const brollInputs: string[] = [];
   for (const b of validBrolls) {
-    brollInputs.push("-stream_loop", "-1", "-i", b.filePath);
+    brollInputs.push("-threads", "1", "-stream_loop", "-1", "-i", b.filePath);
   }
 
   const encode = [
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+    "-threads", "1",
+    "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
     ...videoRateArgs(duration),
     "-c:a", "aac", "-b:a", `${AUDIO_KBPS}k`,
     "-avoid_negative_ts", "make_zero",
@@ -532,7 +536,7 @@ export async function cutClip(opts: {
     const tEnd = (b.offsetSec + b.durationSec).toFixed(2);
 
     filterParts.push(
-      `[${inputIdx}:v]setpts=PTS-STARTPTS+${tStart}/TB,fps=30,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},setsar=1[${scaledBroll}]`
+      `[${inputIdx}:v]trim=duration=${b.durationSec.toFixed(2)},setpts=PTS-STARTPTS+${tStart}/TB,fps=30,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},setsar=1[${scaledBroll}]`
     );
     filterParts.push(
       `[${currentLayer}][${scaledBroll}]overlay=enable='between(t,${tStart},${tEnd})':eof_action=pass[${nextLayer}]`

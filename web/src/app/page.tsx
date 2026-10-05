@@ -3,6 +3,8 @@ import Dashboard from "@/components/Dashboard";
 import { createClient } from "@/lib/supabase/server";
 import type { Job } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const supabase = await createClient();
   const {

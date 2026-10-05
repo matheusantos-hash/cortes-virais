@@ -164,11 +164,11 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     };
   }, [supabase, userId, refresh]);
 
-  // Polling auxiliar enquanto houver job rodando (Realtime cuida das atualizações em tempo real)
+  // Polling auxiliar resiliente: a cada 3s se houver job em andamento, ou a cada 15s como fallback
   const hasActive = jobs.some((j) => !isFinal(j.status));
   useEffect(() => {
-    if (!hasActive) return;
-    const t = setInterval(refresh, 6000);
+    const intervalMs = hasActive ? 3000 : 15000;
+    const t = setInterval(refresh, intervalMs);
     return () => clearInterval(t);
   }, [hasActive, refresh]);
 
@@ -199,7 +199,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
         </aside>
 
         {/* COLUNA DIREITA (1fr): Monitor Ativo & Galeria de Clipes */}
-        <section className="stack-lg">
+        <section className="stack-lg" id="galeria-monitor">
         {/* CARD DE PROGRESSO ATIVO (Aparece dinamicamente ao iniciar um corte) */}
         {activeJob && (
           <div className="card progress-card-active stack">

@@ -570,6 +570,10 @@ export default function CopyStyleStudio({
 
       setSuccessMsg("Projeto de cópia de edição iniciado com sucesso!");
       onCreated();
+      setTimeout(() => {
+        const el = document.getElementById("galeria-monitor") || document.getElementById("card-monitor-ativo");
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }, 250);
     } catch (err: any) {
       console.error("Erro no Studio:", err);
       setError(err?.message || "Ocorreu um erro ao processar. Tente novamente.");
