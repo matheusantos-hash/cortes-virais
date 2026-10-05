@@ -53,7 +53,7 @@ export interface StyleBlueprint {
 export type Orientation = "vertical" | "horizontal";
 export type VerticalMode = "blur" | "crop" | "split" | "face_tracking" | "split_face";
 export type ReferenceType = "link" | "upload" | "preset" | "none";
-export type BrollSource = "pexels" | "higgsfield" | "none";
+export type BrollSource = "auto" | "pexels" | "higgsfield" | "none";
 
 export type SubtitleStyle = "hormozi" | "beast" | "apple" | "minimal";
 

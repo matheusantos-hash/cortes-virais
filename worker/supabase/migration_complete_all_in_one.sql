@@ -31,7 +31,7 @@ alter table public.jobs add constraint jobs_reference_type_check
 
 alter table public.jobs drop constraint if exists jobs_broll_source_check;
 alter table public.jobs add constraint jobs_broll_source_check 
-  check (broll_source in ('pexels', 'higgsfield', 'none'));
+  check (broll_source in ('auto', 'pexels', 'higgsfield', 'none'));
 
 -- Permite status 'canceled'
 alter table public.jobs drop constraint if exists jobs_status_check;

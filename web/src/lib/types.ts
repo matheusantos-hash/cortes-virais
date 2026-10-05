@@ -66,7 +66,7 @@ export interface Job {
   reference_style?: string | null;
   design_instructions?: string | null;
   use_broll?: boolean;
-  broll_source?: "pexels" | "higgsfield" | "none";
+  broll_source?: "auto" | "pexels" | "higgsfield" | "none";
   subtitle_style?: SubtitleStyle;
   enable_sfx?: boolean;
   enable_emojis?: boolean;
@@ -104,7 +104,7 @@ export interface ManualAdjustments {
   };
   brolls?: {
     enabled?: boolean;
-    source?: "pexels" | "higgsfield" | "none";
+    source?: "auto" | "pexels" | "higgsfield" | "none";
     frequency?: "high" | "medium" | "low";
   };
 }
@@ -122,7 +122,7 @@ export interface SavedReference {
   id: string;
   user_id?: string;
   name: string;
-  reference_type: "upload" | "link";
+  reference_type: "upload" | "link" | "preset";
   reference_url?: string | null;
   reference_path?: string | null;
   style_category?: string;

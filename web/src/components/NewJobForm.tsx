@@ -98,7 +98,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
   // Opções de B-Roll
   const [useBroll, setUseBroll] = useState(false);
-  const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield">("higgsfield");
+  const [brollSource, setBrollSource] = useState<"auto" | "pexels" | "higgsfield">("auto");
 
   // Opções de Legendas & Sound Design (Fase 4 & HyperFrames)
   const [subtitleStyle, setSubtitleStyle] = useState<"hormozi" | "apple" | "beast" | "minimal">("hormozi");
@@ -607,7 +607,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               setCopyStyle(val);
               if (val) {
                 setUseBroll(true);
-                setBrollSource("higgsfield");
+                setBrollSource("auto");
               }
             }}
           />
@@ -711,11 +711,12 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                     Motor de Geração de Vídeo:
                     <select
                       value={brollSource}
-                      onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}
+                      onChange={(e) => setBrollSource(e.target.value as "auto" | "pexels" | "higgsfield")}
                       style={{ marginTop: "0.25rem", fontSize: "0.85rem" }}
                     >
-                      <option value="higgsfield">Higgsfield AI (Vídeos Cinematográficos Gerados por IA)</option>
-                      <option value="pexels">Pixabay (Banco de Vídeos Gratuito)</option>
+                      <option value="auto">⚡ Automático (IA Decide - Recomendado)</option>
+                      <option value="higgsfield">Higgsfield AI (Apenas Gerados por IA)</option>
+                      <option value="pexels">Pixabay / Pexels (Apenas Vídeos Reais)</option>
                     </select>
                   </label>
                 </div>
@@ -770,9 +771,10 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             <div style={{ marginTop: "0.75rem", paddingTop: "0.65rem", borderTop: "1px solid var(--card-border)" }}>
               <label>
                 Provedor de B-Roll:
-                <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}>
-                  <option value="higgsfield">Higgsfield AI (Animações e Cenas com IA)</option>
-                  <option value="pexels">Pixabay (Vídeos de Banco Gratuitos)</option>
+                <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "auto" | "pexels" | "higgsfield")}>
+                  <option value="auto">⚡ Automático (IA Decide - Recomendado)</option>
+                  <option value="higgsfield">Higgsfield AI (Apenas Gerados por IA)</option>
+                  <option value="pexels">Pixabay / Pexels (Apenas Vídeos Reais)</option>
                 </select>
               </label>
             </div>

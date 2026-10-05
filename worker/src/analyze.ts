@@ -78,6 +78,8 @@ IMPORTANTE: Priorize selecionar trechos, ganchos e momentos que correspondam est
   if (opts.useBroll) {
     if (opts.brollSource === "higgsfield") {
       brollRules = `\n- B-ROLLS VIA HIGGSFIELD AI: Para cada clipe, identifique o momento de MAIOR impacto visual (preferencialmente nos primeiros 4 segundos para reforçar o gancho) onde um vídeo cinemático gerado por IA multiplicará a retenção. No campo "brolls", informe o "offsetSec" (ex: 2.0 ou 3.0), "durationSec" (entre 2.5 e 4.0 segundos) e "keyword" (uma descrição visual cinematográfica em inglês detalhada, ex: "cyberpunk glowing data visualization", "luxurious private jet interior dramatic lighting", "macro human eye dilating with reflection").`;
+    } else if (opts.brollSource === "auto") {
+      brollRules = `\n- B-ROLLS HÍBRIDOS INTELIGENTES (AUTO): Para cada trecho, identifique de 1 a 2 momentos visuais de alto impacto para inserir B-rolls contextuais. Se o momento for um gancho conceitual, metáfora ou cena cinematográfica, descreva um prompt detalhado em inglês. Se for uma cena realista ou cotidiana, use termos visuais objetivos (ex: "luxury car interior", "hand counting money", "person typing on laptop"). No campo "brolls", informe "offsetSec" (início da cena), "durationSec" (2 a 4 segundos) e "keyword" (em inglês).`;
     } else {
       brollRules = `\n- B-ROLLS / VÍDEOS DE APOIO: Para cada trecho, identifique de 1 a 3 momentos visuais onde um vídeo de apoio enriqueceria o corte. No campo "brolls", informe o "offsetSec" (segundos após o início do clipe), "durationSec" (entre 2 e 4 segundos) e "keyword" (termo de busca em inglês curto e visual para banco de vídeos, ex: "luxury car", "person thinking", "money stack", "bitcoin graphic").`;
     }

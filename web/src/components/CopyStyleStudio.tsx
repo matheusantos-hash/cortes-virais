@@ -223,7 +223,7 @@ export default function CopyStyleStudio({
   const [backgroundMusicDucking, setBackgroundMusicDucking] = useState(true);
   const [sfxVolume, setSfxVolume] = useState(75);
   const [useBroll, setUseBroll] = useState(true);
-  const [brollSource, setBrollSource] = useState<"pexels" | "higgsfield" | "none">("higgsfield");
+  const [brollSource, setBrollSource] = useState<"auto" | "pexels" | "higgsfield" | "none">("auto");
 
   // 4. EXPORTAÇÃO PROFISSIONAL
   const [resolution, setResolution] = useState<"1080x1920" | "2160x3840" | "1920x1080" | "1080x1080">("1080x1920");
@@ -1076,8 +1076,9 @@ export default function CopyStyleStudio({
                       value={brollSource}
                       onChange={(e) => setBrollSource(e.target.value as any)}
                     >
-                      <option value="higgsfield">Higgsfield AI (Gerados por IA)</option>
-                      <option value="pexels">Pexels (Stock Footage Real)</option>
+                      <option value="auto">⚡ Automático (IA Decide - Recomendado)</option>
+                      <option value="higgsfield">Higgsfield AI (Apenas Gerados por IA)</option>
+                      <option value="pexels">Pexels / Pixabay (Apenas Vídeos Reais)</option>
                     </select>
                   </div>
                 )}

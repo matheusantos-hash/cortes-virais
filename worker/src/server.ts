@@ -69,7 +69,7 @@ interface Job {
   reference_style?: string | null;
   design_instructions?: string | null;
   use_broll?: boolean;
-  broll_source?: "pexels" | "higgsfield" | "none";
+  broll_source?: import("./types.js").BrollSource;
   subtitle_style?: import("./types.js").SubtitleStyle;
   enable_sfx?: boolean;
   enable_emojis?: boolean;

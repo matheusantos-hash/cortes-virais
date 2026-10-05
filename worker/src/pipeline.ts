@@ -146,7 +146,10 @@ export async function processVideo(args: {
     // Busca e baixa B-rolls (Higgsfield AI ou Pexels) se solicitado
     const activeBrolls: ActiveBroll[] = [];
     if (opts.useBroll && c.brolls?.length) {
-      if (opts.brollSource === "higgsfield") {
+      const hasHiggsKey = Boolean(process.env.HIGGSFIELD_API_KEY?.trim());
+      const isAuto = opts.brollSource === "auto";
+
+      if (opts.brollSource === "higgsfield" || (isAuto && hasHiggsKey)) {
         // Gera 1 B-Roll de impacto com IA generativa por clipe
         const topBroll = c.brolls[0];
         await hooks?.checkCanceled?.();
@@ -188,7 +191,10 @@ export async function processVideo(args: {
             });
           }
         }
-      } else if (opts.brollSource === "pexels" || !opts.brollSource) {
+      } else {
+        if (isAuto && !hasHiggsKey) {
+          await hooks?.onLog?.(`[B-ROLL AUTO] Selecionando filmagens contextuais de alta retenção no banco de vídeos (Pixabay)...`);
+        }
         for (const [bIdx, broll] of c.brolls.entries()) {
           await hooks?.checkCanceled?.();
           const brollFile = path.join(workDir, `broll-c${i + 1}-${bIdx + 1}.mp4`);
