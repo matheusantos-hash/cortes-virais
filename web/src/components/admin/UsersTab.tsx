@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { AdminUsuario } from "@/app/admin/page";
 import type { Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
-import { setAdminFlag, setUserPlan, adminDeleteJob } from "@/app/admin/actions";
+import { setAdminFlag, setUserPlan, setUserCredits, adminDeleteJob } from "@/app/admin/actions";
 
 interface Props {
   users: AdminUsuario[];
@@ -15,6 +15,8 @@ export default function UsersTab({ users, jobs }: Props) {
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState<"all" | "pagante" | "free">("all");
   const [editingUser, setEditingUser] = useState<AdminUsuario | null>(null);
+  const [creditsVal, setCreditsVal] = useState<number>(30);
+  const [limitVal, setLimitVal] = useState<number>(60);
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -43,6 +45,12 @@ export default function UsersTab({ users, jobs }: Props) {
     setTimeout(() => setMsg(null), 3000);
   }
 
+  function handleOpenEdit(u: AdminUsuario) {
+    setEditingUser(u);
+    setCreditsVal(Number(u.creditos_minutos ?? 30));
+    setLimitVal(Number(u.limite_max_video_minutos ?? 60));
+  }
+
   function handleToggleAdmin(u: AdminUsuario) {
     startTransition(async () => {
       const res = await setAdminFlag(u.id, !u.is_xandao);
@@ -55,15 +63,24 @@ export default function UsersTab({ users, jobs }: Props) {
     if (!editingUser) return;
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
-      const res = await setUserPlan(editingUser.id, {
-        pagante: fd.get("pagante") === "true",
-        plano: String(fd.get("plano") ?? ""),
-        plano_inicio: String(fd.get("plano_inicio") ?? "") || null,
-        plano_fim: String(fd.get("plano_fim") ?? "") || null,
-        notas: String(fd.get("notas") ?? ""),
-      });
-      showMsg(res.success ? "Plano salvo!" : res.error ?? "Erro", res.success);
-      if (res.success) setEditingUser(null);
+      const [resPlan, resCred] = await Promise.all([
+        setUserPlan(editingUser.id, {
+          pagante: fd.get("pagante") === "true",
+          plano: String(fd.get("plano") ?? ""),
+          plano_inicio: String(fd.get("plano_inicio") ?? "") || null,
+          plano_fim: String(fd.get("plano_fim") ?? "") || null,
+          notas: String(fd.get("notas") ?? ""),
+        }),
+        setUserCredits(
+          editingUser.id,
+          Number(fd.get("creditos_minutos") ?? creditsVal),
+          Number(fd.get("limite_max_video_minutos") ?? limitVal)
+        ),
+      ]);
+
+      const success = resPlan.success && resCred.success;
+      showMsg(success ? "Plano e Créditos atualizados com sucesso!" : resPlan.error || resCred.error || "Erro", success);
+      if (success) setEditingUser(null);
     });
   }
 
@@ -104,6 +121,7 @@ export default function UsersTab({ users, jobs }: Props) {
               <th>Cadastro</th>
               <th>Jobs</th>
               <th>Plano</th>
+              <th>Créditos / Limite</th>
               <th>Admin</th>
               <th>Ações</th>
             </tr>
@@ -138,6 +156,30 @@ export default function UsersTab({ users, jobs }: Props) {
                     )}
                   </td>
                   <td>
+                    {u.is_xandao ? (
+                      <span className="plan-badge pagante" title="Isento de débitos">♾️ VIP Ilimitado</span>
+                    ) : (
+                      <div>
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(16, 185, 129, 0.12)",
+                            color: "#10b981",
+                            border: "1px solid rgba(16, 185, 129, 0.25)",
+                            fontSize: "0.82rem",
+                            padding: "0.15rem 0.45rem",
+                            fontWeight: 700,
+                          }}
+                        >
+                          🪙 {Number(u.creditos_minutos ?? 30).toFixed(1)} min
+                        </span>
+                        <span className="td-muted" style={{ fontSize: "0.75rem", display: "block", marginTop: "2px" }}>
+                          Máx: {Number(u.limite_max_video_minutos ?? 60).toFixed(0)}m / vídeo
+                        </span>
+                      </div>
+                    )}
+                  </td>
+                  <td>
                     <button
                       className={`toggle-admin ${u.is_xandao ? "on" : "off"}`}
                       onClick={() => handleToggleAdmin(u)}
@@ -150,9 +192,9 @@ export default function UsersTab({ users, jobs }: Props) {
                   <td>
                     <button
                       className="admin-btn-sm"
-                      onClick={() => setEditingUser(u)}
+                      onClick={() => handleOpenEdit(u)}
                     >
-                      ✏️ Editar plano
+                      ✏️ Editar plano / Créditos
                     </button>
                   </td>
                 </tr>
@@ -162,12 +204,12 @@ export default function UsersTab({ users, jobs }: Props) {
         </table>
       </div>
 
-      {/* Modal de edição de plano */}
+      {/* Modal de edição de plano e créditos */}
       {editingUser && (
         <div className="admin-modal-overlay" onClick={() => setEditingUser(null)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>✏️ Editar Plano</h3>
+              <h3>✏️ Editar Plano & Créditos</h3>
               <button className="modal-close" onClick={() => setEditingUser(null)}>✕</button>
             </div>
             <p className="modal-user-email">{editingUser.email}</p>
@@ -193,14 +235,50 @@ export default function UsersTab({ users, jobs }: Props) {
                   <input type="date" name="plano_fim" defaultValue={editingUser.plano_fim?.slice(0, 10) ?? ""} className="form-input" />
                 </label>
               </div>
-              <label className="form-label">
+
+              {/* Seção de Gestão Manual de Créditos e Limites */}
+              <div style={{ background: "rgba(255, 255, 255, 0.04)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.08)", marginTop: "0.5rem" }}>
+                <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.92rem", color: "var(--primary)" }}>🪙 Gestão de Créditos & Limites</h4>
+                <div className="form-row">
+                  <label className="form-label">
+                    Saldo Disponível (minutos)
+                    <input
+                      type="number"
+                      step="0.5"
+                      name="creditos_minutos"
+                      value={creditsVal}
+                      onChange={(e) => setCreditsVal(parseFloat(e.target.value) || 0)}
+                      className="form-input"
+                    />
+                  </label>
+                  <label className="form-label">
+                    Limite Máx. por Vídeo (minutos)
+                    <input
+                      type="number"
+                      step="1"
+                      name="limite_max_video_minutos"
+                      value={limitVal}
+                      onChange={(e) => setLimitVal(parseFloat(e.target.value) || 0)}
+                      className="form-input"
+                    />
+                  </label>
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.6rem", flexWrap: "wrap" }}>
+                  <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 30)}>+30 min</button>
+                  <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 60)}>+60 min</button>
+                  <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 300)}>+300 min (Pro)</button>
+                  <button type="button" className="filter-btn active" onClick={() => { setCreditsVal(99999); setLimitVal(3600); }}>💎 VIP Ilimitado</button>
+                </div>
+              </div>
+
+              <label className="form-label" style={{ marginTop: "0.5rem" }}>
                 Notas internas
-                <textarea name="notas" defaultValue={editingUser.notas ?? ""} className="form-textarea" rows={3} placeholder="Observações sobre o usuário..." />
+                <textarea name="notas" defaultValue={editingUser.notas ?? ""} className="form-textarea" rows={2} placeholder="Observações sobre o usuário..." />
               </label>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setEditingUser(null)}>Cancelar</button>
                 <button type="submit" className="btn-save" disabled={isPending}>
-                  {isPending ? "Salvando..." : "💾 Salvar"}
+                  {isPending ? "Salvando..." : "💾 Salvar Alterações"}
                 </button>
               </div>
             </form>

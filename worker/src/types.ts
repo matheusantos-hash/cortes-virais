@@ -83,4 +83,55 @@ export interface Options {
   dryRun: boolean;
 }
 
+/** Metadados técnicos do arquivo-fonte (via ffprobe). Base para precisão de frame e relink no NLE. */
+export interface SourceMeta {
+  /** Nome original do arquivo (usado pelo Premiere/Resolve para reconectar a mídia original). */
+  fileName: string;
+  durationSec: number;
+  /** Frame rate como fração exata (ex.: 30000/1001 = 29,97). */
+  fpsNum: number;
+  fpsDen: number;
+  width: number;
+  height: number;
+  /** Timecode inicial gravado no arquivo ("HH:MM:SS:FF" ou "HH:MM:SS;FF" para drop-frame). */
+  startTimecode: string | null;
+  audioChannels: number;
+  audioSampleRate: number;
+  videoCodec: string | null;
+  /** true quando o arquivo parece ter frame rate variável (celular/OBS). */
+  vfr: boolean;
+}
+
+/**
+ * Decisões de edição de um clipe, gravadas em clips.edit_decisions.
+ * Tempos relativos (offsetSec/timeSec/keyframes.t) são relativos a renderStart,
+ * para continuarem válidos mesmo depois de um ajuste (trim) do corte.
+ */
+export interface ClipEditDecisions {
+  version: 1;
+  /** start_seconds no momento do render (segundos absolutos na fonte). */
+  renderStart: number;
+  orientation: Orientation;
+  verticalMode: VerticalMode;
+  /** Centro horizontal do recorte 9:16 (0–1) e keyframes de face tracking (t relativo a renderStart). */
+  reframe: { centerX: number; keyframes?: { t: number; x: number }[] } | null;
+  /** Centros (0–1) dos dois rostos no layout split_face. */
+  splitCenters?: { top: number; bottom: number } | null;
+  /** Intervalo do punch-in (zoom alternado) efetivamente aplicado, em segundos. */
+  zoomPacingSec?: number | null;
+  colorGrade: boolean;
+  brolls: {
+    offsetSec: number;
+    durationSec: number;
+    keyword: string;
+    fileName: string;
+    storagePath?: string | null;
+    /** Caminho local (só durante o job; removido antes de gravar no banco). */
+    localPath?: string;
+  }[];
+  sfx: { timeSec: number; type: "whoosh" | "pop" | "ding"; volume: number }[];
+  /** Palavras do trecho em segundos absolutos (para gerar SRT editável). */
+  words: { w: string; s: number; e: number }[];
+}
+
 

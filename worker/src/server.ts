@@ -1,12 +1,12 @@
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { CanceledError, downloadVideo, probeDuration, tryDirectDownload } from "./media.js";
+import { CanceledError, downloadVideo, probeDuration, probeSource, trimClip, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
 import type { Options, Orientation, VerticalMode } from "./types.js";
 
@@ -16,6 +16,8 @@ if (!rawUrl || !SERVICE_KEY) {
   console.error("Faltam SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY no .env");
   process.exit(1);
 }
+
+const WORKER_ID = process.env.WORKER_ID || `worker-${os.hostname()}-${process.pid}`;
 
 // Aceita só a "origem" da URL (https://xxxx.supabase.co). Barra no final ou caminhos
 // extras (como /rest/v1) quebram as chamadas com "Invalid path specified in request URL".
@@ -45,7 +47,13 @@ const IN_PROGRESS = ["downloading", "transcribing", "analyzing", "cutting"];
 interface Job {
   id: string;
   user_id: string;
-  source_type: "link" | "drive" | "upload";
+  job_type?: "full" | "trim";
+  target_clip_id?: string | null;
+  trim_start?: number | null;
+  trim_end?: number | null;
+  locked_by?: string | null;
+  source_type: "link" | "drive" | "upload" | "clip";
+  file_name?: string | null;
   source_url: string | null;
   source_path: string | null;
   orientation: Orientation;
@@ -89,18 +97,22 @@ async function updateJob(id: string, patch: Record<string, unknown>) {
 }
 
 async function claimNextJob(): Promise<Job | null> {
-  const { data, error } = await supabase.rpc("claim_next_job");
+  const { data, error } = await supabase.rpc("claim_next_job", { p_worker_id: WORKER_ID });
   if (error) throw new Error(`claim_next_job: ${error.message}`);
   return (data as Job[] | null)?.[0] ?? null;
 }
 
-/** Baixa o arquivo enviado pelo usuário (bucket "sources") direto para o disco. */
-async function downloadUpload(storagePath: string, dest: string, signal?: AbortSignal) {
-  const { data, error } = await supabase.storage.from("sources").createSignedUrl(storagePath, 3600);
-  if (error || !data) throw new UserError("Não encontrei o arquivo enviado. Envie o vídeo novamente.");
+/** Baixa o arquivo do Storage (bucket "sources" ou "clips") direto para o disco. */
+async function downloadFromStorage(bucket: "sources" | "clips", storagePath: string, dest: string, signal?: AbortSignal) {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600);
+  if (error || !data) throw new UserError(`Não encontrei o arquivo no bucket ${bucket}.`);
   const res = await fetch(data.signedUrl, { signal });
-  if (!res.ok || !res.body) throw new UserError("Não consegui ler o arquivo enviado. Envie o vídeo novamente.");
+  if (!res.ok || !res.body) throw new UserError(`Não consegui ler o arquivo no bucket ${bucket}.`);
   await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest), { signal });
+}
+
+async function downloadUpload(storagePath: string, dest: string, signal?: AbortSignal) {
+  return downloadFromStorage("sources", storagePath, dest, signal);
 }
 
 async function processJob(job: Job) {
@@ -109,6 +121,7 @@ async function processJob(job: Job) {
   const abortCtrl = new AbortController();
   let syncTimer: NodeJS.Timeout | null = null;
   let hasPendingLogs = false;
+  let debitedMinutes = 0;
 
   const pushLog = async (msg: string) => {
     const formatted = `[${timeStamp()}] ${msg}`;
@@ -159,11 +172,104 @@ async function processJob(job: Job) {
     checkCanceled().catch(() => {});
   }, 2000);
 
-  console.log(`\n=== Job ${job.id} (${job.source_type}) ===`);
+  console.log(`\n=== Job ${job.id} (${job.job_type ?? "full"} - ${job.source_type}) [Worker: ${WORKER_ID}] ===`);
+
+  // Heartbeat ativo a cada 15 segundos para renovar lease com o banco de dados
+  const heartbeatTimer = setInterval(() => {
+    supabase.rpc("job_heartbeat", { p_job_id: job.id, p_worker_id: WORKER_ID }).then(() => {}, () => {});
+  }, 15000);
 
   try {
     startLogSync();
-    await pushLog(`Inicializando processamento do pedido [${job.id}]`);
+    await pushLog(`Inicializando processamento do pedido [${job.id}] no worker ${WORKER_ID}`);
+
+    // Fluxo Especial: Job de Trim (Ajuste milimétrico de clipe existente)
+    if (job.job_type === "trim") {
+      await pushLog(`[TRIM] Re-renderizando clipe ajustado com precisão milimétrica...`);
+      await updateJob(job.id, { status: "cutting", progress: 20 });
+      await flushLogs();
+
+      if (!job.target_clip_id) {
+        throw new UserError("ID do clipe alvo não fornecido para o ajuste.");
+      }
+
+      const { data: clip, error: clipErr } = await supabase
+        .from("clips")
+        .select("*")
+        .eq("id", job.target_clip_id)
+        .single();
+
+      if (clipErr || !clip || !clip.file_path) {
+        throw new UserError("Clipe original não encontrado para re-corte.");
+      }
+
+      await mkdir(workDir, { recursive: true });
+      const currentClipPath = path.join(workDir, "current_clip.mp4");
+      const trimmedClipPath = path.join(workDir, "trimmed_clip.mp4");
+
+      await pushLog("Baixando arquivo do corte atual para reprocessamento...");
+      await downloadFromStorage("clips", clip.file_path, currentClipPath, abortCtrl.signal);
+
+      const trimStart = Number(job.trim_start ?? 0);
+      const trimEnd = Number(job.trim_end ?? (Number(clip.end_seconds) - Number(clip.start_seconds)));
+
+      await updateJob(job.id, { progress: 50 });
+      await trimClip({
+        input: currentClipPath,
+        output: trimmedClipPath,
+        trimStartSec: trimStart,
+        trimEndSec: trimEnd,
+        signal: abortCtrl.signal,
+        onLog: pushLog,
+      });
+
+      await updateJob(job.id, { progress: 85 });
+      await pushLog("Enviando vídeo recortado e atualizado para o Storage...");
+
+      const newVersion = (clip.version || 1) + 1;
+      const newStoragePath = `${clip.user_id}/${clip.job_id}/clip-${String(clip.position).padStart(2, "0")}-v${newVersion}.mp4`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("clips")
+        .upload(newStoragePath, await readFile(trimmedClipPath), { contentType: "video/mp4", upsert: true });
+
+      if (uploadErr) {
+        throw new Error(`Falha no upload do clipe ajustado: ${uploadErr.message}`);
+      }
+
+      // Calcula os novos segundos absolutos
+      const newAbsStart = Number(clip.start_seconds) + trimStart;
+      const newAbsEnd = Number(clip.start_seconds) + trimEnd;
+
+      const { error: updateClipErr } = await supabase
+        .from("clips")
+        .update({
+          file_path: newStoragePath,
+          version: newVersion,
+          start_seconds: newAbsStart,
+          end_seconds: newAbsEnd,
+          is_trimming: false,
+        })
+        .eq("id", clip.id);
+
+      if (updateClipErr) {
+        throw new Error(`Falha ao atualizar dados do clipe no banco: ${updateClipErr.message}`);
+      }
+
+      await pushLog(`Ajuste de corte finalizado com sucesso! Nova versão v${newVersion} disponível.`);
+      stopLogSync();
+
+      await updateJob(job.id, {
+        status: "done",
+        progress: 100,
+        error: null,
+        logs: [...logs],
+        finished_at: new Date().toISOString(),
+      });
+      console.log(`=== Job Trim ${job.id} concluído com sucesso ===`);
+      return;
+    }
+
     const vertMode = job.vertical_mode ?? "crop";
     await pushLog(`Configurações: Formato ${job.orientation} (Layout: ${vertMode}) | Meta: ${job.clip_count} clipes (${job.min_seconds}s a ${job.max_seconds}s) | Idioma: ${job.language}`);
     
@@ -254,16 +360,71 @@ async function processJob(job: Job) {
       }
     }
 
-    // 2. Limite de duração (controle de custo)
+    // 2. Limite de duração e Verificação/Débito Atômico de Créditos
     let seconds: number;
+    let sourceMeta: import("./types.js").SourceMeta | null = null;
     try {
-      seconds = await probeDuration(sourcePath);
+      const originalFileName = job.file_name || (job.source_path ? path.basename(job.source_path) : "source.mp4");
+      sourceMeta = await probeSource(sourcePath, originalFileName);
+      seconds = sourceMeta.durationSec;
     } catch {
-      throw new UserError("O arquivo baixado não parece ser um vídeo válido.");
+      try {
+        seconds = await probeDuration(sourcePath);
+      } catch {
+        throw new UserError("O arquivo baixado não parece ser um vídeo válido.");
+      }
     }
     const minutes = seconds / 60;
-    await pushLog(`Duração detectada do vídeo: ${Math.floor(minutes)}m ${Math.floor(seconds % 60)}s (${seconds.toFixed(1)}s total)`);
-    if (minutes > MAX_VIDEO_MINUTES) {
+    const billedMinutes = Math.max(0.1, Math.round((seconds / 60) * 10) / 10);
+    const fpsStr = sourceMeta ? `${(sourceMeta.fpsNum / sourceMeta.fpsDen).toFixed(2)} fps` : "fps padrão";
+    await pushLog(`Duração detectada do vídeo: ${Math.floor(minutes)}m ${Math.floor(seconds % 60)}s (${seconds.toFixed(1)}s total | Cobrança: ${billedMinutes} min | ${fpsStr})`);
+    if (sourceMeta?.vfr) {
+      await pushLog(`[AVISO] Taxa de quadros variável (VFR) detectada. Recomendado usar CFR para edição profissional.`);
+    }
+
+    if (sourceMeta) {
+      await updateJob(job.id, { source_meta: sourceMeta });
+    }
+
+    // Consulta limites e perfil do usuário no banco
+    const { data: userData, error: userFetchErr } = await supabase
+      .from("usuarios")
+      .select("is_xandao, creditos_minutos, limite_max_video_minutos")
+      .eq("id", job.user_id)
+      .single();
+
+    if (!userFetchErr && userData) {
+      const isUserAdmin = Boolean(userData.is_xandao);
+      const maxAllowed = Number(userData.limite_max_video_minutos ?? 60.0);
+
+      if (!isUserAdmin && minutes > maxAllowed) {
+        throw new UserError(
+          `O vídeo tem ${minutes.toFixed(1)} minutos. O seu limite configurado é de ${maxAllowed} minutos por vídeo. Entre em contato ou faça upgrade no painel.`
+        );
+      }
+
+      if (!isUserAdmin) {
+        // Debita atomicamente via RPC debit_user_credits
+        const { data: remainingCredits, error: debitErr } = await supabase.rpc("debit_user_credits", {
+          p_user_id: job.user_id,
+          p_minutes: billedMinutes,
+        });
+
+        if (debitErr) {
+          console.error(`[${job.id}] Erro ao debitar créditos:`, debitErr.message);
+        } else if (Number(remainingCredits) < 0) {
+          const currentBal = Number(userData.creditos_minutos ?? 0).toFixed(1);
+          throw new UserError(
+            `Saldo insuficiente de créditos. Este vídeo requer ${billedMinutes} min, mas seu saldo atual é de ${currentBal} min. Fale com o suporte ou faça upgrade.`
+          );
+        } else {
+          debitedMinutes = billedMinutes;
+          await pushLog(`[CRÉDITOS] ${billedMinutes} min debitados com sucesso. Saldo restante: ${Number(remainingCredits).toFixed(1)} min.`);
+        }
+      } else {
+        await pushLog(`[CRÉDITOS] Usuário Administrador (VIP): Isento de cobrança de créditos.`);
+      }
+    } else if (minutes > MAX_VIDEO_MINUTES) {
       throw new UserError(
         `O vídeo tem ${Math.round(minutes)} minutos. O limite é de ${MAX_VIDEO_MINUTES} minutos.`
       );
@@ -294,7 +455,7 @@ async function processJob(job: Job) {
       dryRun: false,
     };
 
-    const { clips, files } = await processVideo({
+    const { clips, files, editDecisions } = await processVideo({
       sourcePath,
       workDir,
       opts,
@@ -326,6 +487,25 @@ async function processJob(job: Job) {
         .upload(storagePath, await readFile(files[i]), { contentType: "video/mp4", upsert: true });
       if (error) throw new Error(`upload do clipe ${i + 1} falhou: ${error.message}`);
 
+      // Se houver b-rolls locais no clipe, faz upload opcional para bucket de clips para uso no NLE
+      const clipDecision = editDecisions[i];
+      if (clipDecision && clipDecision.brolls && clipDecision.brolls.length > 0) {
+        for (const [bIdx, broll] of clipDecision.brolls.entries()) {
+          if (broll.localPath && existsSync(broll.localPath)) {
+            try {
+              const brollStoragePath = `${job.user_id}/${job.id}/assets/clip-${String(i + 1).padStart(2, "0")}-broll-${bIdx + 1}-${path.basename(broll.localPath)}`;
+              await supabase.storage
+                .from("clips")
+                .upload(brollStoragePath, await readFile(broll.localPath), { contentType: "video/mp4", upsert: true });
+              broll.storagePath = brollStoragePath;
+            } catch (bErr) {
+              console.warn(`[${job.id}] Aviso: falha ao armazenar broll no storage:`, bErr);
+            }
+          }
+          delete broll.localPath;
+        }
+      }
+
       rows.push({
         job_id: job.id,
         user_id: job.user_id,
@@ -337,6 +517,7 @@ async function processJob(job: Job) {
         start_seconds: clip.start,
         end_seconds: clip.end,
         file_path: storagePath,
+        edit_decisions: clipDecision ?? null,
       });
     }
 
@@ -346,6 +527,7 @@ async function processJob(job: Job) {
 
     await pushLog(`Concluído com sucesso! ${rows.length} clipes prontos para visualização e download.`);
     stopLogSync();
+    debitedMinutes = 0; // Cobrança consolidada com sucesso
 
     await updateJob(job.id, {
       status: "done",
@@ -357,6 +539,21 @@ async function processJob(job: Job) {
     console.log(`=== Job ${job.id} concluído: ${rows.length} clipes ===`);
   } catch (err: any) {
     stopLogSync();
+
+    // Se houve débito prévio e o processamento não finalizou, estorna automaticamente
+    if (debitedMinutes > 0) {
+      try {
+        await supabase.rpc("refund_user_credits", {
+          p_user_id: job.user_id,
+          p_minutes: debitedMinutes,
+        });
+        await pushLog(`[CRÉDITOS] Estorno automático de ${debitedMinutes} min devolvido à conta do usuário.`);
+      } catch (refundErr) {
+        console.error(`[${job.id}] Falha ao estornar créditos:`, refundErr);
+      }
+      debitedMinutes = 0;
+    }
+
     if (err instanceof CanceledError || abortCtrl.signal.aborted) {
       console.log(`[${job.id}] Job cancelado pelo usuário.`);
       await pushLog("Operação cancelada pelo usuário. Recursos temporários liberados.");
@@ -368,8 +565,10 @@ async function processJob(job: Job) {
       });
     } else {
       console.error(`[${job.id}] erro:`, err);
-      const errMsg = err instanceof UserError ? err.message : (err?.message || "Falha ao processar o vídeo. Tente novamente.");
-      await pushLog(`[ERRO] ${errMsg}`);
+      const detailedErr = err?.message || (typeof err === "string" ? err : JSON.stringify(err));
+      const errMsg = err instanceof UserError ? err.message : detailedErr;
+      await pushLog(`[ERRO DETALHADO] ${detailedErr}`);
+      await flushLogs();
       await updateJob(job.id, {
         status: "failed",
         error: errMsg,
@@ -378,6 +577,7 @@ async function processJob(job: Job) {
       });
     }
   } finally {
+    clearInterval(heartbeatTimer);
     clearInterval(cancelWatcher);
     stopLogSync();
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
@@ -385,17 +585,17 @@ async function processJob(job: Job) {
 }
 
 async function main() {
-  console.log("Worker iniciado. Esperando jobs…");
+  console.log(`Worker iniciado com ID [${WORKER_ID}]. Esperando jobs…`);
 
-  // Jobs que estavam em andamento quando o servidor caiu não terminam sozinhos.
-  // (Válido enquanto houver UM único worker.)
+  // Resgata apenas jobs que estavam travados sob o lease DESTE worker específico antes de reiniciar
   await supabase
     .from("jobs")
     .update({
       status: "failed",
-      error: "Processamento interrompido (o servidor reiniciou). Envie o pedido de novo.",
+      error: "Processamento interrompido (o container deste worker reiniciou).",
       finished_at: new Date().toISOString(),
     })
+    .eq("locked_by", WORKER_ID)
     .in("status", IN_PROGRESS);
 
   const stop = () => {

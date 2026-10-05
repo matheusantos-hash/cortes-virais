@@ -144,22 +144,33 @@ create or replace function public.cancel_job(job_id uuid)
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
+  v_is_admin boolean := false;
 begin
+  if v_uid is null then
+    return false;
+  end if;
+
+  select coalesce(is_xandao, false) into v_is_admin
+    from public.usuarios
+   where id = v_uid;
+
   update public.jobs
      set status = 'canceled',
          finished_at = now(),
          error = coalesce(error, 'Cancelado pelo usuário.')
    where id = job_id
-     and (user_id = v_uid or v_uid is null)
+     and (user_id = v_uid or v_is_admin is true)
      and status not in ('done', 'failed', 'canceled');
   return found;
 end;
 $$;
 
-grant execute on function public.cancel_job(uuid) to authenticated, anon, service_role;
+revoke all on function public.cancel_job(uuid) from public, anon;
+grant execute on function public.cancel_job(uuid) to authenticated, service_role;
 
 create policy "clips: ver os proprios" on public.clips
   for select to authenticated

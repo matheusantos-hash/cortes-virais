@@ -248,35 +248,38 @@ export async function extractAudio(videoPath: string, audioPath: string, signal?
   );
 }
 
+export interface FaceKeyframe {
+  t: number;
+  x: number;
+}
+
 export interface FaceTrackingResult {
   primaryCenterX: number;
   leftFaceCenterX: number;
   rightFaceCenterX: number;
   detectedCount: number;
+  keyframes?: FaceKeyframe[];
 }
 
-/** Extrai um frame do vídeo no segundo especificado e executa detect_faces.py */
-export async function detectFacesInVideo(videoPath: string, timestampSec: number): Promise<FaceTrackingResult> {
-  const framePath = path.join(os.tmpdir(), `frame_${crypto.randomUUID()}.jpg`);
+/** Executa o rastreamento facial contínuo e inteligente no trecho do vídeo via detect_faces.py */
+export async function detectFacesInVideo(
+  videoPath: string,
+  startSec: number,
+  durationSec: number
+): Promise<FaceTrackingResult> {
   try {
-    await run("ffmpeg", [
-      "-hide_banner", "-loglevel", "error", "-y",
-      "-ss", timestampSec.toFixed(3),
-      "-i", videoPath,
-      "-vframes", "1",
-      "-q:v", "2",
-      framePath
-    ]);
-
-    if (!existsSync(framePath)) {
-      return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0 };
-    }
-
     const scriptPath = path.join(__dirname, "detect_faces.py");
     const out = await new Promise<string>((resolve) => {
-      execFile("python3", [scriptPath, framePath], (err, stdout) => {
+      const args = [
+        scriptPath,
+        "--video", videoPath,
+        "--start", startSec.toFixed(2),
+        "--duration", durationSec.toFixed(2),
+        "--step", "1.0",
+      ];
+      execFile("python3", args, (err, stdout) => {
         if (err) {
-          execFile("python", [scriptPath, framePath], (err2, stdout2) => {
+          execFile("python", args, (err2, stdout2) => {
             if (err2) resolve("{}");
             else resolve(stdout2);
           });
@@ -291,13 +294,54 @@ export async function detectFacesInVideo(videoPath: string, timestampSec: number
       primaryCenterX: typeof parsed.primary_center_x === "number" ? parsed.primary_center_x : 0.5,
       leftFaceCenterX: typeof parsed.left_face_center_x === "number" ? parsed.left_face_center_x : 0.25,
       rightFaceCenterX: typeof parsed.right_face_center_x === "number" ? parsed.right_face_center_x : 0.75,
-      detectedCount: (parsed.faces ?? []).length
+      detectedCount: (parsed.keyframes ?? []).length,
+      keyframes: Array.isArray(parsed.keyframes) ? parsed.keyframes : [],
     };
-  } catch (e) {
-    return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0 };
-  } finally {
-    rm(framePath, { force: true }).catch(() => {});
+  } catch {
+    return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0, keyframes: [] };
   }
+}
+
+/**
+ * Realiza o re-corte (trimming) de um clipe MP4 com extrema precisão temporal e re-encode ultrarrápido.
+ */
+export async function trimClip(opts: {
+  input: string;
+  output: string;
+  trimStartSec: number;
+  trimEndSec: number;
+  signal?: AbortSignal;
+  onLog?: (line: string) => void;
+}): Promise<void> {
+  const { input, output, trimStartSec, trimEndSec, signal, onLog } = opts;
+  const duration = trimEndSec - trimStartSec;
+  if (duration <= 0) {
+    throw new Error("Duração do corte ajustado deve ser maior que zero.");
+  }
+
+  onLog?.(`[TRIM] Recortando trecho [${trimStartSec.toFixed(2)}s a ${trimEndSec.toFixed(2)}s] (${duration.toFixed(2)}s) com re-encode acelerado...`);
+
+  const args = [
+    "-hide_banner", "-loglevel", "warning", "-y",
+    "-ss", trimStartSec.toFixed(3),
+    "-i", input,
+    "-t", duration.toFixed(3),
+    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+    "-c:a", "aac", "-b:a", "160k",
+    "-avoid_negative_ts", "make_zero",
+    output,
+  ];
+
+  await run("ffmpeg", args, signal, onLog);
+  onLog?.(`[TRIM] Re-renderização milimétrica do corte concluída.`);
+}
+
+/** Enquadramento efetivamente aplicado no render (reconstruído como Motion no Premiere/Resolve). */
+export interface CutResult {
+  cropX: number;
+  cropKeyframes?: FaceKeyframe[];
+  splitCenters?: { top: number; bottom: number };
+  zoomPacingSec?: number;
 }
 
 /** Corta um trecho e já enquadra conforme a orientação, aplicando B-Rolls se houver. */
@@ -316,7 +360,7 @@ export async function cutClip(opts: {
   sfxEvents?: SfxEvent[];
   signal?: AbortSignal;
   onLog?: (line: string) => void;
-}): Promise<void> {
+}): Promise<CutResult> {
   const {
     input,
     output,
@@ -334,6 +378,7 @@ export async function cutClip(opts: {
     onLog,
   } = opts;
   const duration = end - start;
+  const result: CutResult = { cropX };
 
   const validBrolls = brolls.filter((b) => b.filePath && b.durationSec > 0 && b.offsetSec < duration);
 
@@ -363,33 +408,62 @@ export async function cutClip(opts: {
   const targetHeight = orientation === "vertical" ? 1920 : 1080;
 
   let effectiveCropX = cropX;
+  let effectiveCropExpr = `${effectiveCropX}`;
   let splitLeftX = 0.25;
   let splitRightX = 0.75;
 
-  // Detecção Facial Ativa para podcast / rostos inteligentes
+  // Detecção e Rastreamento Facial Ativo para oradores e podcast
   if (orientation === "vertical" && (verticalMode === "face_tracking" || verticalMode === "split_face")) {
-    const midpoint = start + duration / 2;
-    onLog?.(`[ROSTOS IA] Mapeando rostos no frame em ${midpoint.toFixed(1)}s...`);
-    const faces = await detectFacesInVideo(input, midpoint);
+    onLog?.(`[ROSTOS IA] Mapeando oradores no trecho de ${duration.toFixed(1)}s com rastreamento temporal inteligente...`);
+    const faces = await detectFacesInVideo(input, start, duration);
 
     if (faces.detectedCount > 0) {
-      onLog?.(`[ROSTOS IA] ${faces.detectedCount} rosto(s) identificado(s) na cena.`);
+      onLog?.(`[ROSTOS IA] Rastreamento temporal concluído com ${faces.detectedCount} pontos de referência.`);
     } else {
       onLog?.(`[ROSTOS IA] Nenhum rosto isolado de alto contraste; usando enquadramento balanceado.`);
     }
 
     if (verticalMode === "face_tracking") {
       effectiveCropX = faces.primaryCenterX;
-      onLog?.(`[ROSTOS IA] Câmera vertical 9:16 centralizada no rosto (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+      effectiveCropExpr = `${effectiveCropX}`;
+
+      // Se houver keyframes com variação perceptível, monta expressão temporal de transição
+      if (faces.keyframes && faces.keyframes.length > 2) {
+        const distinctSteps = faces.keyframes.filter((kf, idx, arr) => {
+          if (idx === 0) return true;
+          return Math.abs(kf.x - arr[idx - 1].x) >= 0.03;
+        });
+
+        if (distinctSteps.length >= 2) {
+          // Constrói expressão aninhada if(lt(t, t_next), x_curr, ...)
+          let expr = `${distinctSteps[distinctSteps.length - 1].x}`;
+          for (let k = distinctSteps.length - 2; k >= 0; k--) {
+            const nextT = distinctSteps[k + 1].t.toFixed(2);
+            const currX = distinctSteps[k].x.toFixed(3);
+            expr = `if(lt(t\\,${nextT})\\,${currX}\\,${expr})`;
+          }
+          effectiveCropExpr = expr;
+          result.cropKeyframes = distinctSteps.map((k) => ({ t: k.t, x: k.x }));
+          onLog?.(`[ROSTOS IA] Enquadramento dinâmico ativado com ${distinctSteps.length} transições suaves.`);
+        } else {
+          onLog?.(`[ROSTOS IA] Câmera vertical 9:16 estabilizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+        }
+      } else {
+        onLog?.(`[ROSTOS IA] Câmera vertical 9:16 centralizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+      }
+      result.cropX = effectiveCropX;
     } else if (verticalMode === "split_face") {
       splitLeftX = faces.leftFaceCenterX;
       splitRightX = faces.rightFaceCenterX;
-      onLog?.(`[ROSTOS IA] Podcast Split: Topo centralizado no Host (X = ${(splitLeftX * 100).toFixed(0)}%), Base centralizada no Convidado (X = ${(splitRightX * 100).toFixed(0)}%).`);
+      onLog?.(`[ROSTOS IA] Podcast Split: Topo no Host (X = ${(splitLeftX * 100).toFixed(0)}%), Base no Convidado (X = ${(splitRightX * 100).toFixed(0)}%).`);
     }
   }
+  if (orientation === "vertical" && verticalMode === "split_face") {
+    result.splitCenters = { top: splitLeftX, bottom: splitRightX };
+  }
 
-  // Filtro de corte vertical seguro (funciona para qualquer proporção de entrada sem estourar dimensões)
-  const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
+  // Filtro de corte vertical seguro com suporte a coordenadas temporais dinâmicas
+  const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
 
   // 1. Gera o filtro base para o vídeo do orador (com suporte a cortes dinâmicos de câmera / punch-in zooms)
   let baseFilter = "";
@@ -397,11 +471,12 @@ export async function cutClip(opts: {
     baseFilter = `[0:v]scale=-2:min(1080\\,ih),setsar=1[base_v]`;
   } else if ((verticalMode === "crop" || verticalMode === "face_tracking") && dynamicPacingSec && dynamicPacingSec > 0) {
     const pSec = Math.max(1.8, Math.min(5.0, dynamicPacingSec)).toFixed(2);
+    result.zoomPacingSec = Number(pSec);
     onLog?.(`[EDIÇÃO DINÂMICA] Ativando cortes de câmera / punch zoom a cada ${pSec}s (ritmo clonado da referência).`);
     baseFilter =
       `[0:v]split=2[v_wide_in][v_zoom_in];` +
-      `[v_wide_in]crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920,setsar=1[w_out];` +
-      `[v_zoom_in]crop=w=min(iw\\,ih*9/16)*0.82:h=min(ih\\,iw*16/9)*0.82:x=(iw-out_w)*${effectiveCropX}:y=(ih-out_h)/2,scale=1080:1920,setsar=1[z_out];` +
+      `[v_wide_in]crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920,setsar=1[w_out];` +
+      `[v_zoom_in]crop=w=min(iw\\,ih*9/16)*0.82:h=min(ih\\,iw*16/9)*0.82:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920,setsar=1[z_out];` +
       `[w_out][z_out]overlay=enable='mod(floor(t/${pSec})\\,2)'[base_v]`;
   } else if (verticalMode === "crop" || verticalMode === "face_tracking") {
     baseFilter = `[0:v]${cropVf}[base_v]`;
@@ -498,17 +573,18 @@ export async function cutClip(opts: {
   if (!validBrolls.length && !colorGrade && !subtitlesPath && (!dynamicPacingSec || dynamicPacingSec <= 0) && !validSfx.length) {
     if (orientation === "horizontal") {
       await run("ffmpeg", [...baseInputs, "-vf", "scale=-2:min(1080\\,ih),setsar=1", ...encode], signal, onLog);
-      return;
+      return result;
     }
     if (verticalMode === "crop" || verticalMode === "face_tracking") {
       await run("ffmpeg", [...baseInputs, "-vf", cropVf, ...encode], signal, onLog);
-      return;
+      return result;
     }
   }
 
   const fullFilter = filterParts.join(";");
   const audioMapArgs = audioMapArg === "-map [final_a]" ? ["-map", "[final_a]"] : ["-map", "0:a?"];
   await run("ffmpeg", [...baseInputs, ...brollInputs, ...sfxInputs, "-filter_complex", fullFilter, "-map", `[${currentLayer}]`, ...audioMapArgs, ...encode], signal, onLog);
+  return result;
 }
 
 /** Duração do vídeo em segundos (usa o ffprobe, que vem junto com o ffmpeg). */
@@ -521,6 +597,87 @@ export function probeDuration(file: string): Promise<number> {
         if (err) return reject(new Error(`ffprobe falhou: ${err.message}`));
         const n = parseFloat(stdout.trim());
         Number.isFinite(n) ? resolve(n) : reject(new Error("Não consegui ler a duração do vídeo"));
+      }
+    );
+  });
+}
+
+/** Frame rates padrão de broadcast/cinema. Valores "estranhos" do ffprobe são encaixados no mais próximo. */
+const STANDARD_RATES: [number, number][] = [
+  [24000, 1001], [24, 1], [25, 1], [30000, 1001], [30, 1],
+  [48, 1], [50, 1], [60000, 1001], [60, 1],
+];
+
+function parseRate(s: string | undefined): number {
+  if (!s) return 0;
+  const [n, d] = s.split("/").map(Number);
+  if (!d) return Number.isFinite(n) ? n : 0;
+  return n / d;
+}
+
+function snapRate(fps: number): [number, number] {
+  if (!(fps > 0)) return [30, 1];
+  let best = STANDARD_RATES[0];
+  let bestDiff = Infinity;
+  for (const r of STANDARD_RATES) {
+    const diff = Math.abs(r[0] / r[1] - fps);
+    if (diff < bestDiff) { best = r; bestDiff = diff; }
+  }
+  return bestDiff < 0.05 ? best : [Math.max(1, Math.round(fps)), 1];
+}
+
+/**
+ * Metadados técnicos completos do arquivo (fps exato, resolução, timecode, áudio).
+ * Necessários para que a timeline exportada (XML/EDL) bata frame a frame e reconecte na mídia original.
+ */
+export function probeSource(file: string, fileName: string): Promise<import("./types.js").SourceMeta> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "ffprobe",
+      ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", file],
+      { maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err) return reject(new Error(`ffprobe falhou: ${err.message}`));
+        try {
+          const data = JSON.parse(stdout);
+          const streams: any[] = data.streams ?? [];
+          const v = streams.find((s) => s.codec_type === "video" && s.disposition?.attached_pic !== 1);
+          const a = streams.find((s) => s.codec_type === "audio");
+          const r = parseRate(v?.r_frame_rate);
+          const avg = parseRate(v?.avg_frame_rate);
+          // r_frame_rate às vezes vem 90000/1 ou 120/1 em VFR: prefira a média quando forem muito diferentes.
+          const vfr = r > 0 && avg > 0 && Math.abs(r - avg) / r > 0.02;
+          const [fpsNum, fpsDen] = snapRate(vfr ? avg : r || avg);
+
+          let width = Number(v?.width ?? 1920);
+          let height = Number(v?.height ?? 1080);
+          const rotation = Number(
+            v?.tags?.rotate ?? v?.side_data_list?.find((sd: any) => sd.rotation !== undefined)?.rotation ?? 0
+          );
+          if (Math.abs(rotation) % 180 === 90) [width, height] = [height, width];
+
+          const tc =
+            v?.tags?.timecode ??
+            data.format?.tags?.timecode ??
+            streams.find((s) => s.tags?.timecode)?.tags?.timecode ??
+            null;
+
+          resolve({
+            fileName,
+            durationSec: Number(data.format?.duration ?? v?.duration ?? 0),
+            fpsNum,
+            fpsDen,
+            width,
+            height,
+            startTimecode: typeof tc === "string" && /^\d{2}:\d{2}:\d{2}[:;.]\d{2}$/.test(tc) ? tc : null,
+            audioChannels: Number(a?.channels ?? 0),
+            audioSampleRate: Number(a?.sample_rate ?? 48000),
+            videoCodec: v?.codec_name ?? null,
+            vfr,
+          });
+        } catch (e) {
+          reject(new Error(`ffprobe: saída inválida (${(e as Error).message})`));
+        }
       }
     );
   });

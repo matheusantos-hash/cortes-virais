@@ -1,0 +1,259 @@
+"use client";
+
+import React, { useState } from "react";
+import type { SavedReference } from "@/lib/types";
+import {
+  Bookmark,
+  Sparkles,
+  Trash2,
+  Check,
+  X,
+  FileVideo,
+  Layers,
+  Subtitles,
+  SlidersHorizontal,
+} from "./Icons";
+
+interface SavedReferencesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  references: SavedReference[];
+  onSelect: (ref: SavedReference) => void;
+  onDelete: (id: string) => void;
+}
+
+export default function SavedReferencesModal({
+  isOpen,
+  onClose,
+  references,
+  onSelect,
+  onDelete,
+}: SavedReferencesModalProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  if (!isOpen) return null;
+
+  const filtered = references.filter(
+    (r) =>
+      r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.style_category && r.style_category.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div
+      className="modal-backdrop"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(15, 23, 42, 0.65)",
+        backdropFilter: "blur(6px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{
+          width: "100%",
+          maxWidth: "680px",
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          padding: "1.5rem",
+          overflow: "hidden",
+          boxShadow: "var(--card-shadow-lg)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho */}
+        <div className="row" style={{ marginBottom: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                background: "var(--primary-light)",
+                color: "var(--primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Bookmark size={20} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "1.15rem" }}>Biblioteca de Referências Salvas</h3>
+              <p className="muted small" style={{ margin: 0 }}>
+                Selecione uma referência salva anteriormente para aplicar o estilo instantaneamente
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              padding: "0.3rem",
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Campo de Busca */}
+        <div style={{ marginBottom: "1rem" }}>
+          <input
+            type="text"
+            className="input"
+            placeholder="Buscar por nome do estilo ou categoria…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        {/* Lista de Referências */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            paddingRight: "0.25rem",
+          }}
+        >
+          {filtered.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "2.5rem 1rem",
+                background: "var(--bg-subtle)",
+                borderRadius: "12px",
+                border: "1px dashed var(--card-border)",
+              }}
+            >
+              <FileVideo size={32} style={{ color: "var(--text-dim)", marginBottom: "0.5rem" }} />
+              <p style={{ margin: 0, fontWeight: 600 }}>Nenhuma referência encontrada</p>
+              <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
+                Quando você salvar uma referência no estúdio, ela aparecerá listada aqui.
+              </p>
+            </div>
+          ) : (
+            filtered.map((ref) => (
+              <div
+                key={ref.id}
+                style={{
+                  background: "var(--card-bg)",
+                  border: "1px solid var(--card-border)",
+                  borderRadius: "12px",
+                  padding: "1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                }}
+                className="hover-card"
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                    <strong style={{ fontSize: "1rem" }}>{ref.name}</strong>
+                    {ref.style_category && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: "var(--primary-light)",
+                          color: "var(--primary)",
+                          fontSize: "0.75rem",
+                          padding: "0.15rem 0.5rem",
+                        }}
+                      >
+                        {ref.style_category}
+                      </span>
+                    )}
+                    {ref.subtitle_style && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: "var(--bg-subtle)",
+                          color: "var(--text-muted)",
+                          fontSize: "0.72rem",
+                          border: "1px solid var(--card-border)",
+                        }}
+                      >
+                        <Subtitles size={11} style={{ marginRight: "3px", verticalAlign: "middle" }} />
+                        {ref.subtitle_style.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+
+                  <p
+                    className="muted small"
+                    style={{
+                      margin: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span>
+                      {ref.reference_type === "upload" ? "📁 Arquivo de Vídeo" : `🔗 Link: ${ref.reference_url?.slice(0, 32)}…`}
+                    </span>
+                    {ref.manual_adjustments?.keyMoments?.cutPacing && (
+                      <span>• Ritmo: {ref.manual_adjustments.keyMoments.cutPacing}</span>
+                    )}
+                    {ref.export_settings?.resolution && (
+                      <span>• Resolução: {ref.export_settings.resolution}</span>
+                    )}
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ padding: "0.5rem 0.85rem", fontSize: "0.85rem" }}
+                    onClick={() => {
+                      onSelect(ref);
+                      onClose();
+                    }}
+                  >
+                    <Check size={15} style={{ marginRight: "4px" }} />
+                    Usar Estilo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger-outline"
+                    style={{ padding: "0.5rem", borderRadius: "8px" }}
+                    onClick={() => onDelete(ref.id)}
+                    title="Excluir referência salva"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Rodapé do Modal */}
+        <div style={{ marginTop: "1.2rem", paddingTop: "0.85rem", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "flex-end" }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

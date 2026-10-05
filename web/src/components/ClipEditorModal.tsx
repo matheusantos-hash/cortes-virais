@@ -9,7 +9,7 @@ interface ClipEditorModalProps {
   clip: Clip;
   videoSrc?: string;
   onClose: () => void;
-  onUpdateClipTime?: (clipId: string, newStart: number, newEnd: number) => void;
+  onUpdateClipTime?: (clipId: string, trimStart: number, trimEnd: number) => Promise<void> | void;
 }
 
 export default function ClipEditorModal({
@@ -26,6 +26,7 @@ export default function ClipEditorModal({
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(duration);
   const [activeTab, setActiveTab] = useState<"trim" | "thumbnail" | "formats">("trim");
+  const [isSavingTrim, setIsSavingTrim] = useState(false);
 
   // Estados da Capa / Thumbnail
   const [thumbTitle, setThumbTitle] = useState(clip.title);
@@ -142,13 +143,16 @@ export default function ClipEditorModal({
     a.click();
   };
 
-  const handleSaveTrim = () => {
-    const originalStart = Number(clip.start_seconds);
-    const newAbsoluteStart = originalStart + trimStart;
-    const newAbsoluteEnd = originalStart + trimEnd;
-    onUpdateClipTime?.(clip.id, newAbsoluteStart, newAbsoluteEnd);
-    alert(`Ajuste salvo! Novo intervalo: ${fmtClock(newAbsoluteStart)} até ${fmtClock(newAbsoluteEnd)}`);
-    onClose();
+  const handleSaveTrim = async () => {
+    try {
+      setIsSavingTrim(true);
+      await onUpdateClipTime?.(clip.id, trimStart, trimEnd);
+      onClose();
+    } catch (err: any) {
+      alert(`Falha ao solicitar ajuste: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setIsSavingTrim(false);
+    }
   };
 
   return (
@@ -309,8 +313,14 @@ export default function ClipEditorModal({
                   <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={playSelectedRange}>
                     ▶️ Testar Trecho
                   </button>
-                  <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={handleSaveTrim}>
-                    💾 Salvar Ajuste
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={handleSaveTrim}
+                    disabled={isSavingTrim}
+                  >
+                    {isSavingTrim ? "⏳ Re-renderizando..." : "💾 Salvar Corte & Re-renderizar"}
                   </button>
                 </div>
               </div>

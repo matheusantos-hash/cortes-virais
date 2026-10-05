@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: "brolls", label: "B-Rolls e ilustrações" },
   { id: "estilo", label: "Copiar estilo" },
   { id: "som", label: "Sound design" },
+  { id: "exportacao-nle", label: "Exportação Premiere / Resolve" },
   { id: "resultados", label: "Resultados e edição" },
   { id: "dicas", label: "Dicas para viralizar" },
   { id: "limites", label: "Limites" },
@@ -331,6 +332,54 @@ export default function AjudaPage() {
               <li><strong>Whoosh sutil</strong> nas trocas de zoom, quando o ritmo dinâmico está ativo.</li>
             </ul>
             <p className="muted">O volume dos efeitos é baixo para não competir com a voz.</p>
+          </section>
+
+          {/* EXPORTAÇÃO NLE PROFISSIONAL */}
+          <section id="exportacao-nle" className="card help-section">
+            <h2>🎬 Exportação para Premiere Pro e DaVinci Resolve</h2>
+            <p>
+              Para editores de vídeo profissionais, os cortes não precisam parar no arquivo MP4 renderizado.
+              Você pode exportar a estrutura completa do projeto para o seu editor de vídeo favorito:
+            </p>
+            <div className="help-grid help-grid-2">
+              <div className="help-mini">
+                <strong>🎬 Exportar XML (FCP7 xmeml)</strong>
+                <span>
+                  Reconstrói as timelines no <strong>Adobe Premiere Pro</strong> e no <strong>DaVinci Resolve</strong>.
+                  Preserva as trilhas de vídeo (V1 com o orador e V2 com os B-Rolls), áudio (A1 da fala e A2 dos SFX),
+                  marcadores de gancho e pontuação viral da IA, além dos parâmetros de enquadramento (Motion).
+                </span>
+              </div>
+              <div className="help-mini">
+                <strong>📄 EDL (CMX 3600)</strong>
+                <span>
+                  Padrão universal da indústria cinematográfica e broadcast. Gera a lista de eventos com timecode SMPTE
+                  milimétrico para conform e substituição instantânea (relink) dos proxies pela mídia original em 4K/RAW.
+                </span>
+              </div>
+              <div className="help-mini">
+                <strong>💬 Legendas SRT Sincronizadas</strong>
+                <span>
+                  Baixe as legendas como arquivos <code>.srt</code> editáveis (por corte individual ou do projeto todo).
+                  Ao importar no Premiere ou Resolve, elas entram como trilhas nativas de texto/legendas.
+                </span>
+              </div>
+              <div className="help-mini">
+                <strong>⚡ Relink com Mídia Original (RAW/4K)</strong>
+                <span>
+                  Como o XML referencia o nome original do arquivo e o timecode exato da gravação, basta clicar com o botão
+                  direito na mídia no Premiere/Resolve e selecionar <em>Link Media / Relink</em> apontando para o seu arquivo master.
+                </span>
+              </div>
+            </div>
+            <div className="help-callout help-callout-tip">
+              <strong>Como abrir no Adobe Premiere Pro:</strong> Arquivo &gt; Importar &gt; selecione o arquivo <code>.xml</code> baixado.
+              O Premiere criará uma pasta no Projeto contendo todas as sequências dos cortes prontas para edição fina.
+            </div>
+            <div className="help-callout help-callout-tip">
+              <strong>Como abrir no DaVinci Resolve:</strong> Arquivo &gt; Importar &gt; Linha de Tempo (Timeline) &gt; selecione o <code>.xml</code> ou <code>.edl</code>.
+              O Resolve importará os cortes mantendo sincronia de áudio e ponto de entrada/saída precisos.
+            </div>
           </section>
 
           {/* RESULTADOS */}

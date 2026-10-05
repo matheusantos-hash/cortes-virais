@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
 import { VerticalMode } from "@/lib/types";
@@ -49,6 +49,28 @@ const STYLE_PRESETS = [
 ];
 
 export default function NewJobForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
+  const [credits, setCredits] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const fetchCredits = useCallback(() => {
+    const supabase = createClient();
+    supabase
+      .from("usuarios")
+      .select("creditos_minutos, is_xandao")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCredits(Number(data.creditos_minutos ?? 30));
+          setIsAdmin(Boolean(data.is_xandao));
+        }
+      });
+  }, [userId]);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
+
   const [mode, setMode] = useState<"link" | "upload">("link");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -107,6 +129,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     }
     if (clipCount < 1 || clipCount > 20) {
       return setError("A quantidade de cortes deve ficar entre 1 e 20.");
+    }
+    if (!isAdmin && credits !== null && credits <= 0) {
+      return setError("Seu saldo de minutos esgotou (0.0 min). Solicite uma recarga ao administrador para continuar.");
     }
 
     const supabase = createClient();
@@ -189,6 +214,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
     const payload: Record<string, any> = {
       ...source,
+      file_name: mode === "upload" && file ? file.name : null,
       orientation,
       vertical_mode: orientation === "vertical" ? verticalMode : "crop",
       crop_x: cropPct / 100,
@@ -239,6 +265,14 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       insError = retry.error;
     }
 
+    // Se o banco ainda não tiver a coluna file_name ou source_meta
+    if (insError && (insError.message.includes("file_name") || insError.message.includes("source_meta"))) {
+      delete payload.file_name;
+      delete payload.source_meta;
+      const retry = await supabase.from("jobs").insert(payload);
+      insError = retry.error;
+    }
+
     setBusy(false);
     if (insError) return setError(`Não foi possível criar o pedido: ${insError.message}`);
 
@@ -249,13 +283,48 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     setRefFile(null);
     setDesignInstructions("");
     onCreated();
+    fetchCredits();
   }
+
+  const hasNoCredits = !isAdmin && credits !== null && credits <= 0;
 
   return (
     <form onSubmit={submit} className="card stack">
-      <div className="row" style={{ alignItems: "center" }}>
-        <h2>Criar Cortes com IA</h2>
-        <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>Claude Sonnet + FFmpeg</span>
+      <div className="row" style={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+        <div className="row" style={{ alignItems: "center", gap: "0.5rem" }}>
+          <h2>Criar Cortes com IA</h2>
+          <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>Claude Sonnet + FFmpeg</span>
+        </div>
+        <div>
+          {isAdmin ? (
+            <span
+              className="badge"
+              style={{
+                background: "rgba(124, 58, 237, 0.2)",
+                color: "#c084fc",
+                border: "1px solid rgba(168, 85, 247, 0.4)",
+                fontWeight: 600,
+              }}
+              title="Conta com acesso irrestrito"
+            >
+              ⚡ VIP Ilimitado
+            </span>
+          ) : credits !== null ? (
+            <span
+              className="badge"
+              style={{
+                background: credits > 0 ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                color: credits > 0 ? "#10b981" : "#ef4444",
+                border: `1px solid ${credits > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                fontWeight: 600,
+                fontSize: "0.82rem",
+              }}
+              title="Saldo disponível de minutos de vídeo para processar"
+            >
+              🪙 Saldo: {credits.toFixed(1)} min
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {/* Abas de Origem (Tabs) */}
@@ -785,10 +854,26 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
         </div>
       )}
 
+      {hasNoCredits && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "rgba(239, 68, 68, 0.12)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            borderRadius: "8px",
+            color: "#f87171",
+            fontSize: "0.88rem",
+            lineHeight: 1.4,
+          }}
+        >
+          ⚠️ <strong>Saldo de minutos esgotado (0.0 min).</strong> Você atingiu seu limite gratuito de processamento. Fale com o administrador para recarregar sua conta.
+        </div>
+      )}
+
       {error && <p className="error">{error}</p>}
 
       {/* Botão de Ação Principal (CTA) */}
-      <button type="submit" className="btn-cta" disabled={busy}>
+      <button type="submit" className="btn-cta" disabled={busy || hasNoCredits}>
         {busy ? (
           uploadPct !== null ? (
             `Enviando vídeo… ${uploadPct}%`

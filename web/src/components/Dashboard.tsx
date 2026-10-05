@@ -7,6 +7,8 @@ import { fmtClock, fmtDate, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job, JobStatus } from "@/lib/types";
 import NewJobForm from "./NewJobForm";
+import CopyStyleStudio from "./CopyStyleStudio";
+import ModeSelectorCards, { DashboardMode } from "./ModeSelectorCards";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
 import {
@@ -47,6 +49,7 @@ function getStageDescription(status: JobStatus): string {
 export default function Dashboard({ userId, initialJobs }: { userId: string; initialJobs: Job[] }) {
   const supabase = useMemo(() => createClient(), []);
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [activeMode, setActiveMode] = useState<DashboardMode>("cortes");
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -172,20 +175,30 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   const activeJob = jobs.find((j) => !isFinal(j.status));
 
   return (
-    <div className="app-grid">
-      {/* COLUNA ESQUERDA (460px): Formulário de Criação */}
-      <aside className="stack">
-        <Link href="/ajuda" className="help-banner">
-          <span>
-            📘 <strong>Primeira vez aqui?</strong> Veja como funcionam legendas, B-Rolls com IA e as demais funções.
-          </span>
-          <span className="help-banner-arrow">Central de Ajuda →</span>
-        </Link>
-        <NewJobForm userId={userId} onCreated={refresh} />
-      </aside>
+    <div className="stack-lg">
+      {/* 2 GRANDES CARDS/BOTÕES: CORTES vs COPIAR ESTILO */}
+      <ModeSelectorCards currentMode={activeMode} onSelectMode={setActiveMode} />
 
-      {/* COLUNA DIREITA (1fr): Monitor Ativo & Galeria de Clipes */}
-      <section className="stack-lg">
+      <div className={`app-grid ${activeMode === "copiar_estilo" ? "studio-layout" : ""}`}>
+        {/* COLUNA ESQUERDA: Formulário do Modo Escolhido */}
+        <aside className="stack">
+          {activeMode === "cortes" ? (
+            <>
+              <Link href="/ajuda" className="help-banner">
+                <span>
+                  📘 <strong>Primeira vez aqui?</strong> Veja como funcionam legendas, B-Rolls com IA e as demais funções.
+                </span>
+                <span className="help-banner-arrow">Central de Ajuda →</span>
+              </Link>
+              <NewJobForm userId={userId} onCreated={refresh} />
+            </>
+          ) : (
+            <CopyStyleStudio userId={userId} onCreated={refresh} />
+          )}
+        </aside>
+
+        {/* COLUNA DIREITA (1fr): Monitor Ativo & Galeria de Clipes */}
+        <section className="stack-lg">
         {/* CARD DE PROGRESSO ATIVO (Aparece dinamicamente ao iniciar um corte) */}
         {activeJob && (
           <div className="card progress-card-active stack">
@@ -427,6 +440,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
           })}
         </section>
       </section>
+    </div>
     </div>
   );
 }

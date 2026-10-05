@@ -61,3 +61,33 @@ export async function adminDeleteJob(jobId: string): Promise<{ success: boolean;
   revalidatePath("/admin");
   return { success: true };
 }
+
+/** Atualiza os créditos e limites de minutos de um usuário manualmente (somente admin). */
+export async function setUserCredits(
+  userId: string,
+  creditos_minutos: number,
+  limite_max_video_minutos: number
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_admin");
+  if (!isAdmin) return { success: false, error: "Sem permissão" };
+
+  const { createClient: createAdmin } = await import("@supabase/supabase-js");
+  const { supabaseUrl } = await import("@/lib/supabase/env");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!serviceKey) return { success: false, error: "SUPABASE_SERVICE_ROLE_KEY não configurada" };
+
+  const admin = createAdmin(supabaseUrl(), serviceKey);
+  const { error } = await admin
+    .from("usuarios")
+    .update({
+      creditos_minutos: Number(creditos_minutos),
+      limite_max_video_minutos: Number(limite_max_video_minutos),
+    })
+    .eq("id", userId);
+
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { success: true };
+}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cancelJob } from "@/app/actions";
+import { cancelJob, requestClipTrimAction } from "@/app/actions";
 import { fmtClock, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job } from "@/lib/types";
@@ -39,7 +39,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
 
   // Realtime subscription para receber novos logs e atualizações de status instantaneamente
   useEffect(() => {
-    const channel = supabase
+    const jobChannel = supabase
       .channel(`job-detail-${initialJob.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `id=eq.${initialJob.id}` }, (payload) => {
         if (payload.new) {
@@ -51,8 +51,16 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       })
       .subscribe();
 
+    const clipsChannel = supabase
+      .channel(`clips-detail-${initialJob.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clips", filter: `job_id=eq.${initialJob.id}` }, () => {
+        refresh();
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(jobChannel);
+      supabase.removeChannel(clipsChannel);
     };
   }, [supabase, initialJob.id, refresh]);
 
@@ -211,8 +219,46 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       {/* Grade de Clipes Gerados */}
       {job.status === "done" && (
         <section className="stack">
-          <div className="row">
+          <div className="row" style={{ flexWrap: "wrap", gap: "0.75rem", justifyContent: "space-between", alignItems: "center" }}>
             <h2>Clipes Gerados pela IA ({clips.length})</h2>
+
+            {/* Menu de Exportação NLE Profissional */}
+            <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+              <a
+                href={`/api/jobs/${job.id}/export?format=xml`}
+                download
+                className="btn btn-small"
+                style={{
+                  background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+                title="Exportar projeto XML (FCP7) compatível com Adobe Premiere Pro e DaVinci Resolve com preservação da timeline e cortes"
+              >
+                🎬 Exportar XML (Premiere / Resolve)
+              </a>
+
+              <a
+                href={`/api/jobs/${job.id}/export?format=edl`}
+                download
+                className="btn btn-small btn-secondary"
+                title="Exportar lista de cortes EDL CMX 3600 universal para conform e relink com a mídia original"
+              >
+                📄 EDL (CMX 3600)
+              </a>
+
+              <a
+                href={`/api/jobs/${job.id}/export?format=srt`}
+                download
+                className="btn btn-small btn-secondary"
+                title="Baixar legendas em formato SRT sincronizado para todos os clipes"
+              >
+                💬 Legendas SRT
+              </a>
+            </div>
           </div>
 
           <div className="clips-grid">
@@ -236,6 +282,21 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     <span className="muted small">
                       {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
                     </span>
+                    {clip.is_trimming && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: "rgba(245, 158, 11, 0.15)",
+                          color: "#f59e0b",
+                          border: "1px solid rgba(245, 158, 11, 0.3)",
+                          fontSize: "0.75rem",
+                          padding: "0.15rem 0.5rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        ⏳ Re-renderizando corte...
+                      </span>
+                    )}
                   </div>
 
                   <h4 style={{ fontSize: "1rem", lineHeight: 1.35, margin: 0, fontWeight: 700 }}>
@@ -254,20 +315,29 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     </p>
                   )}
 
-                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "auto" }}>
+                  <div style={{ display: "flex", gap: "0.4rem", marginTop: "auto", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ flex: 1, padding: "0.6rem 0.5rem", fontSize: "0.85rem" }}
+                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
                       onClick={() => setEditingClip(clip)}
                       title="Ajustar tempo de corte e criar capa personalizada"
                     >
-                      ✏️ Editar & Capa
+                      ✏️ Editar
                     </button>
+                    <a
+                      href={`/api/jobs/${job.id}/export?format=srt&clipId=${clip.id}`}
+                      download
+                      className="btn btn-secondary"
+                      style={{ padding: "0.55rem 0.5rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center" }}
+                      title="Baixar legenda SRT sincronizada deste clipe específico"
+                    >
+                      💬 SRT
+                    </a>
                     <button
                       type="button"
                       className="btn-cta"
-                      style={{ flex: 1, padding: "0.6rem 0.5rem", fontSize: "0.85rem" }}
+                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
                       onClick={() => download(clip)}
                       disabled={downloading === clip.id}
                     >
@@ -288,15 +358,16 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           clip={editingClip}
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
           onClose={() => setEditingClip(null)}
-          onUpdateClipTime={async (clipId, newStart, newEnd) => {
-            setClips((prev) =>
-              prev.map((c) => (c.id === clipId ? { ...c, start_seconds: newStart, end_seconds: newEnd } : c))
-            );
-            try {
-              await supabase.from("clips").update({ start_seconds: newStart, end_seconds: newEnd }).eq("id", clipId);
-            } catch (err) {
-              console.error("Falha ao salvar timestamps:", err);
+          onUpdateClipTime={async (clipId, trimStart, trimEnd) => {
+            const res = await requestClipTrimAction(clipId, trimStart, trimEnd);
+            if (!res.success) {
+              alert(`Falha ao iniciar recorte: ${res.error}`);
+              return;
             }
+            setClips((prev) =>
+              prev.map((c) => (c.id === clipId ? { ...c, is_trimming: true } : c))
+            );
+            alert("Ajuste solicitado com sucesso! O worker está re-renderizando seu corte em alta definição...");
           }}
         />
       )}

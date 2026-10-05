@@ -15,6 +15,8 @@ export interface AdminUsuario {
   plano_inicio: string | null;
   plano_fim: string | null;
   notas: string | null;
+  creditos_minutos?: number;
+  limite_max_video_minutos?: number;
   created_at: string;
 }
 
@@ -54,7 +56,7 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase
       .from("usuarios")
-      .select("id,email,is_xandao,xandao,pagante,plano,plano_inicio,plano_fim,notas,created_at")
+      .select("id,email,is_xandao,xandao,pagante,plano,plano_inicio,plano_fim,notas,creditos_minutos,limite_max_video_minutos,created_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("jobs")

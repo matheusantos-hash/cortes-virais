@@ -18,9 +18,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   } = await supabase.auth.getUser();
 
   let isAdmin = false;
+  let credits: number | null = null;
   if (user) {
-    const { data } = await supabase.from("usuarios").select("is_xandao").eq("id", user.id).maybeSingle();
+    const { data } = await supabase
+      .from("usuarios")
+      .select("is_xandao, creditos_minutos")
+      .eq("id", user.id)
+      .maybeSingle();
     isAdmin = data?.is_xandao === true;
+    credits = data?.creditos_minutos != null ? Number(data.creditos_minutos) : 30;
   }
 
   return (
@@ -53,6 +59,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {user && (
                 <nav className="user-nav">
                   <span className="user-email hide-sm">{user.email}</span>
+                  {isAdmin ? (
+                    <span
+                      className="badge hide-sm"
+                      style={{
+                        background: "rgba(124, 58, 237, 0.2)",
+                        color: "#c084fc",
+                        border: "1px solid rgba(168, 85, 247, 0.4)",
+                        fontSize: "0.75rem",
+                        padding: "0.2rem 0.5rem",
+                      }}
+                      title="Acesso VIP Ilimitado"
+                    >
+                      ⚡ VIP
+                    </span>
+                  ) : credits !== null ? (
+                    <span
+                      className="badge hide-sm"
+                      style={{
+                        background: credits > 0 ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                        color: credits > 0 ? "#10b981" : "#ef4444",
+                        border: `1px solid ${credits > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                        fontSize: "0.75rem",
+                        padding: "0.2rem 0.5rem",
+                      }}
+                      title="Saldo de minutos disponível"
+                    >
+                      🪙 {credits.toFixed(1)}m
+                    </span>
+                  ) : null}
                   <Link href="/ajuda" className="navlink-help" title="Central de Ajuda">
                     ❓ Ajuda
                   </Link>

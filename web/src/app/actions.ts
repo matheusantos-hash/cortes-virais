@@ -126,3 +126,36 @@ export async function deleteJob(formData: FormData) {
   revalidatePath("/admin");
 }
 
+/** Solicita o re-corte (trimming) do clipe com re-renderização milimétrica no worker */
+export async function requestClipTrimAction(
+  clipId: string,
+  startSec: number,
+  endSec: number
+): Promise<{ success: boolean; jobId?: string; error?: string }> {
+  if (!clipId) return { success: false, error: "ID do clipe não fornecido." };
+  if (startSec < 0 || endSec <= startSec) {
+    return { success: false, error: "Intervalo de corte inválido." };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    const { data: jobId, error: rpcErr } = await supabase.rpc("request_clip_trim", {
+      p_clip_id: clipId,
+      p_start: startSec,
+      p_end: endSec,
+    });
+
+    if (rpcErr) {
+      return { success: false, error: rpcErr.message };
+    }
+
+    revalidatePath("/");
+    return { success: true, jobId };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Falha ao solicitar ajuste de corte." };
+  }
+}
+

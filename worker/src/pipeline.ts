@@ -48,7 +48,7 @@ export async function processVideo(args: {
   workDir: string;
   opts: Options;
   hooks?: Hooks;
-}): Promise<{ clips: Clip[]; files: string[] }> {
+}): Promise<{ clips: Clip[]; files: string[]; editDecisions: import("./types.js").ClipEditDecisions[] }> {
   const { sourcePath, workDir, opts, hooks } = args;
 
   await hooks?.checkCanceled?.();
@@ -126,13 +126,14 @@ export async function processVideo(args: {
   if (opts.dryRun) {
     await hooks?.onLog?.("--dry-run: pulando etapa de renderização de cortes. Veja clips.json.");
     console.log("\n--dry-run: pulando os cortes. Veja clips.json.");
-    return { clips, files: [] };
+    return { clips, files: [], editDecisions: [] };
   }
 
   // Cortes
   await hooks?.onLog?.(`Iniciando corte e renderização de ${clips.length} clipes com FFmpeg...`);
   console.log("\nCortando os clipes…");
   const files: string[] = [];
+  const editDecisions: import("./types.js").ClipEditDecisions[] = [];
   for (const [i, c] of clips.entries()) {
     await hooks?.checkCanceled?.();
     const progressVal = Math.round(60 + (i / clips.length) * 35);
@@ -261,7 +262,7 @@ export async function processVideo(args: {
       }
     }
 
-    await cutClip({
+    const cutRes = await cutClip({
       input: sourcePath,
       output: file,
       start: c.start,
@@ -278,6 +279,40 @@ export async function processVideo(args: {
       onLog: hooks?.onLog,
     });
     files.push(file);
+
+    // Palavras que caem dentro deste corte
+    const clipWords = (words || [])
+      .filter((w) => w.end >= c.start && w.start <= c.end)
+      .map((w) => ({ w: w.punctuated_word || w.word, s: w.start, e: w.end }));
+
+    editDecisions.push({
+      version: 1,
+      renderStart: c.start,
+      orientation: opts.orientation,
+      verticalMode: opts.verticalMode,
+      reframe: opts.orientation === "vertical"
+        ? {
+            centerX: cutRes.cropX,
+            keyframes: cutRes.cropKeyframes?.map((k) => ({ t: k.t, x: k.x })),
+          }
+        : null,
+      splitCenters: cutRes.splitCenters ?? null,
+      zoomPacingSec: cutRes.zoomPacingSec ?? null,
+      colorGrade: shouldColorGrade,
+      brolls: activeBrolls.map((b) => ({
+        offsetSec: b.offsetSec,
+        durationSec: b.durationSec,
+        keyword: c.brolls?.find((item) => Math.abs(item.offsetSec - b.offsetSec) < 0.1)?.keyword || "b-roll",
+        fileName: path.basename(b.filePath),
+        localPath: b.filePath,
+      })),
+      sfx: sfxEvents.map((s) => ({
+        timeSec: s.timeSec,
+        type: s.type,
+        volume: s.volume ?? 0.35,
+      })),
+      words: clipWords,
+    });
   }
-  return { clips, files };
+  return { clips, files, editDecisions };
 }
