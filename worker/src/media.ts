@@ -204,6 +204,10 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
     "bv*[height<=1080]+ba/b[height<=1080]/best",
     "--merge-output-format",
     "mp4",
+    "--external-downloader",
+    "aria2c",
+    "--external-downloader-args",
+    "aria2c:-x 16 -k 1M",
     "-o",
     outPath,
   ];
@@ -240,6 +244,7 @@ export async function extractAudio(videoPath: string, audioPath: string, signal?
     "ffmpeg",
     [
       "-hide_banner", "-loglevel", "error", "-y",
+      "-threads", "2",
       "-i", videoPath,
       "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k",
       audioPath,
@@ -324,6 +329,7 @@ export async function trimClip(opts: {
 
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
+    "-threads", "2",
     "-ss", trimStartSec.toFixed(3),
     "-i", input,
     "-t", duration.toFixed(3),
@@ -385,6 +391,9 @@ export async function cutClip(opts: {
 
   const baseInputs = [
     "-hide_banner", "-loglevel", "error", "-y",
+    "-threads", "2",
+    "-filter_threads", "2",
+    "-filter_complex_threads", "2",
     "-ss", start.toFixed(3),
     "-t", duration.toFixed(3),
     "-i", input,
