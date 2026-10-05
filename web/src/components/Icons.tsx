@@ -41,6 +41,11 @@ import {
   ChevronRight,
   ArrowRight,
   FileCode,
+  TrendingUp,
+  Crown,
+  Coins,
+  Activity,
+  Zap,
   type LucideProps,
 } from "lucide-react";
 
@@ -87,6 +92,11 @@ export {
   ChevronRight,
   ArrowRight,
   FileCode,
+  TrendingUp,
+  Crown,
+  Coins,
+  Activity,
+  Zap,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores
@@ -178,8 +188,29 @@ export function LogOutIcon(props: LucideProps) {
   return <LogOut {...props} />;
 }
 
+export function TrendingUpIcon(props: LucideProps) {
+  return <TrendingUp {...props} />;
+}
+
+export function CrownIcon(props: LucideProps) {
+  return <Crown {...props} />;
+}
+
+export function CoinsIcon(props: LucideProps) {
+  return <Coins {...props} />;
+}
+
+export function ActivityIcon(props: LucideProps) {
+  return <Activity {...props} />;
+}
+
+export function ZapIcon(props: LucideProps) {
+  return <Zap {...props} />;
+}
+
+// Substitui visualmente o foguinho clássico por indicador moderno de alta performance e viralidade
 export function FlameIcon(props: LucideProps) {
-  return <Flame {...props} />;
+  return <TrendingUp {...props} />;
 }
 
 export function XIcon(props: LucideProps) {

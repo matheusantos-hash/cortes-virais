@@ -35,7 +35,8 @@ export default function ModeSelectorCards({ currentMode, onSelectMode }: ModeSel
               <Scissors size={26} />
             </div>
             <span className="mode-card-badge cortes-badge">
-              ⚡ Rápido &amp; Automático
+              <Sparkles size={12} style={{ marginRight: "3px" }} />
+              Rápido &amp; Automático
             </span>
           </div>
 

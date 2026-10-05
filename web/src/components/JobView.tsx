@@ -11,7 +11,7 @@ import StatusBadge from "./StatusBadge";
 import ClipEditorModal from "./ClipEditorModal";
 import {
   DownloadIcon,
-  FlameIcon,
+  TrendingUpIcon,
   SparklesIcon,
   SmartphoneIcon,
   MonitorIcon,
@@ -276,7 +276,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
 
                   <div className="row" style={{ marginTop: "0.2rem" }}>
                     <span className="badge-viral">
-                      <FlameIcon size={14} />
+                      <TrendingUpIcon size={14} />
                       {clip.score ?? 95}/100
                     </span>
                     <span className="muted small">

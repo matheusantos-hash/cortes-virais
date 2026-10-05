@@ -18,7 +18,9 @@ import {
   SlidersIcon,
   XIcon,
   VideoIcon,
-  FlameIcon,
+  TrendingUpIcon,
+  CrownIcon,
+  CoinsIcon,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -41,7 +43,7 @@ function formatBytes(bytes: number): string {
 }
 
 const STYLE_PRESETS = [
-  { id: "ganchos_rapidos", name: "🔥 Ganchos Rápidos (TikTok/Reels)", desc: "Cortes dinâmicos com abertura impactante e ritmo acelerado" },
+  { id: "ganchos_rapidos", name: "Ganchos Rápidos (TikTok/Reels)", desc: "Cortes dinâmicos com abertura impactante e ritmo acelerado" },
   { id: "podcast", name: "🎙️ Podcast & Entrevistas", desc: "Focado em perguntas instigantes, respostas marcantes e diálogos" },
   { id: "storytelling", name: "💡 Storytelling & Reflexão", desc: "Histórias envolventes com começo, meio e desfecho emocionante" },
   { id: "educacional", name: "🧠 Educacional & Dicas Práticas", desc: "Explicações diretas ao ponto com alto valor informativo" },
@@ -304,10 +306,13 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 color: "#c084fc",
                 border: "1px solid rgba(168, 85, 247, 0.4)",
                 fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
               }}
               title="Conta com acesso irrestrito"
             >
-              ⚡ VIP Ilimitado
+              <CrownIcon size={13} style={{ color: "#c084fc" }} /> VIP Ilimitado
             </span>
           ) : credits !== null ? (
             <span
@@ -709,7 +714,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                       onChange={(e) => setBrollSource(e.target.value as "pexels" | "higgsfield")}
                       style={{ marginTop: "0.25rem", fontSize: "0.85rem" }}
                     >
-                      <option value="higgsfield">🔥 Higgsfield AI (Vídeos Cinematográficos Gerados por IA)</option>
+                      <option value="higgsfield">Higgsfield AI (Vídeos Cinematográficos Gerados por IA)</option>
                       <option value="pexels">Pixabay (Banco de Vídeos Gratuito)</option>
                     </select>
                   </label>
@@ -794,10 +799,10 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               onChange={(e) => setSubtitleStyle(e.target.value as any)}
               style={{ marginTop: "0.3rem" }}
             >
-              <option value="hormozi">🔥 Hormozi Bold (Amarelo vibrante, contorno preto espesso)</option>
-              <option value="apple">🍏 Apple Minimal (Tipografia limpa, cantos suaves, estilo Apple)</option>
-              <option value="beast">⚡ Beast Pop (Cores neon dinâmicas e ritmo ultra-rápido)</option>
-              <option value="minimal">🎙️ Minimal Podcast (Subtítulo discreto e refinado na base)</option>
+              <option value="hormozi">Hormozi Bold (Amarelo vibrante, contorno preto espesso)</option>
+              <option value="apple">Apple Minimal (Tipografia limpa, cantos suaves, estilo Apple)</option>
+              <option value="beast">Beast Pop (Cores neon dinâmicas e ritmo ultra-rápido)</option>
+              <option value="minimal">Minimal Podcast (Subtítulo discreto e refinado na base)</option>
             </select>
           </label>
 
@@ -810,7 +815,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
               />
               <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-                ✨ Injetar Emojis Automáticos (🔥, 🚀, 💰, ⚠️)
+                ✨ Injetar Emojis Automáticos (🚀, 💰, 💡, 🎯)
               </span>
             </label>
 

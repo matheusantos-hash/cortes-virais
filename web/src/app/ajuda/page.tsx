@@ -218,11 +218,11 @@ export default function AjudaPage() {
             </p>
             <div className="help-grid">
               <div className="help-mini">
-                <strong>🔥 Hormozi Bold</strong>
+                <strong>Hormozi Bold</strong>
                 <span>Caixa alta, fonte pesada, palavra ativa em amarelo e contorno preto espesso. O mais usado em cortes.</span>
               </div>
               <div className="help-mini">
-                <strong>⚡ Beast Pop</strong>
+                <strong>Beast Pop</strong>
                 <span>Fonte Impact, 2 palavras por vez e cores neon que mudam a cada bloco. Ritmo frenético.</span>
               </div>
               <div className="help-mini">
@@ -259,7 +259,7 @@ export default function AjudaPage() {
             </p>
             <div className="help-grid help-grid-2">
               <div className="help-mini">
-                <strong>🔥 Higgsfield AI (gerado por IA)</strong>
+                <strong>Higgsfield AI (gerado por IA)</strong>
                 <span>
                   Cria uma cena cinematográfica inédita a partir de uma descrição visual. Gera <strong>1 B-Roll por
                   corte</strong>, no momento de maior impacto — normalmente nos primeiros segundos, para reforçar o
@@ -365,7 +365,7 @@ export default function AjudaPage() {
                 </span>
               </div>
               <div className="help-mini">
-                <strong>⚡ Relink com Mídia Original (RAW/4K)</strong>
+                <strong>Conform / Relink com Mídia Original (RAW/4K)</strong>
                 <span>
                   Como o XML referencia o nome original do arquivo e o timecode exato da gravação, basta clicar com o botão
                   direito na mídia no Premiere/Resolve e selecionar <em>Link Media / Relink</em> apontando para o seu arquivo master.

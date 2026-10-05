@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Clip } from "@/lib/types";
 import { fmtClock } from "@/lib/format";
-import { DownloadIcon, SparklesIcon, XIcon, FlameIcon } from "./Icons";
+import { DownloadIcon, SparklesIcon, XIcon, TrendingUpIcon } from "./Icons";
 
 interface ClipEditorModalProps {
   clip: Clip;
@@ -122,14 +122,14 @@ export default function ClipEditorModal({
     });
 
     // 4. Badge viral no topo
-    ctx.fillStyle = "#EF4444";
+    ctx.fillStyle = "#6366F1";
     ctx.beginPath();
-    ctx.roundRect(420, 170, 240, 56, 28);
+    ctx.roundRect(400, 168, 280, 56, 28);
     ctx.fill();
 
-    ctx.font = "800 28px Arial, sans-serif";
+    ctx.font = "800 24px Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText("🔥 VIRAL", 540, 198);
+    ctx.fillText("★ TOP VIRAL", 540, 204);
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
     setCapturedThumbUrl(dataUrl);

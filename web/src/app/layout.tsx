@@ -4,7 +4,7 @@ import { signOut } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
-import { ScissorsIcon, ShieldIcon, LogOutIcon } from "@/components/Icons";
+import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: "Cortes Virais",
@@ -68,10 +68,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         border: "1px solid rgba(168, 85, 247, 0.4)",
                         fontSize: "0.75rem",
                         padding: "0.2rem 0.5rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
                       }}
                       title="Acesso VIP Ilimitado"
                     >
-                      ⚡ VIP
+                      <CrownIcon size={12} /> VIP
                     </span>
                   ) : credits !== null ? (
                     <span
@@ -82,10 +85,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         border: `1px solid ${credits > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
                         fontSize: "0.75rem",
                         padding: "0.2rem 0.5rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
                       }}
                       title="Saldo de minutos disponível"
                     >
-                      🪙 {credits.toFixed(1)}m
+                      <CoinsIcon size={12} /> {credits.toFixed(1)}m
                     </span>
                   ) : null}
                   <Link href="/ajuda" className="navlink-help" title="Central de Ajuda">

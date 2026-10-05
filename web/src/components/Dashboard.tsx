@@ -14,7 +14,8 @@ import StatusBadge from "./StatusBadge";
 import {
   DownloadIcon,
   TrashIcon,
-  FlameIcon,
+  TrendingUpIcon,
+  ActivityIcon,
   SparklesIcon,
   AlertCircleIcon,
   CheckCircleIcon,
@@ -226,8 +227,8 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
 
             {/* Mensagem da Etapa Atual */}
             <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-              <span className="stage-pill">
-                <span>⚡</span> {getStageDescription(activeJob.status)}
+              <span className="stage-pill" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <ActivityIcon size={14} style={{ color: "var(--primary)" }} /> {getStageDescription(activeJob.status)}
               </span>
 
               <div className="row" style={{ gap: "0.5rem" }}>
@@ -391,7 +392,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                             {/* Informações e Badge de Viralidade */}
                             <div className="row" style={{ marginTop: "0.2rem" }}>
                               <span className="badge-viral">
-                                <FlameIcon size={14} />
+                                <TrendingUpIcon size={14} />
                                 {clip.score ?? 95}/100
                               </span>
                               <span className="muted small">

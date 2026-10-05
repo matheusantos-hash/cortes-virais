@@ -615,14 +615,15 @@ button:disabled, .button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: linear-gradient(135deg, rgba(219, 39, 119, 0.1), rgba(79, 70, 229, 0.1));
-  border: 1px solid rgba(219, 39, 119, 0.25);
-  color: var(--accent);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(79, 70, 229, 0.12));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
   padding: 0.25rem 0.65rem;
   border-radius: 8px;
   font-weight: 700;
   font-size: 0.82rem;
   font-family: 'JetBrains Mono', monospace;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* Active Processing Card */

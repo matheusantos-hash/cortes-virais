@@ -23,7 +23,7 @@ import {
   Palette,
   Settings2,
   FileCode,
-  Flame,
+  TrendingUp,
   X,
 } from "./Icons";
 
@@ -41,7 +41,7 @@ function safeName(name: string): string {
 const PRESET_REFERENCES: SavedReference[] = [
   {
     id: "preset-hormozi",
-    name: "🔥 Alex Hormozi - Alta Retenção & Letras Amarelas",
+    name: "Alex Hormozi - Alta Retenção & Letras Amarelas",
     reference_type: "link",
     reference_url: "https://www.youtube.com/shorts/hormozi-style-sample",
     style_category: "Ganchos Rápidos",
@@ -534,7 +534,14 @@ export default function CopyStyleStudio({
 
       let { error: insErr } = await supabase.from("jobs").insert(jobPayload);
 
-      // Tratamento com fallback se colunas novas não estiverem presentes
+      // Tratamento com fallback se colunas novas não estiverem presentes no schema cache
+      if (insErr && (insErr.message.includes("file_name") || insErr.message.includes("source_meta"))) {
+        delete jobPayload.file_name;
+        delete jobPayload.source_meta;
+        const retry = await supabase.from("jobs").insert(jobPayload);
+        insErr = retry.error;
+      }
+
       if (insErr && (insErr.message.includes("manual_adjustments") || insErr.message.includes("export_settings"))) {
         delete jobPayload.manual_adjustments;
         delete jobPayload.export_settings;
@@ -546,6 +553,15 @@ export default function CopyStyleStudio({
         delete jobPayload.subtitle_style;
         delete jobPayload.enable_sfx;
         delete jobPayload.enable_emojis;
+        const retry = await supabase.from("jobs").insert(jobPayload);
+        insErr = retry.error;
+      }
+
+      if (insErr && (insErr.message.includes("reference_type") || insErr.message.includes("reference_url") || insErr.message.includes("reference_path") || insErr.message.includes("reference_style"))) {
+        delete jobPayload.reference_type;
+        delete jobPayload.reference_url;
+        delete jobPayload.reference_path;
+        delete jobPayload.reference_style;
         const retry = await supabase.from("jobs").insert(jobPayload);
         insErr = retry.error;
       }
@@ -841,10 +857,10 @@ export default function CopyStyleStudio({
                     value={subtitleStyle}
                     onChange={(e) => setSubtitleStyle(e.target.value as SubtitleStyle)}
                   >
-                    <option value="hormozi">🔥 Hormozi Pop (Impacto &amp; Contorno)</option>
-                    <option value="beast">⚡ MrBeast Neon (Verde/Amarelo)</option>
-                    <option value="apple">🍏 Apple Clean (Minimalista Elegante)</option>
-                    <option value="minimal">⚪ Discreto &amp; Neutro</option>
+                    <option value="hormozi">Hormozi Pop (Impacto &amp; Contorno)</option>
+                    <option value="beast">Beast Neon (Verde/Amarelo)</option>
+                    <option value="apple">Apple Clean (Minimalista Elegante)</option>
+                    <option value="minimal">Discreto &amp; Neutro</option>
                   </select>
                 </div>
 
@@ -941,9 +957,9 @@ export default function CopyStyleStudio({
                     value={hookSensitivity}
                     onChange={(e) => setHookSensitivity(e.target.value as any)}
                   >
-                    <option value="extreme">🔥 Extrema (Priorizar 3s mais chocantes)</option>
-                    <option value="balanced">⚡ Balanceada (Retenção &amp; Contexto)</option>
-                    <option value="subtle">📖 Suave (Narrativa Contínua)</option>
+                    <option value="extreme">Prioridade Máxima (Momentos de Alto Impacto)</option>
+                    <option value="balanced">Equilibrada (Retenção &amp; Contexto)</option>
+                    <option value="subtle">Narrativa Suave (Fluidez Contínua)</option>
                   </select>
                 </div>
 
@@ -954,9 +970,9 @@ export default function CopyStyleStudio({
                     value={cutPacing}
                     onChange={(e) => setCutPacing(e.target.value as any)}
                   >
-                    <option value="ultra_fast">⚡ Ultra Rápido (1 a 3 segundos)</option>
-                    <option value="dynamic">🎬 Dinâmico (3 a 5 segundos)</option>
-                    <option value="smooth">🌊 Fluido / Conversação (5 a 8s)</option>
+                    <option value="ultra_fast">Ultra Dinâmico (1 a 3 segundos)</option>
+                    <option value="dynamic">Dinâmico Social (3 a 5 segundos)</option>
+                    <option value="smooth">Fluido / Conversação (5 a 8s)</option>
                   </select>
                 </div>
 

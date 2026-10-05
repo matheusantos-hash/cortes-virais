@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
+import { Cpu, Clock, Film, HardDrive, FileText, CheckCircle, TrendingUp } from "lucide-react";
 
 interface Props {
   jobs: Job[];
@@ -126,32 +127,32 @@ export default function ResourcesTab({ jobs }: Props) {
       {/* Cards de métricas */}
       <div className="resource-cards">
         <div className="resource-card">
-          <div className="rc-icon">⚡</div>
+          <div className="rc-icon"><Cpu size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">{formatDuration(metrics.totalProcessSec)}</div>
           <div className="rc-label">Tempo total de processamento</div>
         </div>
         <div className="resource-card">
-          <div className="rc-icon">⏱️</div>
+          <div className="rc-icon"><Clock size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">{formatDuration(metrics.avgProcessSec)}</div>
           <div className="rc-label">Tempo médio por job</div>
         </div>
         <div className="resource-card">
-          <div className="rc-icon">🎬</div>
+          <div className="rc-icon"><Film size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">{metrics.totalClips}</div>
           <div className="rc-label">Clipes gerados no período</div>
         </div>
         <div className="resource-card">
-          <div className="rc-icon">💾</div>
+          <div className="rc-icon"><HardDrive size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">~{metrics.estimatedStorageMB >= 1024 ? `${(metrics.estimatedStorageMB / 1024).toFixed(1)} GB` : `${metrics.estimatedStorageMB} MB`}</div>
           <div className="rc-label">Armazenamento estimado (clipes)</div>
         </div>
         <div className="resource-card">
-          <div className="rc-icon">📋</div>
+          <div className="rc-icon"><FileText size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">{metrics.total}</div>
           <div className="rc-label">Jobs no período</div>
         </div>
         <div className="resource-card">
-          <div className="rc-icon">✅</div>
+          <div className="rc-icon"><CheckCircle size={22} style={{ color: "var(--primary)" }} /></div>
           <div className="rc-value">{metrics.done}</div>
           <div className="rc-label">Jobs concluídos</div>
         </div>
@@ -179,7 +180,10 @@ export default function ResourcesTab({ jobs }: Props) {
 
       {/* Tabela: jobs mais pesados */}
       <div className="chart-section">
-        <h3 className="chart-title">🔥 Jobs com maior tempo de processamento</h3>
+        <h3 className="chart-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <TrendingUp size={18} style={{ color: "var(--accent)" }} />
+          Jobs com maior tempo de processamento
+        </h3>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
