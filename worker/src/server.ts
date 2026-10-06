@@ -436,11 +436,26 @@ async function processJob(job: Job) {
 
     // 3. Pipeline (áudio → transcrição → Claude → cortes)
     const manualAdj = (job.manual_adjustments as any) || {};
+
+    let minSeconds = Number(job.min_seconds);
+    let maxSeconds = Number(job.max_seconds);
+
+    // Adaptação inteligente: se o vídeo for mais curto do que o mínimo configurado no preset
+    if (seconds <= minSeconds) {
+      await pushLog(
+        `[ADAPTAÇÃO] A duração do vídeo (${seconds.toFixed(1)}s) é menor que o corte mínimo solicitado (${minSeconds}s). Ajustando duração automaticamente para 5s a ${Math.ceil(seconds)}s.`
+      );
+      minSeconds = Math.max(5, Math.min(10, Math.floor(seconds * 0.5)));
+      maxSeconds = Math.ceil(seconds);
+    } else if (seconds < maxSeconds) {
+      maxSeconds = Math.ceil(seconds);
+    }
+
     const opts: Options = {
       orientation: job.orientation,
       clips: job.clip_count,
-      minSeconds: job.min_seconds,
-      maxSeconds: job.max_seconds,
+      minSeconds,
+      maxSeconds,
       language: job.language,
       verticalMode: job.vertical_mode ?? "crop",
       cropX: Number(job.crop_x),

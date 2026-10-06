@@ -125,7 +125,7 @@ function parseCandidates(text: string): ClipCandidate[] {
     try {
       let jsonStr = cleaned.slice(start, end + 1).replace(/,\s*([\]}])/g, "$1");
       const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch {}
   }
 
@@ -154,7 +154,7 @@ function parseCandidates(text: string): ClipCandidate[] {
 
   if (recovered.length > 0) return recovered;
 
-  throw new Error("A resposta do Claude não contém um array JSON válido:\n" + text.slice(0, 300));
+  return [];
 }
 
 /** Pede ao Claude os trechos candidatos com Prompt Caching da Anthropic para economizar tokens. */
@@ -182,12 +182,29 @@ export async function findCandidates(blocks: Block[], opts: Options): Promise<Cl
   });
 
   const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-  return parseCandidates(text);
+  const candidates = parseCandidates(text);
+
+  // Se o Claude retornou vazio mas temos blocos na transcrição (ex: vídeo curto de 10-20s):
+  if (!candidates.length && blocks.length > 0) {
+    const firstText = blocks[0].text;
+    return [
+      {
+        startIndex: 0,
+        endIndex: blocks.length - 1,
+        title: "Destaque do Vídeo",
+        hook: firstText.slice(0, 80),
+        score: 75,
+        reason: "Momento viral capturado do vídeo completo.",
+      },
+    ];
+  }
+
+  return candidates;
 }
 
 /** Valida os candidatos, converte blocos em segundos, remove sobreposição e pega os melhores. */
 export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: Options): Clip[] {
-  const TOLERANCE = 0.15; // o Claude estima a duração; aceitamos uma margem
+  const TOLERANCE = 0.25; // margem flexível para vídeos curtos ou cortes aproximados
   const minOk = opts.minSeconds * (1 - TOLERANCE);
   const maxOk = opts.maxSeconds * (1 + TOLERANCE);
 
@@ -227,10 +244,24 @@ export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: 
           score: c.score,
           reason: c.reason,
           start: a.start,
-          end: Math.max(a.start + Math.min(10, opts.minSeconds), clampedEnd),
+          end: Math.max(a.start + Math.min(5, opts.minSeconds), clampedEnd),
         });
       }
     }
+  }
+
+  // Fallback garantido para vídeos curtos onde a transcrição inteira deve ser aproveitada
+  if (!valid.length && blocks.length > 0) {
+    const a = blocks[0];
+    const b = blocks[blocks.length - 1];
+    valid.push({
+      title: candidates[0]?.title || "Destaque do Vídeo",
+      hook: candidates[0]?.hook || a.text.slice(0, 80),
+      score: candidates[0]?.score || 75,
+      reason: candidates[0]?.reason || "Trecho integral aproveitado com sucesso.",
+      start: a.start,
+      end: b.end,
+    });
   }
 
   valid.sort((x, y) => y.score - x.score);

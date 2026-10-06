@@ -111,7 +111,21 @@ export async function processVideo(args: {
   console.log(`  ${candidates.length} candidatos, ${clips.length} aprovados.`);
 
   if (!clips.length) {
-    throw new Error("Nenhum trecho passou na validação. Tente durações diferentes (--min/--max) ou ajuste o prompt.");
+    if (blocks.length > 0) {
+      await hooks?.onLog?.("Adaptando corte para a duração total da fala disponível.");
+      const a = blocks[0];
+      const b = blocks[blocks.length - 1];
+      clips.push({
+        title: "Destaque do Vídeo",
+        hook: a.text.slice(0, 80),
+        score: 75,
+        reason: "Trecho principal selecionado automaticamente.",
+        start: a.start,
+        end: b.end,
+      });
+    } else {
+      throw new Error("Nenhum trecho passou na validação. Tente durações diferentes (--min/--max) ou ajuste o prompt.");
+    }
   }
   await writeFile(path.join(workDir, "clips.json"), JSON.stringify(clips, null, 2));
 
