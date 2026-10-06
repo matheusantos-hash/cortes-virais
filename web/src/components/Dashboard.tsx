@@ -60,7 +60,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   const refresh = useCallback(async () => {
     const { data } = await supabase
       .from("jobs")
-      .select("*, clips (*)")
+      .select("*, clips:clips!clips_job_id_fkey (*)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(30);

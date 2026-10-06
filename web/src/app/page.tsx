@@ -14,7 +14,7 @@ export default async function HomePage() {
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("*, clips (*)")
+    .select("*, clips:clips!clips_job_id_fkey (*)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
