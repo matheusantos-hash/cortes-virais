@@ -391,6 +391,11 @@ export default function CopyStyleStudio({
         });
         if (refUpErr) throw new Error(`Falha no upload do vídeo de referência: ${refUpErr.message}`);
         refPath = path;
+      } else if (selectedRefId) {
+        const existingRef = savedRefs.find((r) => r.id === selectedRefId);
+        if (existingRef?.reference_path) {
+          refPath = existingRef.reference_path;
+        }
       }
 
       // 2. Salvar na biblioteca de referências se o usuário solicitou
