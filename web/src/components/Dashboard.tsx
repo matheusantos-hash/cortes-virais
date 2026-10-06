@@ -72,7 +72,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     const allPaths: string[] = [];
     jobs.forEach((j) => {
       j.clips?.forEach((c) => {
-        if (c.file_path) {
+        if (c.file_path && !urls[c.file_path]) {
           allPaths.push(c.file_path);
         }
       });
@@ -80,28 +80,20 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
 
     if (allPaths.length === 0) return;
 
-    // Filtra apenas caminhos que ainda não têm URL gerada
-    setUrls((prev) => {
-      const missing = allPaths.filter((p) => !prev[p]);
-      if (missing.length === 0) return prev;
-
-      supabase.storage
-        .from("clips")
-        .createSignedUrls(missing, 3600)
-        .then(({ data }) => {
-          if (!data) return;
-          setUrls((current) => {
-            const next = { ...current };
-            data.forEach((d) => {
-              if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
-            });
-            return next;
+    supabase.storage
+      .from("clips")
+      .createSignedUrls(allPaths, 3600)
+      .then(({ data }) => {
+        if (!data) return;
+        setUrls((current) => {
+          const next = { ...current };
+          data.forEach((d) => {
+            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
           });
+          return next;
         });
-
-      return prev;
-    });
-  }, [jobs, supabase]);
+      });
+  }, [jobs, supabase, urls]);
 
   async function handleCancel(jobId: string) {
     if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;

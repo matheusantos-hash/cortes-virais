@@ -90,7 +90,8 @@ ${referenceGuidelines}
 Encontre até ${candidateCount} trechos candidatos. Regras:
 - Duração de cada trecho: entre ${opts.minSeconds} e ${opts.maxSeconds} segundos (estime pelos horários de início dos blocos).
 - Um trecho vai do bloco "startIndex" até o bloco "endIndex", inclusive. Use apenas números de blocos que existem.
-- O primeiro bloco deve ser o gancho.${brollRules}
+- Seja objetivo e conciso nos campos 'hook' e 'reason' (máximo 1 a 2 frases) para manter a resposta compacta.
+${brollRules}
 
 Formato de cada item do array:
 {
@@ -114,16 +115,46 @@ function parseCandidates(text: string): ClipCandidate[] {
   }
 
   const start = cleaned.indexOf("[");
-  const end = cleaned.lastIndexOf("]");
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error("A resposta do Claude não contém um array JSON válido:\n" + text.slice(0, 300));
+  if (start === -1) {
+    throw new Error("A resposta do Claude não contém um array JSON:\n" + text.slice(0, 300));
   }
 
-  let jsonStr = cleaned.slice(start, end + 1);
-  // Remove trailing commas acidentais antes de fechamento de objeto ou array
-  jsonStr = jsonStr.replace(/,\s*([\]}])/g, "$1");
+  // 1. Tentativa padrão se o array fechou normalmente com ']'
+  const end = cleaned.lastIndexOf("]");
+  if (end > start) {
+    try {
+      let jsonStr = cleaned.slice(start, end + 1).replace(/,\s*([\]}])/g, "$1");
+      const parsed = JSON.parse(jsonStr);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
 
-  return JSON.parse(jsonStr);
+  // 2. Recuperação inteligente se foi truncado antes do ']': fecha na última chave '}' completa
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (lastBrace > start) {
+    try {
+      let sub = cleaned.slice(start, lastBrace + 1).replace(/,\s*$/, "");
+      const closed = sub + "\n]";
+      const parsed = JSON.parse(closed.replace(/,\s*([\]}])/g, "$1"));
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+
+  // 3. Recuperação granular por item individual via regex
+  const itemMatches = cleaned.match(/\{\s*"startIndex"[\s\S]*?\}/g) || [];
+  const recovered: ClipCandidate[] = [];
+  for (const m of itemMatches) {
+    try {
+      const obj = JSON.parse(m.replace(/,\s*([\]}])/g, "$1"));
+      if (typeof obj.startIndex === "number" && typeof obj.endIndex === "number") {
+        recovered.push(obj);
+      }
+    } catch {}
+  }
+
+  if (recovered.length > 0) return recovered;
+
+  throw new Error("A resposta do Claude não contém um array JSON válido:\n" + text.slice(0, 300));
 }
 
 /** Pede ao Claude os trechos candidatos com Prompt Caching da Anthropic para economizar tokens. */
@@ -133,7 +164,8 @@ export async function findCandidates(blocks: Block[], opts: Options): Promise<Cl
   const client = new Anthropic();
   const candidateCount = Math.ceil(opts.clips * 1.5); // pede a mais; alguns serão descartados
   const model = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
-  const dynamicMaxTokens = Math.min(4000, Math.max(1500, candidateCount * 280));
+  // Aumenta margem de tokens para 4096 para garantir que todas as análises caibam sem truncar
+  const dynamicMaxTokens = Math.min(6000, Math.max(3000, candidateCount * 450));
 
   const res = await client.messages.create({
     model,

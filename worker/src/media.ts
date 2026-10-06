@@ -215,7 +215,12 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
   // Drible de bloqueio anti-bot do YouTube:
   // 1. Alterna o cliente para iOS e Android (que não passam pelo bot-check restritivo de browser)
   if (/youtube\.com|youtu\.be/i.test(norm.url)) {
-    args.push("--extractor-args", "youtube:player_client=ios,android,web");
+    args.push(
+      "--retries", "5",
+      "--fragment-retries", "5",
+      "--retry-sleep", "2",
+      "--extractor-args", "youtube:player_client=ios,android,web"
+    );
     
     // 2. Se houver cookies configurados via env var YOUTUBE_COOKIES, injeta automaticamente
     const cookiesPath = getCookiesPath();
