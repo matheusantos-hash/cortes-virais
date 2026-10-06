@@ -592,15 +592,15 @@ async function processJob(job: Job) {
 async function main() {
   console.log(`Worker iniciado com ID [${WORKER_ID}]. Esperando jobs…`);
 
-  // Resgata apenas jobs que estavam travados sob o lease DESTE worker específico antes de reiniciar
+  // Resgata jobs que travaram no estado "em processamento" devido a restart abrupto de qualquer worker
+  // (no Railway o hostname muda a cada deploy/restart, entao limpar pelo WORKER_ID atual falha)
   await supabase
     .from("jobs")
     .update({
       status: "failed",
-      error: "Processamento interrompido (o container deste worker reiniciou).",
+      error: "Processamento interrompido (o servidor do worker foi reiniciado ou crashou).",
       finished_at: new Date().toISOString(),
     })
-    .eq("locked_by", WORKER_ID)
     .in("status", IN_PROGRESS);
 
   const stop = () => {

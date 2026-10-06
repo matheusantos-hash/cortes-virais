@@ -204,10 +204,6 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
     "bv*[height<=1080]+ba/b[height<=1080]/best",
     "--merge-output-format",
     "mp4",
-    "--external-downloader",
-    "aria2c",
-    "--external-downloader-args",
-    "aria2c:-x 16 -k 1M",
     "-o",
     outPath,
   ];
