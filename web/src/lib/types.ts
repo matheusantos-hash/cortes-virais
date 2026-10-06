@@ -68,6 +68,8 @@ export interface Job {
   use_broll?: boolean;
   broll_source?: "auto" | "pexels" | "higgsfield" | "none";
   subtitle_style?: SubtitleStyle;
+  custom_font_path?: string | null;
+  custom_font_name?: string | null;
   enable_sfx?: boolean;
   enable_emojis?: boolean;
   status: JobStatus;
@@ -90,6 +92,8 @@ export interface ManualAdjustments {
     positionY?: "bottom" | "center-bottom" | "center";
     enableEmojis?: boolean;
     karaokeHighlight?: boolean;
+    customFontPath?: string | null;
+    customFontName?: string | null;
   };
   keyMoments?: {
     hookSensitivity?: "extreme" | "balanced" | "subtle";
@@ -125,6 +129,8 @@ export interface SavedReference {
   reference_type: "upload" | "link" | "preset";
   reference_url?: string | null;
   reference_path?: string | null;
+  custom_font_path?: string | null;
+  custom_font_name?: string | null;
   style_category?: string;
   subtitle_style?: SubtitleStyle;
   design_instructions?: string | null;

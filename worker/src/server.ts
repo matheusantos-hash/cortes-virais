@@ -8,6 +8,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { CanceledError, downloadVideo, probeDuration, probeSource, trimClip, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
+import { prepareCustomFont } from "./fonts.js";
 import type { Options, Orientation, VerticalMode } from "./types.js";
 
 const rawUrl = process.env.SUPABASE_URL?.trim();
@@ -75,6 +76,8 @@ interface Job {
   enable_emojis?: boolean;
   manual_adjustments?: Record<string, any> | null;
   export_settings?: Record<string, any> | null;
+  custom_font_path?: string | null;
+  custom_font_name?: string | null;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -362,6 +365,34 @@ async function processJob(job: Job) {
       }
     }
 
+    // 1.2 Obter fonte tipográfica personalizada (se fornecida para as legendas)
+    let customFontName: string | null = null;
+    let fontsDir: string | null = null;
+    const fontStoragePath = job.custom_font_path || (job.manual_adjustments as any)?.subtitles?.customFontPath;
+    const requestedFontName = job.custom_font_name || (job.manual_adjustments as any)?.subtitles?.customFontName;
+
+    if (fontStoragePath) {
+      try {
+        await pushLog("Baixando arquivo de fonte tipográfica customizada enviada pelo usuário...");
+        const fontExt = path.extname(fontStoragePath) || ".ttf";
+        const localFontRaw = path.join(workDir, `raw_font${fontExt}`);
+        await downloadUpload(fontStoragePath, localFontRaw, abortCtrl.signal);
+
+        const prepared = await prepareCustomFont({
+          inputPath: localFontRaw,
+          outDir: path.join(workDir, "fonts"),
+          requestedName: requestedFontName,
+        });
+
+        customFontName = prepared.fontName;
+        fontsDir = prepared.fontsDir;
+        await pushLog(`[FONTE TIPOGRÁFICA] Fonte "${customFontName}" pronta e carregada para queima nas legendas.`);
+      } catch (err: any) {
+        console.error(`[${job.id}] Falha ao processar fonte customizada:`, err);
+        await pushLog(`[AVISO] Não foi possível carregar a fonte customizada (${err?.message || "erro"}). Usando tipografia padrão.`);
+      }
+    }
+
     // 2. Limite de duração e Verificação/Débito Atômico de Créditos
     let seconds: number;
     let sourceMeta: import("./types.js").SourceMeta | null = null;
@@ -471,6 +502,8 @@ async function processJob(job: Job) {
       enableSfx: job.enable_sfx ?? manualAdj?.soundDesign?.enableSfx ?? true,
       enableEmojis: job.enable_emojis ?? manualAdj?.subtitles?.enableEmojis ?? true,
       dynamicZoom: manualAdj?.keyMoments?.smartPunchInZoom !== false,
+      customFontName,
+      fontsDir,
       force: false,
       dryRun: false,
     };

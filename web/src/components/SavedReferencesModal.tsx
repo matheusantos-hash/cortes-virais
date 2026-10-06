@@ -12,6 +12,7 @@ import {
   Layers,
   Subtitles,
   SlidersHorizontal,
+  Type,
 } from "./Icons";
 
 interface SavedReferencesModalProps {
@@ -193,6 +194,20 @@ export default function SavedReferencesModal({
                       >
                         <Subtitles size={11} style={{ marginRight: "3px", verticalAlign: "middle" }} />
                         {ref.subtitle_style.toUpperCase()}
+                      </span>
+                    )}
+                    {(ref.custom_font_name || ref.manual_adjustments?.subtitles?.customFontName) && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: "var(--bg-subtle)",
+                          color: "var(--primary)",
+                          fontSize: "0.72rem",
+                          border: "1px solid var(--primary-light)",
+                        }}
+                      >
+                        <Type size={11} style={{ marginRight: "3px", verticalAlign: "middle" }} />
+                        {ref.custom_font_name || ref.manual_adjustments?.subtitles?.customFontName}
                       </span>
                     )}
                   </div>

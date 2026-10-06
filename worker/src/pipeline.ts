@@ -243,6 +243,7 @@ export async function processVideo(args: {
         opts: {
           style: opts.subtitleStyle ?? "hormozi",
           highlightColor: opts.highlightColor,
+          fontName: opts.customFontName ?? undefined,
           enableEmojis: opts.enableEmojis !== false,
         },
       });
@@ -293,6 +294,7 @@ export async function processVideo(args: {
       cropX: opts.cropX,
       brolls: activeBrolls,
       subtitlesPath: subFile,
+      fontsDir: opts.fontsDir ?? undefined,
       dynamicPacingSec: dynamicPacing,
       colorGrade: shouldColorGrade,
       sfxEvents,

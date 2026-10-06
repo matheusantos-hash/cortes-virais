@@ -80,6 +80,9 @@ export interface Options {
   enableEmojis?: boolean;
   dynamicZoom?: boolean;
   colorGrade?: boolean;
+  customFontPath?: string | null;
+  customFontName?: string | null;
+  fontsDir?: string | null;
   force: boolean;
   dryRun: boolean;
 }

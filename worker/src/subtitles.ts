@@ -181,6 +181,11 @@ export async function generateViralAssSubtitles(params: {
       break;
   }
 
+  // Se uma fonte customizada for fornecida, prioriza seu nome com fallbacks do sistema
+  if (opts.fontName) {
+    fontName = `${opts.fontName}, DejaVu Sans, Liberation Sans, Arial`;
+  }
+
   const header = `[Script Info]
 Title: Cortes Virais Dynamic Subtitles
 ScriptType: v4.00+

@@ -365,6 +365,7 @@ export async function cutClip(opts: {
   cropX: number;
   brolls?: ActiveBroll[];
   subtitlesPath?: string;
+  fontsDir?: string;
   dynamicPacingSec?: number;
   colorGrade?: boolean;
   sfxEvents?: SfxEvent[];
@@ -381,6 +382,7 @@ export async function cutClip(opts: {
     cropX,
     brolls = [],
     subtitlesPath,
+    fontsDir,
     dynamicPacingSec,
     colorGrade = false,
     sfxEvents = [],
@@ -550,7 +552,12 @@ export async function cutClip(opts: {
     onLog?.(`[LEGENDAS] Queimando legendas animadas palavra por palavra no vídeo...`);
     const safeAssPath = subtitlesPath.replace(/\\/g, "/").replace(/:/g, "\\:");
     const subbedLayer = "subbed_v";
-    filterParts.push(`[${currentLayer}]ass='${safeAssPath}'[${subbedLayer}]`);
+    if (fontsDir && existsSync(fontsDir)) {
+      const safeFontsDir = fontsDir.replace(/\\/g, "/").replace(/:/g, "\\:");
+      filterParts.push(`[${currentLayer}]ass='${safeAssPath}':fontsdir='${safeFontsDir}'[${subbedLayer}]`);
+    } else {
+      filterParts.push(`[${currentLayer}]ass='${safeAssPath}'[${subbedLayer}]`);
+    }
     currentLayer = subbedLayer;
   }
 

@@ -46,6 +46,7 @@ import {
   Coins,
   Activity,
   Zap,
+  Type,
   type LucideProps,
 } from "lucide-react";
 
@@ -97,6 +98,7 @@ export {
   Coins,
   Activity,
   Zap,
+  Type,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores

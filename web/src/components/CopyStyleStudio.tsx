@@ -25,6 +25,8 @@ import {
   FileCode,
   TrendingUp,
   X,
+  Type,
+  Trash2,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -212,6 +214,34 @@ export default function CopyStyleStudio({
   const [enableEmojis, setEnableEmojis] = useState(true);
   const [karaokeHighlight, setKaraokeHighlight] = useState(true);
 
+  // Fonte Tipográfica Customizada (.ttf, .otf, .woff, .woff2)
+  const [customFontFile, setCustomFontFile] = useState<File | null>(null);
+  const [customFontPath, setCustomFontPath] = useState<string | null>(null);
+  const [customFontName, setCustomFontName] = useState<string>("");
+  const [fontPreviewUrl, setFontPreviewUrl] = useState<string | null>(null);
+  const fontFileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFontSelect(file: File) {
+    const validExts = [".ttf", ".otf", ".woff", ".woff2"];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!validExts.includes(ext)) {
+      setError("Formato de fonte não suportado. Por favor, envie um arquivo .ttf, .otf, .woff ou .woff2.");
+      return;
+    }
+    setCustomFontFile(file);
+    const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+    setCustomFontName(cleanName);
+
+    try {
+      const url = URL.createObjectURL(file);
+      setFontPreviewUrl(url);
+      const font = new FontFace("PreviewCustomFont", `url(${url})`);
+      font.load().then((loaded) => {
+        document.fonts.add(loaded);
+      }).catch(() => {});
+    } catch {}
+  }
+
   // Momentos Importantes & Dinâmica
   const [hookSensitivity, setHookSensitivity] = useState<"extreme" | "balanced" | "subtle">("extreme");
   const [cutPacing, setCutPacing] = useState<"ultra_fast" | "dynamic" | "smooth">("ultra_fast");
@@ -302,6 +332,13 @@ export default function CopyStyleStudio({
       if (s.enableEmojis !== undefined) setEnableEmojis(s.enableEmojis);
       if (s.karaokeHighlight !== undefined) setKaraokeHighlight(s.karaokeHighlight);
     }
+
+    const savedFontPath = ref.custom_font_path || ref.manual_adjustments?.subtitles?.customFontPath || null;
+    const savedFontName = ref.custom_font_name || ref.manual_adjustments?.subtitles?.customFontName || "";
+    setCustomFontPath(savedFontPath);
+    setCustomFontName(savedFontName);
+    setCustomFontFile(null);
+    setFontPreviewUrl(null);
 
     if (ref.manual_adjustments?.keyMoments) {
       const k = ref.manual_adjustments.keyMoments;
@@ -398,6 +435,18 @@ export default function CopyStyleStudio({
         }
       }
 
+      // 1.1 Upload do arquivo de fonte customizada (se selecionado)
+      let finalFontPath = customFontPath;
+      if (customFontFile) {
+        const fontKey = `${userId}/fonts/${crypto.randomUUID()}-${safeName(customFontFile.name)}`;
+        const { error: fontUpErr } = await supabase.storage.from("sources").upload(fontKey, customFontFile, {
+          contentType: customFontFile.type || "font/ttf",
+        });
+        if (fontUpErr) throw new Error(`Falha no upload da fonte tipográfica: ${fontUpErr.message}`);
+        finalFontPath = fontKey;
+      }
+      const finalFontName = customFontName.trim() || (customFontFile?.name.replace(/\.[^/.]+$/, "") ?? null);
+
       // 2. Salvar na biblioteca de referências se o usuário solicitou
       const manualAdjustmentsPayload: ManualAdjustments = {
         subtitles: {
@@ -407,6 +456,8 @@ export default function CopyStyleStudio({
           positionY,
           enableEmojis,
           karaokeHighlight,
+          customFontPath: finalFontPath,
+          customFontName: finalFontName,
         },
         keyMoments: {
           hookSensitivity,
@@ -443,6 +494,8 @@ export default function CopyStyleStudio({
           reference_type: refMode,
           reference_url: refMode === "link" ? refUrl : null,
           reference_path: refPath,
+          custom_font_path: finalFontPath,
+          custom_font_name: finalFontName,
           style_category: "Personalizado",
           subtitle_style: subtitleStyle,
           design_instructions: designInstructions,
@@ -459,6 +512,8 @@ export default function CopyStyleStudio({
             reference_type: refMode,
             reference_url: refMode === "link" ? refUrl : null,
             reference_path: refPath,
+            custom_font_path: finalFontPath,
+            custom_font_name: finalFontName,
             style_category: "Personalizado",
             subtitle_style: subtitleStyle,
             design_instructions: designInstructions,
@@ -533,6 +588,8 @@ export default function CopyStyleStudio({
         subtitle_style: subtitleStyle,
         enable_sfx: enableSfx,
         enable_emojis: enableEmojis,
+        custom_font_path: finalFontPath,
+        custom_font_name: finalFontName,
         manual_adjustments: manualAdjustmentsPayload,
         export_settings: exportSettingsPayload,
       };
@@ -540,6 +597,13 @@ export default function CopyStyleStudio({
       let { error: insErr } = await supabase.from("jobs").insert(jobPayload);
 
       // Tratamento com fallback se colunas novas não estiverem presentes no schema cache
+      if (insErr && (insErr.message.includes("custom_font_path") || insErr.message.includes("custom_font_name"))) {
+        delete jobPayload.custom_font_path;
+        delete jobPayload.custom_font_name;
+        const retry = await supabase.from("jobs").insert(jobPayload);
+        insErr = retry.error;
+      }
+
       if (insErr && (insErr.message.includes("file_name") || insErr.message.includes("source_meta"))) {
         delete jobPayload.file_name;
         delete jobPayload.source_meta;
@@ -948,6 +1012,109 @@ export default function CopyStyleStudio({
                   />
                   <span>Destaque palavra por palavra (Word highlight)</span>
                 </label>
+
+                {/* Upload de Fonte Tipográfica Própria (.ttf, .otf, .woff, .woff2) */}
+                <div style={{ marginTop: "0.4rem", paddingTop: "0.6rem", borderTop: "1px dashed var(--card-border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+                    <label className="field-label" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Type size={14} style={{ color: "var(--primary)" }} />
+                      Fonte Tipográfica Própria (.ttf, .otf, .woff)
+                    </label>
+                    <span className="muted" style={{ fontSize: "0.72rem" }}>Opcional</span>
+                  </div>
+
+                  <input
+                    ref={fontFileInputRef}
+                    type="file"
+                    accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/x-font-ttf,application/x-font-otf"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleFontSelect(e.target.files[0]);
+                      }
+                    }}
+                  />
+
+                  {customFontFile || customFontPath ? (
+                    <div
+                      style={{
+                        background: "var(--bg-subtle)",
+                        border: "1px solid var(--primary)",
+                        borderRadius: "8px",
+                        padding: "0.6rem 0.8rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span style={{ color: "var(--primary)", fontWeight: 700, fontSize: "0.85rem" }}>
+                            ✓ {customFontName || customFontFile?.name || "Fonte Personalizada"}
+                          </span>
+                          {customFontFile && (
+                            <span className="muted" style={{ fontSize: "0.7rem" }}>
+                              ({Math.round(customFontFile.size / 1024)} KB)
+                            </span>
+                          )}
+                        </div>
+                        {/* Preview dinâmico da fonte */}
+                        <p
+                          style={{
+                            margin: "0.25rem 0 0",
+                            fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : "inherit",
+                            fontSize: "0.95rem",
+                            fontWeight: 700,
+                            color: "var(--text)",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          CORTES VIRAIS 100%
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn-icon"
+                        title="Remover fonte personalizada"
+                        onClick={() => {
+                          setCustomFontFile(null);
+                          setCustomFontPath(null);
+                          setCustomFontName("");
+                          setFontPreviewUrl(null);
+                          if (fontFileInputRef.current) fontFileInputRef.current.value = "";
+                        }}
+                        style={{ padding: "5px", color: "var(--danger)", cursor: "pointer", background: "transparent", border: "none" }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fontFileInputRef.current?.click()}
+                      className="btn-secondary"
+                      style={{
+                        width: "100%",
+                        fontSize: "0.82rem",
+                        padding: "0.5rem 0.75rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        borderStyle: "dashed",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Upload size={14} />
+                      Subir arquivo da fonte (.ttf, .otf, .woff)
+                    </button>
+                  )}
+                  <p className="muted" style={{ fontSize: "0.72rem", margin: "0.35rem 0 0" }}>
+                    Envie o arquivo de fonte do vídeo de referência para replicar 1:1 a tipografia original.
+                  </p>
+                </div>
               </div>
             </div>
 
