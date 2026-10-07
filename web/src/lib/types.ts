@@ -111,6 +111,10 @@ export interface ManualAdjustments {
     source?: "auto" | "pexels" | "higgsfield" | "none";
     frequency?: "high" | "medium" | "low";
   };
+  camera?: {
+    verticalMode?: "face_tracking" | "crop" | "blur" | "split" | "split_face";
+    dynamicZoom?: boolean;
+  };
 }
 
 export interface ExportSettings {
@@ -120,6 +124,20 @@ export interface ExportSettings {
   bitrate?: "master" | "high" | "standard";
   audioNormalization?: boolean; // EBU R128 (-14 LUFS)
   generateNleTimeline?: boolean; // XML / EDL
+}
+
+export interface StyleLearningMetrics {
+  status?: "pending" | "learning" | "ready" | "failed";
+  progress?: number;
+  avgCutPacingSec?: number;
+  detectedFontFamily?: string;
+  detectedColors?: { primary: string; highlight: string; stroke?: string };
+  detectedPosition?: "bottom" | "center-bottom" | "center";
+  cameraFramingPattern?: "single_speaker_punch_in" | "face_tracking" | "dynamic_multicam" | "split_screen";
+  sfxDensityPerMinute?: number;
+  subtitleMaxWordsPerLine?: number;
+  sampleVideoNames?: string[];
+  sampleSubtitleNames?: string[];
 }
 
 export interface SavedReference {
@@ -136,12 +154,17 @@ export interface SavedReference {
   design_instructions?: string | null;
   manual_adjustments?: ManualAdjustments;
   export_settings?: ExportSettings;
+  learning_status?: "pending" | "learning" | "ready" | "failed";
+  learning_metrics?: StyleLearningMetrics;
+  sample_videos?: string[];
+  sample_subtitles?: string[];
   created_at?: string;
 }
 
 export interface Clip {
   id: string;
   job_id: string;
+  user_id?: string;
   position: number;
   title: string;
   hook: string | null;
@@ -154,5 +177,6 @@ export interface Clip {
   version?: number;
   is_trimming?: boolean;
   edit_decisions?: ClipEditDecisions | null;
+  created_at?: string;
 }
 

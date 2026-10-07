@@ -67,13 +67,14 @@ export default async function AdminPage() {
       .limit(1000),
     supabase
       .from("clips")
-      .select("id,job_id,user_id,score,start_seconds,end_seconds")
+      .select("id,job_id,user_id,position,title,hook,reason,score,start_seconds,end_seconds,file_path,thumbnail_url,created_at")
+      .order("created_at", { ascending: false })
       .limit(5000),
   ]);
 
   const users = (usersData ?? []) as AdminUsuario[];
   const jobs = (jobsData ?? []) as Job[];
-  const clips = clipsData ?? [];
+  const clips = (clipsData ?? []) as import("@/lib/types").Clip[];
 
   // Calcula stats gerais
   const stats: AdminStats = {
@@ -94,5 +95,5 @@ export default async function AdminPage() {
         : 0,
   };
 
-  return <AdminDashboard users={users} jobs={jobs} stats={stats} />;
+  return <AdminDashboard users={users} jobs={jobs} clips={clips} stats={stats} />;
 }

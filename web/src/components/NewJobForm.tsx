@@ -100,10 +100,10 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [useBroll, setUseBroll] = useState(false);
   const [brollSource, setBrollSource] = useState<"auto" | "pexels" | "higgsfield">("auto");
 
-  // Opções de Legendas & Sound Design (Fase 4 & HyperFrames)
+  // Opções de Legendas & Sound Design (Fase 4 & HyperFrames) - Desativados por padrão
   const [subtitleStyle, setSubtitleStyle] = useState<"hormozi" | "apple" | "beast" | "minimal">("hormozi");
-  const [enableEmojis, setEnableEmojis] = useState(true);
-  const [enableSfx, setEnableSfx] = useState(true);
+  const [enableEmojis, setEnableEmojis] = useState(false);
+  const [enableSfx, setEnableSfx] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);

@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 import type { AdminUsuario, AdminStats } from "@/app/admin/page";
-import type { Job } from "@/lib/types";
+import type { Job, Clip } from "@/lib/types";
 import UsersTab from "./UsersTab";
 import ResourcesTab from "./ResourcesTab";
 import PerformanceTab from "./PerformanceTab";
-import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon } from "@/components/Icons";
+import ClipsTab from "./ClipsTab";
+import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon, FilmIcon } from "@/components/Icons";
 
 interface Props {
   users: AdminUsuario[];
   jobs: Job[];
+  clips?: Clip[];
   stats: AdminStats;
 }
 
-type TabKey = "users" | "resources" | "performance";
+type TabKey = "users" | "resources" | "performance" | "clips";
 
-export default function AdminDashboard({ users, jobs, stats }: Props) {
+export default function AdminDashboard({ users, jobs, clips = [], stats }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("users");
 
   return (
@@ -89,6 +91,13 @@ export default function AdminDashboard({ users, jobs, stats }: Props) {
           <BarChartIcon size={18} />
           <span>Desempenho</span>
         </button>
+        <button
+          className={`admin-tab ${activeTab === "clips" ? "active" : ""}`}
+          onClick={() => setActiveTab("clips")}
+        >
+          <FilmIcon size={18} />
+          <span>Biblioteca de Clipes</span>
+        </button>
       </div>
 
       {/* Tab content */}
@@ -96,6 +105,7 @@ export default function AdminDashboard({ users, jobs, stats }: Props) {
         {activeTab === "users" && <UsersTab users={users} jobs={jobs} />}
         {activeTab === "resources" && <ResourcesTab jobs={jobs} />}
         {activeTab === "performance" && <PerformanceTab jobs={jobs} users={users} />}
+        {activeTab === "clips" && <ClipsTab clips={clips} users={users} jobs={jobs} />}
       </div>
     </div>
   );

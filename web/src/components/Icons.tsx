@@ -238,3 +238,7 @@ export function SaveIcon(props: LucideProps) {
 export function WandIcon(props: LucideProps) {
   return <Wand2 {...props} />;
 }
+
+export function FilmIcon(props: LucideProps) {
+  return <Film {...props} />;
+}
