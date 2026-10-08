@@ -678,7 +678,7 @@ button:disabled, .button:disabled {
 
 /* Active Processing Card */
 .active-job-card {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid rgba(79, 70, 229, 0.3);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
@@ -709,7 +709,7 @@ button:disabled, .button:disabled {
 }
 
 .clip-card {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -875,7 +875,7 @@ button:disabled, .button:disabled {
 }
 
 .qs-card {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 12px 18px;
@@ -968,7 +968,7 @@ button:disabled, .button:disabled {
   padding: 6px 13px;
   border-radius: 8px;
   border: 1px solid var(--card-border);
-  background: #FFFFFF;
+  background: var(--card-bg);
   color: var(--text-muted);
   font-size: 0.82rem;
   font-weight: 600;
@@ -977,7 +977,7 @@ button:disabled, .button:disabled {
 }
 
 .filter-btn:hover {
-  border-color: #CBD5E1;
+  border-color: var(--card-border-hover);
   color: var(--text);
 }
 
@@ -991,8 +991,8 @@ button:disabled, .button:disabled {
 .admin-search {
   padding: 7px 12px;
   border-radius: 8px;
-  border: 1px solid #CBD5E1;
-  background: #FFFFFF;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 0.86rem;
   width: 250px;
@@ -1001,8 +1001,8 @@ button:disabled, .button:disabled {
 .admin-select {
   padding: 7px 12px;
   border-radius: 8px;
-  border: 1px solid #CBD5E1;
-  background: #FFFFFF;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 0.84rem;
   font-weight: 500;
@@ -1020,7 +1020,7 @@ button:disabled, .button:disabled {
   overflow-x: auto;
   border-radius: var(--radius);
   border: 1px solid var(--card-border);
-  background: #FFFFFF;
+  background: var(--card-bg);
   box-shadow: var(--card-shadow);
 }
 
@@ -1126,14 +1126,14 @@ button:disabled, .button:disabled {
   font-size: 0.78rem;
   font-weight: 600;
   border: 1px solid var(--card-border);
-  background: #FFFFFF;
+  background: var(--card-bg);
   color: var(--text);
   cursor: pointer;
   transition: all 0.15s;
 }
 .admin-btn-sm:hover {
   background: var(--bg-subtle);
-  border-color: #CBD5E1;
+  border-color: var(--card-border-hover);
 }
 .admin-btn-sm.danger {
   color: var(--danger);
@@ -1157,7 +1157,7 @@ button:disabled, .button:disabled {
 }
 
 .admin-modal {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 28px;
@@ -1205,7 +1205,7 @@ button:disabled, .button:disabled {
   padding: 9px 18px;
   border-radius: 10px;
   border: 1px solid var(--card-border);
-  background: #FFFFFF;
+  background: var(--card-bg);
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -1231,7 +1231,7 @@ button:disabled, .button:disabled {
 }
 
 .resource-card {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 18px;
@@ -1257,7 +1257,7 @@ button:disabled, .button:disabled {
 .rc-label { font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 
 .chart-section {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 24px;
@@ -1324,7 +1324,7 @@ button:disabled, .button:disabled {
 }
 
 .perf-card {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 18px;
@@ -1356,7 +1356,7 @@ button:disabled, .button:disabled {
 @media (max-width: 768px) { .perf-grid { grid-template-columns: 1fr; } }
 
 .perf-section {
-  background: #FFFFFF;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
   padding: 20px;
