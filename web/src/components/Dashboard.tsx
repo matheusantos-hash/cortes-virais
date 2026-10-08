@@ -67,6 +67,18 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [showTerminal, setShowTerminal] = useState(true);
 
+  // Ativa automaticamente o modo Copiar Estilo se vier da URL ou do Editor de Cortes
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get("mode");
+      const hasStoredClip = sessionStorage.getItem("clone_source_clip");
+      if (modeParam === "copiar_estilo" || hasStoredClip) {
+        setActiveMode("copiar_estilo");
+      }
+    } catch {}
+  }, []);
+
   const refresh = useCallback(async () => {
     const { data } = await supabase
       .from("jobs")

@@ -119,7 +119,11 @@ async function downloadFromStorage(bucket: "sources" | "clips", storagePath: str
 }
 
 async function downloadUpload(storagePath: string, dest: string, signal?: AbortSignal) {
-  return downloadFromStorage("sources", storagePath, dest, signal);
+  try {
+    return await downloadFromStorage("sources", storagePath, dest, signal);
+  } catch (err) {
+    return await downloadFromStorage("clips", storagePath, dest, signal);
+  }
 }
 
 async function processJob(job: Job) {

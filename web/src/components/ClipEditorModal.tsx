@@ -251,6 +251,25 @@ export default function ClipEditorModal({
     }
   };
 
+  // Enviar clipe diretamente para o Clone Studio
+  const handleSendToCloneStudio = () => {
+    if (!clip.file_path) {
+      alert("Aguarde a finalização do processamento do corte para enviá-lo ao Clone Studio.");
+      return;
+    }
+    const clipData = {
+      id: clip.id,
+      title: clip.title,
+      path: clip.file_path,
+      url: videoSrc,
+      position: clip.position,
+    };
+    try {
+      sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));
+    } catch {}
+    window.location.href = "/?mode=copiar_estilo&fromClip=1";
+  };
+
   // Captura um frame do vídeo para criar a thumbnail estilizada
   const captureFrame = () => {
     const video = videoRef.current;
@@ -502,6 +521,28 @@ export default function ClipEditorModal({
 
         {/* Direita: Ações de Salvar e Fechar */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <button
+            type="button"
+            onClick={handleSendToCloneStudio}
+            style={{
+              background: "rgba(0, 240, 255, 0.12)",
+              border: "1px solid rgba(0, 240, 255, 0.4)",
+              color: "#00F0FF",
+              padding: "0.4rem 0.8rem",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              transition: "all 0.15s ease",
+            }}
+            title="Enviar este corte diretamente para o Clone Studio (aplicar clonagem de ritmo e IA)"
+          >
+            <SparklesIcon size={14} /> Clonar Estilo
+          </button>
+
           <button
             type="button"
             onClick={handleSaveBrolls}

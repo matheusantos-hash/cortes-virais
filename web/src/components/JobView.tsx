@@ -373,11 +373,40 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}
+                      style={{ flex: 1, minWidth: "90px", padding: "0.55rem 0.4rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}
                       onClick={() => setEditingClip(clip)}
-                      title="Ajustar tempo de corte e criar capa personalizada"
+                      title="Ajustar tempo de corte no CapCut Studio e criar capa personalizada"
                     >
                       <Pencil size={13} /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        padding: "0.55rem 0.5rem",
+                        fontSize: "0.82rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.25rem",
+                        border: "1px solid rgba(0, 240, 255, 0.4)",
+                        color: "var(--accent-cyan, #00F0FF)",
+                      }}
+                      onClick={() => {
+                        const clipData = {
+                          id: clip.id,
+                          title: clip.title,
+                          path: clip.file_path,
+                          url: clip.file_path ? urls[clip.file_path] : undefined,
+                          position: clip.position,
+                        };
+                        try {
+                          sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));
+                        } catch {}
+                        window.location.href = "/?mode=copiar_estilo&fromClip=1";
+                      }}
+                      title="Enviar este corte para o Clone Studio (aplicar estilo e ritmo de referência com IA)"
+                    >
+                      <SparklesIcon size={13} /> Clonar
                     </button>
                     <a
                       href={`/api/jobs/${job.id}/export?format=srt&clipId=${clip.id}`}

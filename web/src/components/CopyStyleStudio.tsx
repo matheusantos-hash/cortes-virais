@@ -211,12 +211,40 @@ export default function CopyStyleStudio({
   const [selectedRefId, setSelectedRefId] = useState<string | null>(null);
 
   // 2. VÍDEO PRINCIPAL A SER EDITADO
+  const [sourceClip, setSourceClip] = useState<{
+    id: string;
+    title: string;
+    path: string;
+    url?: string;
+    position?: number;
+  } | null>(null);
   const [sourceMode, setSourceMode] = useState<"upload" | "link">("link");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceDragOver, setSourceDragOver] = useState(false);
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const refFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Carrega corte pré-selecionado vindo do Editor de Cortes
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("clone_source_clip");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && (parsed.path || parsed.url)) {
+          setSourceClip(parsed);
+          setSourceMode("upload");
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleClearSourceClip = () => {
+    setSourceClip(null);
+    try {
+      sessionStorage.removeItem("clone_source_clip");
+    } catch {}
+  };
 
   // 3. AJUSTES MANUAIS NA CÓPIA DA EDIÇÃO
   // Ajuste de Legendas
@@ -762,7 +790,13 @@ export default function CopyStyleStudio({
 
       // 3. Processamento do Vídeo Principal
       let sourcePayload: Record<string, any>;
-      if (sourceMode === "link") {
+      if (sourceClip) {
+        sourcePayload = {
+          source_type: "upload",
+          source_path: sourceClip.path,
+          file_name: `corte-${sourceClip.position || "1"}-${safeName(sourceClip.title)}.mp4`,
+        };
+      } else if (sourceMode === "link") {
         let parsed: URL;
         try {
           parsed = new URL(sourceUrl.trim());
@@ -868,6 +902,7 @@ export default function CopyStyleStudio({
       if (insErr) throw new Error(insErr.message);
 
       setSuccessMsg("Projeto de cópia de edição iniciado com sucesso!");
+      handleClearSourceClip();
       onCreated();
       setTimeout(() => {
         const el = document.getElementById("galeria-monitor") || document.getElementById("card-monitor-ativo");
@@ -1458,82 +1493,139 @@ export default function CopyStyleStudio({
             </div>
           </div>
 
-          <div className="tab-group" style={{ marginBottom: "0.75rem" }}>
-            <button
-              type="button"
-              className={`tab-btn ${sourceMode === "link" ? "active" : ""}`}
-              onClick={() => setSourceMode("link")}
+          {sourceClip ? (
+            <div
+              style={{
+                background: "rgba(0, 240, 255, 0.08)",
+                border: "1px solid rgba(0, 240, 255, 0.4)",
+                borderRadius: "12px",
+                padding: "1rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.6rem",
+              }}
             >
-              <LucideLink size={14} style={{ marginRight: "4px" }} />
-              Link do YouTube
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${sourceMode === "upload" ? "active" : ""}`}
-              onClick={() => setSourceMode("upload")}
-            >
-              <Upload size={14} style={{ marginRight: "4px" }} />
-              Subir Arquivo de Vídeo
-            </button>
-          </div>
-
-          {sourceMode === "link" ? (
-            <input
-              type="url"
-              className="input"
-              placeholder="Cole o link do YouTube (vídeo longo, podcast, aula)…"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              style={{ width: "100%" }}
-            />
-          ) : (
-            <div>
-              <input
-                ref={sourceFileInputRef}
-                type="file"
-                accept="video/*,.mp4,.mov,.mkv"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setSourceFile(e.target.files[0]);
-                  }
-                }}
-              />
-              <div
-                className={`drop-zone ${sourceDragOver ? "dragover" : ""}`}
-                onClick={() => sourceFileInputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setSourceDragOver(true);
-                }}
-                onDragLeave={() => setSourceDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setSourceDragOver(false);
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    setSourceFile(e.dataTransfer.files[0]);
-                  }
-                }}
-                style={{ padding: "1.5rem 1rem", textAlign: "center", cursor: "pointer" }}
-              >
-                <FileVideo size={28} style={{ color: "var(--primary)", marginBottom: "0.5rem" }} />
-                {sourceFile ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div
+                    style={{
+                      width: "42px",
+                      height: "42px",
+                      borderRadius: "10px",
+                      background: "rgba(0, 240, 255, 0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#00F0FF",
+                      boxShadow: "0 0 12px rgba(0, 240, 255, 0.3)",
+                    }}
+                  >
+                    <Film size={22} />
+                  </div>
                   <div>
-                    <strong style={{ color: "var(--primary)", display: "block" }}>
-                      ✓ {sourceFile.name}
+                    <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#00F0FF", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                      ★ Corte Pré-Selecionado #{sourceClip.position || "1"}
+                    </span>
+                    <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--text)" }}>
+                      {sourceClip.title}
                     </strong>
-                    <span className="muted small">Arquivo pronto para processamento</span>
+                    <span className="muted small" style={{ fontSize: "0.76rem" }}>
+                      ✓ Vídeo já disponível no servidor (Zero tempo de upload necessário)
+                    </span>
                   </div>
-                ) : (
-                  <div>
-                    <strong>Clique ou arraste seu vídeo bruto aqui</strong>
-                    <p className="muted small" style={{ margin: "0.2rem 0 0" }}>
-                      Formatos suportados: MP4, MOV, MKV
-                    </p>
-                  </div>
-                )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleClearSourceClip}
+                  className="btn btn-secondary btn-small"
+                  style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+                  title="Trocar vídeo e escolher outro arquivo ou link"
+                >
+                  Trocar Vídeo
+                </button>
               </div>
             </div>
+          ) : (
+            <>
+              <div className="tab-group" style={{ marginBottom: "0.75rem" }}>
+                <button
+                  type="button"
+                  className={`tab-btn ${sourceMode === "link" ? "active" : ""}`}
+                  onClick={() => setSourceMode("link")}
+                >
+                  <LucideLink size={14} style={{ marginRight: "4px" }} />
+                  Link do YouTube
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${sourceMode === "upload" ? "active" : ""}`}
+                  onClick={() => setSourceMode("upload")}
+                >
+                  <Upload size={14} style={{ marginRight: "4px" }} />
+                  Subir Arquivo de Vídeo
+                </button>
+              </div>
+
+              {sourceMode === "link" ? (
+                <input
+                  type="url"
+                  className="input"
+                  placeholder="Cole o link do YouTube (vídeo longo, podcast, aula)…"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  style={{ width: "100%" }}
+                />
+              ) : (
+                <div>
+                  <input
+                    ref={sourceFileInputRef}
+                    type="file"
+                    accept="video/*,.mp4,.mov,.mkv"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSourceFile(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <div
+                    className={`drop-zone ${sourceDragOver ? "dragover" : ""}`}
+                    onClick={() => sourceFileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setSourceDragOver(true);
+                    }}
+                    onDragLeave={() => setSourceDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setSourceDragOver(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        setSourceFile(e.dataTransfer.files[0]);
+                      }
+                    }}
+                    style={{ padding: "1.5rem 1rem", textAlign: "center", cursor: "pointer" }}
+                  >
+                    <FileVideo size={28} style={{ color: "var(--primary)", marginBottom: "0.5rem" }} />
+                    {sourceFile ? (
+                      <div>
+                        <strong style={{ color: "var(--primary)", display: "block" }}>
+                          ✓ {sourceFile.name}
+                        </strong>
+                        <span className="muted small">Arquivo pronto para processamento</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong>Clique ou arraste seu vídeo bruto aqui</strong>
+                        <p className="muted small" style={{ margin: "0.2rem 0 0" }}>
+                          Formatos suportados: MP4, MOV, MKV
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
 
