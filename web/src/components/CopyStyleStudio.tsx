@@ -37,6 +37,9 @@ import {
   Crop,
   User,
   Users,
+  Clock,
+  FileText,
+  BarChart3,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -97,7 +100,7 @@ const PRESET_REFERENCES: SavedReference[] = [
   },
   {
     id: "preset-podcast",
-    name: "🎙️ Podcast & Flow Dinâmico (Preto & Amarelo)",
+    name: "Podcast & Flow Dinâmico (Preto & Amarelo)",
     reference_type: "preset",
     reference_url: null,
     style_category: "Podcast / Conversa",
@@ -128,7 +131,7 @@ const PRESET_REFERENCES: SavedReference[] = [
         enabled: false,
         source: "none",
         frequency: "low",
-      },
+        },
     },
     export_settings: {
       resolution: "1080x1920",
@@ -141,7 +144,7 @@ const PRESET_REFERENCES: SavedReference[] = [
   },
   {
     id: "preset-apple",
-    name: "🍏 Minimalista Clean & Tech (Apple Aesthetic)",
+    name: "Minimalista Clean & Tech (Apple Aesthetic)",
     reference_type: "preset",
     reference_url: null,
     style_category: "Educacional / Tech",
@@ -1010,11 +1013,11 @@ export default function CopyStyleStudio({
                     onChange={(e) => setNewStyleCategory(e.target.value)}
                     style={{ width: "100%" }}
                   >
-                    <option value="Ganchos Rápidos">⚡ Ganchos Rápidos (1-2s)</option>
-                    <option value="Podcast / Conversa">🎙️ Podcast &amp; Conversa</option>
-                    <option value="Educacional / Tech">🍏 Educacional &amp; Minimalista</option>
-                    <option value="VSL / Vendas">💰 VSL &amp; Marketing</option>
-                    <option value="Gamer / Reações">🎮 Gamer &amp; Dinâmico</option>
+                    <option value="Ganchos Rápidos">Ganchos Rápidos (1-2s)</option>
+                    <option value="Podcast / Conversa">Podcast &amp; Conversa</option>
+                    <option value="Educacional / Tech">Educacional &amp; Minimalista</option>
+                    <option value="VSL / Vendas">VSL &amp; Marketing</option>
+                    <option value="Gamer / Reações">Gamer &amp; Dinâmico</option>
                   </select>
                 </div>
               </div>
@@ -1085,7 +1088,9 @@ export default function CopyStyleStudio({
 
                 {subtitlesStats && (
                   <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "rgba(139, 92, 246, 0.08)", borderRadius: "6px", fontSize: "0.8rem" }}>
-                    <strong style={{ color: "var(--primary)" }}>📊 Telemetria de Legendas Detectada:</strong>{" "}
+                    <strong style={{ color: "var(--primary)", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      <BarChart3 size={14} /> Telemetria de Legendas Detectada:
+                    </strong>{" "}
                     {subtitlesStats.totalBlocks} falas analisadas • Média de {subtitlesStats.avgWps} palavras por bloco • Amostra: <em>"{subtitlesStats.sampleSnippet}"</em>
                   </div>
                 )}
@@ -1166,7 +1171,7 @@ export default function CopyStyleStudio({
                   style={{ width: "100%", padding: "0.85rem" }}
                 >
                   <Cpu size={18} />
-                  <span>{isTraining ? "Treinando Motor de IA…" : "🧠 Treinar & Salvar Estilo de Edição"}</span>
+                  <span>{isTraining ? "Treinando Motor de IA…" : "Treinar & Salvar Estilo de Edição"}</span>
                 </button>
               </div>
             </form>
@@ -1191,7 +1196,9 @@ export default function CopyStyleStudio({
                       <span className="muted small" style={{ display: "block" }}>{st.style_category || "Geral"}</span>
                     </div>
                     {st.learning_status === "ready" || st.reference_type === "preset" ? (
-                      <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>⚡ Treinado</span>
+                      <span className="badge badge-accent" style={{ fontSize: "0.68rem", display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                        <Zap size={10} /> Treinado
+                      </span>
                     ) : null}
                   </div>
 
@@ -1200,18 +1207,18 @@ export default function CopyStyleStudio({
                   </p>
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", margin: "0.3rem 0" }}>
-                    <span className="metric-tag">
-                      ⏱️ Ritmo: <strong>{st.learning_metrics?.avgCutPacingSec ? `${st.learning_metrics.avgCutPacingSec}s` : st.manual_adjustments?.keyMoments?.cutPacing === "ultra_fast" ? "1-3s" : "3-5s"}</strong>
+                    <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                      <Clock size={11} /> Ritmo: <strong>{st.learning_metrics?.avgCutPacingSec ? `${st.learning_metrics.avgCutPacingSec}s` : st.manual_adjustments?.keyMoments?.cutPacing === "ultra_fast" ? "1-3s" : "3-5s"}</strong>
                     </span>
-                    <span className="metric-tag">
-                      🔤 Legenda: <strong>{st.subtitle_style || "Hormozi"}</strong>
+                    <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                      <Subtitles size={11} /> Legenda: <strong>{st.subtitle_style || "Hormozi"}</strong>
                     </span>
-                    <span className="metric-tag">
-                      🎥 Câmera: <strong>{st.manual_adjustments?.camera?.verticalMode === "split" ? "Split" : "Auto-Face"}</strong>
+                    <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                      <Video size={11} /> Câmera: <strong>{st.manual_adjustments?.camera?.verticalMode === "split" ? "Split" : "Auto-Face"}</strong>
                     </span>
                     {st.sample_subtitles && st.sample_subtitles.length > 0 && (
-                      <span className="metric-tag">
-                        📄 {st.sample_subtitles.length} legendas
+                      <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                        <FileText size={11} /> {st.sample_subtitles.length} legendas
                       </span>
                     )}
                   </div>
@@ -1697,7 +1704,7 @@ export default function CopyStyleStudio({
                             letterSpacing: "0.5px",
                           }}
                         >
-                          CORTES VIRAIS 100%
+                          CORTES AI 100%
                         </p>
                       </div>
 
@@ -2020,10 +2027,10 @@ export default function CopyStyleStudio({
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value as any)}
                 >
-                  <option value="1080x1920">📱 1080x1920 (Vertical 9:16 - TikTok / Reels / Shorts)</option>
-                  <option value="2160x3840">✨ 2160x3840 (4K Vertical Ultra HD)</option>
-                  <option value="1920x1080">🖥️ 1920x1080 (Horizontal 16:9 - YouTube Padrão)</option>
-                  <option value="1080x1080">⬛ 1080x1080 (Quadrado 1:1 - Feed Instagram)</option>
+                  <option value="1080x1920">1080x1920 (Vertical 9:16 - TikTok / Reels / Shorts)</option>
+                  <option value="2160x3840">2160x3840 (4K Vertical Ultra HD)</option>
+                  <option value="1920x1080">1920x1080 (Horizontal 16:9 - YouTube Padrão)</option>
+                  <option value="1080x1080">1080x1080 (Quadrado 1:1 - Feed Instagram)</option>
                 </select>
               </div>
 
@@ -2075,7 +2082,8 @@ export default function CopyStyleStudio({
                   onChange={(e) => setAudioNormalization(e.target.checked)}
                 />
                 <span title="Ajusta o volume do áudio para o padrão exigido pelo TikTok, Reels e Shorts">
-                  🔊 Normalização de Áudio EBU R128 (-14 LUFS para Redes Sociais)
+                  <Volume2 size={15} style={{ verticalAlign: "middle", marginRight: "4px" }} />
+                  Normalização de Áudio EBU R128 (-14 LUFS para Redes Sociais)
                 </span>
               </label>
 

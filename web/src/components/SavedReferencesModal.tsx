@@ -13,6 +13,8 @@ import {
   Subtitles,
   SlidersHorizontal,
   Type,
+  Link as LinkIcon,
+  Upload as UploadIcon,
 } from "./Icons";
 
 interface SavedReferencesModalProps {
@@ -222,8 +224,16 @@ export default function SavedReferencesModal({
                       flexWrap: "wrap",
                     }}
                   >
-                    <span>
-                      {ref.reference_type === "upload" ? "📁 Arquivo de Vídeo" : `🔗 Link: ${ref.reference_url?.slice(0, 32)}…`}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                      {ref.reference_type === "upload" ? (
+                        <>
+                          <UploadIcon size={13} /> Arquivo de Vídeo
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon size={13} /> Link: {ref.reference_url?.slice(0, 32)}…
+                        </>
+                      )}
                     </span>
                     {ref.manual_adjustments?.keyMoments?.cutPacing && (
                       <span>• Ritmo: {ref.manual_adjustments.keyMoments.cutPacing}</span>

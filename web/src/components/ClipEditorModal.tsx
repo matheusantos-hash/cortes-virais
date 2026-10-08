@@ -2,8 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Clip } from "@/lib/types";
-import { fmtClock } from "@/lib/format";
-import { DownloadIcon, SparklesIcon, XIcon, TrendingUpIcon } from "./Icons";
+import {
+  DownloadIcon,
+  SparklesIcon,
+  XIcon,
+  TrendingUpIcon,
+  Film,
+  Scissors,
+  Camera,
+  Crop,
+  Clock,
+  Play,
+  Save,
+  Smartphone,
+  Square,
+  Monitor,
+} from "./Icons";
 
 interface ClipEditorModalProps {
   clip: Clip;
@@ -186,17 +200,18 @@ export default function ClipEditorModal({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span>🎬</span> Editor Rápido do Corte #{clip.position}
+              <Film size={18} style={{ color: "var(--primary)" }} /> Editor Rápido do Corte #{clip.position}
             </h3>
             <span className="muted small">{clip.title}</span>
           </div>
           <button
             type="button"
             className="btn btn-small"
-            style={{ background: "transparent", color: "var(--text-muted)", border: "none", cursor: "pointer", fontSize: "1.3rem" }}
+            style={{ background: "transparent", color: "var(--text-muted)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: "0.3rem" }}
             onClick={onClose}
+            title="Fechar"
           >
-            ✕
+            <XIcon size={18} />
           </button>
         </div>
 
@@ -206,8 +221,9 @@ export default function ClipEditorModal({
             type="button"
             className={activeTab === "trim" ? "tab active" : "tab"}
             onClick={() => setActiveTab("trim")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
           >
-            ✂️ Ajustar Corte (Trimming)
+            <Scissors size={14} /> Ajustar Corte (Trimming)
           </button>
           <button
             type="button"
@@ -216,15 +232,17 @@ export default function ClipEditorModal({
               setActiveTab("thumbnail");
               setTimeout(captureFrame, 150);
             }}
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
           >
-            📸 Capa / Thumbnail Viral
+            <Camera size={14} /> Capa / Thumbnail Viral
           </button>
           <button
             type="button"
             className={activeTab === "formats" ? "tab active" : "tab"}
             onClick={() => setActiveTab("formats")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
           >
-            📐 Formatos & Proporção
+            <Crop size={14} /> Formatos &amp; Proporção
           </button>
         </div>
 
@@ -304,23 +322,31 @@ export default function ClipEditorModal({
                     style={{ width: "100%", accentColor: "var(--primary)" }}
                   />
 
-                  <div style={{ marginTop: "0.8rem", textAlign: "center", fontSize: "0.85rem", color: "var(--primary)" }}>
-                    ⏱️ Nova Duração: <strong>{(trimEnd - trimStart).toFixed(1)} segundos</strong>
+                  <div style={{ marginTop: "0.8rem", textAlign: "center", fontSize: "0.85rem", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}>
+                    <Clock size={14} /> Nova Duração: <strong>{(trimEnd - trimStart).toFixed(1)} segundos</strong>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={playSelectedRange}>
-                    ▶️ Testar Trecho
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }} onClick={playSelectedRange}>
+                    <Play size={14} /> Testar Trecho
                   </button>
                   <button
                     type="button"
                     className="btn btn-primary"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                     onClick={handleSaveTrim}
                     disabled={isSavingTrim}
                   >
-                    {isSavingTrim ? "⏳ Re-renderizando..." : "💾 Salvar Corte & Re-renderizar"}
+                    {isSavingTrim ? (
+                      <>
+                        <Clock size={14} /> Re-renderizando...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} /> Salvar Corte &amp; Re-renderizar
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -375,13 +401,13 @@ export default function ClipEditorModal({
                 </div>
 
                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                  <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={captureFrame}>
-                    📸 Capturar Frame Atual
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }} onClick={captureFrame}>
+                    <Camera size={14} /> Capturar Frame Atual
                   </button>
                   <button
                     type="button"
                     className="btn btn-primary"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                     onClick={downloadThumbnail}
                     disabled={!capturedThumbUrl}
                   >
@@ -407,7 +433,9 @@ export default function ClipEditorModal({
                 <div className="stack" style={{ gap: "0.5rem" }}>
                   <div style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <strong style={{ display: "block", fontSize: "0.9rem" }}>📱 9:16 Vertical (Original)</strong>
+                      <strong style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.9rem" }}>
+                        <Smartphone size={14} /> 9:16 Vertical (Original)
+                      </strong>
                       <span className="muted small">TikTok, Instagram Reels, YouTube Shorts</span>
                     </div>
                     <span className="badge badge-done" style={{ fontSize: "0.75rem" }}>Pronto</span>
@@ -415,7 +443,9 @@ export default function ClipEditorModal({
 
                   <div style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <strong style={{ display: "block", fontSize: "0.9rem" }}>⬛ 1:1 Quadrado</strong>
+                      <strong style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.9rem" }}>
+                        <Square size={14} /> 1:1 Quadrado
+                      </strong>
                       <span className="muted small">Feed do Instagram, LinkedIn, Facebook</span>
                     </div>
                     <span className="badge" style={{ background: "rgba(255,255,255,0.1)", fontSize: "0.75rem" }}>Compatível</span>
@@ -423,7 +453,9 @@ export default function ClipEditorModal({
 
                   <div style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <strong style={{ display: "block", fontSize: "0.9rem" }}>🖥️ 16:9 Widescreen</strong>
+                      <strong style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.9rem" }}>
+                        <Monitor size={14} /> 16:9 Widescreen
+                      </strong>
                       <span className="muted small">YouTube Tradicional, Twitter / X</span>
                     </div>
                     <span className="badge" style={{ background: "rgba(255,255,255,0.1)", fontSize: "0.75rem" }}>Compatível</span>

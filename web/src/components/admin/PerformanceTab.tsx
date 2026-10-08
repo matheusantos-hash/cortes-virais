@@ -5,6 +5,18 @@ import type { Job } from "@/lib/types";
 import type { AdminUsuario } from "@/app/admin/page";
 import { fmtDate } from "@/lib/format";
 import { adminDeleteJob } from "@/app/admin/actions";
+import {
+  UsersIcon,
+  SmartphoneIcon,
+  MonitorIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+  Link as LinkIcon,
+  Upload as UploadIcon,
+  Trash2 as TrashIcon,
+  TrendingUp,
+  Layers,
+} from "@/components/Icons";
 
 interface Props {
   jobs: Job[];
@@ -144,7 +156,7 @@ export default function PerformanceTab({ jobs, users }: Props) {
         </div>
         <div className="admin-filter-group">
           <select className="admin-select" value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
-            <option value="all">👤 Todos usuários</option>
+            <option value="all">Todos usuários</option>
             {uniqueUsers.map((u) => (
               <option key={u.id} value={u.id}>{u.email}</option>
             ))}
@@ -152,15 +164,45 @@ export default function PerformanceTab({ jobs, users }: Props) {
         </div>
         <div className="admin-filter-group">
           {(["all", "vertical", "horizontal"] as const).map((d) => (
-            <button key={d} className={`filter-btn ${deviceFilter === d ? "active" : ""}`} onClick={() => setDeviceFilter(d)}>
-              {d === "all" ? "Todos formatos" : d === "vertical" ? "📱 Vertical" : "🖥️ Horizontal"}
+            <button
+              key={d}
+              className={`filter-btn ${deviceFilter === d ? "active" : ""}`}
+              onClick={() => setDeviceFilter(d)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              {d === "all" ? (
+                "Todos formatos"
+              ) : d === "vertical" ? (
+                <>
+                  <SmartphoneIcon size={12} /> Vertical
+                </>
+              ) : (
+                <>
+                  <MonitorIcon size={12} /> Horizontal
+                </>
+              )}
             </button>
           ))}
         </div>
         <div className="admin-filter-group">
           {(["all", "link", "upload"] as const).map((t) => (
-            <button key={t} className={`filter-btn ${taskFilter === t ? "active" : ""}`} onClick={() => setTaskFilter(t)}>
-              {t === "all" ? "Toda tarefa" : t === "link" ? "🔗 Link" : "📁 Upload"}
+            <button
+              key={t}
+              className={`filter-btn ${taskFilter === t ? "active" : ""}`}
+              onClick={() => setTaskFilter(t)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              {t === "all" ? (
+                "Toda tarefa"
+              ) : t === "link" ? (
+                <>
+                  <LinkIcon size={12} /> Link
+                </>
+              ) : (
+                <>
+                  <UploadIcon size={12} /> Upload
+                </>
+              )}
             </button>
           ))}
         </div>
@@ -197,11 +239,19 @@ export default function PerformanceTab({ jobs, users }: Props) {
       <div className="perf-grid">
         {/* Por usuário */}
         <div className="perf-section">
-          <h3 className="perf-section-title">👤 Por usuário</h3>
+          <h3 className="perf-section-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <UsersIcon size={16} /> Por usuário
+          </h3>
           <div className="admin-table-wrap">
             <table className="admin-table compact">
               <thead>
-                <tr><th>Usuário</th><th>Total</th><th>✅</th><th>❌</th><th>Taxa</th></tr>
+                <tr>
+                  <th>Usuário</th>
+                  <th>Total</th>
+                  <th title="Concluídos"><CheckCircleIcon size={14} style={{ color: "#10b981", verticalAlign: "middle" }} /></th>
+                  <th title="Falhas"><AlertCircleIcon size={14} style={{ color: "#ef4444", verticalAlign: "middle" }} /></th>
+                  <th>Taxa</th>
+                </tr>
               </thead>
               <tbody>
                 {byUser.map((u) => (
@@ -226,16 +276,25 @@ export default function PerformanceTab({ jobs, users }: Props) {
 
         {/* Por dispositivo */}
         <div className="perf-section">
-          <h3 className="perf-section-title">📱 Por formato</h3>
+          <h3 className="perf-section-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <SmartphoneIcon size={16} /> Por formato
+          </h3>
           <div className="admin-table-wrap">
             <table className="admin-table compact">
               <thead>
-                <tr><th>Formato</th><th>Total</th><th>✅</th><th>❌</th></tr>
+                <tr>
+                  <th>Formato</th>
+                  <th>Total</th>
+                  <th title="Concluídos"><CheckCircleIcon size={14} style={{ color: "#10b981", verticalAlign: "middle" }} /></th>
+                  <th title="Falhas"><AlertCircleIcon size={14} style={{ color: "#ef4444", verticalAlign: "middle" }} /></th>
+                </tr>
               </thead>
               <tbody>
                 {byDevice.map((d) => (
                   <tr key={d.key}>
-                    <td>{d.key === "vertical" ? "📱 Vertical" : d.key === "horizontal" ? "🖥️ Horizontal" : d.key}</td>
+                    <td style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                      {d.key === "vertical" ? <><SmartphoneIcon size={13} /> Vertical</> : d.key === "horizontal" ? <><MonitorIcon size={13} /> Horizontal</> : d.key}
+                    </td>
                     <td>{d.total}</td>
                     <td className="td-success">{d.done}</td>
                     <td className="td-danger">{d.failed}</td>
@@ -246,16 +305,25 @@ export default function PerformanceTab({ jobs, users }: Props) {
             </table>
           </div>
 
-          <h3 className="perf-section-title" style={{ marginTop: 24 }}>🎯 Por tarefa</h3>
+          <h3 className="perf-section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <Layers size={16} /> Por tarefa
+          </h3>
           <div className="admin-table-wrap">
             <table className="admin-table compact">
               <thead>
-                <tr><th>Tipo</th><th>Total</th><th>✅</th><th>❌</th></tr>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Total</th>
+                  <th title="Concluídos"><CheckCircleIcon size={14} style={{ color: "#10b981", verticalAlign: "middle" }} /></th>
+                  <th title="Falhas"><AlertCircleIcon size={14} style={{ color: "#ef4444", verticalAlign: "middle" }} /></th>
+                </tr>
               </thead>
               <tbody>
                 {byTask.map((t) => (
                   <tr key={t.key}>
-                    <td>{t.key === "link" ? "🔗 Link" : t.key === "upload" ? "📁 Upload" : t.key}</td>
+                    <td style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                      {t.key === "link" ? <><LinkIcon size={13} /> Link</> : t.key === "upload" ? <><UploadIcon size={13} /> Upload</> : t.key}
+                    </td>
                     <td>{t.total}</td>
                     <td className="td-success">{t.done}</td>
                     <td className="td-danger">{t.failed}</td>
@@ -270,9 +338,13 @@ export default function PerformanceTab({ jobs, users }: Props) {
 
       {/* Erros agrupados */}
       <div className="chart-section">
-        <h3 className="chart-title">🐛 Erros mais frequentes</h3>
+        <h3 className="chart-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <AlertCircleIcon size={16} style={{ color: "#ef4444" }} /> Erros mais frequentes
+        </h3>
         {errorGroups.length === 0 ? (
-          <p className="td-empty">✅ Nenhum erro no período selecionado!</p>
+          <p className="td-empty" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <CheckCircleIcon size={15} style={{ color: "#10b981" }} /> Nenhum erro no período selecionado!
+          </p>
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">
@@ -295,7 +367,9 @@ export default function PerformanceTab({ jobs, users }: Props) {
 
       {/* Jobs com falha recente */}
       <div className="chart-section">
-        <h3 className="chart-title">❌ Jobs com falha (recentes)</h3>
+        <h3 className="chart-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <AlertCircleIcon size={16} style={{ color: "#ef4444" }} /> Jobs com falha (recentes)
+        </h3>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
@@ -309,22 +383,33 @@ export default function PerformanceTab({ jobs, users }: Props) {
                   <tr key={j.id}>
                     <td className="td-muted">{fmtDate(j.created_at)}</td>
                     <td className="user-email-sm">{emailOf.get(j.user_id) ?? "—"}</td>
-                    <td><span className="source-badge">{j.source_type === "link" ? "🔗" : "📁"} {j.source_type}</span></td>
-                    <td className="td-muted">{j.orientation === "vertical" ? "📱" : "🖥️"} {j.orientation}</td>
+                    <td>
+                      <span className="source-badge" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                        {j.source_type === "link" ? <LinkIcon size={12} /> : <UploadIcon size={12} />} {j.source_type}
+                      </span>
+                    </td>
+                    <td className="td-muted" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      {j.orientation === "vertical" ? <SmartphoneIcon size={13} /> : <MonitorIcon size={13} />} {j.orientation}
+                    </td>
                     <td className="error-msg-sm">{j.error ?? "—"}</td>
                     <td>
                       <button
                         className="admin-btn-sm danger"
                         disabled={deleting === j.id}
                         onClick={() => handleDelete(j.id)}
+                        title="Excluir"
                       >
-                        {deleting === j.id ? "…" : "🗑️"}
+                        {deleting === j.id ? "…" : <TrashIcon size={13} />}
                       </button>
                     </td>
                   </tr>
                 ))}
               {filtered.filter((j) => j.status === "failed").length === 0 && (
-                <tr><td colSpan={6} className="td-empty">✅ Nenhum job com falha no período.</td></tr>
+                <tr>
+                  <td colSpan={6} className="td-empty" style={{ textAlign: "center" }}>
+                    <CheckCircleIcon size={14} style={{ color: "#10b981", verticalAlign: "middle", marginRight: "4px" }} /> Nenhum job com falha no período.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

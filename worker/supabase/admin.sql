@@ -99,8 +99,15 @@ create policy "jobs: admin apaga todos" on public.jobs
   for delete to authenticated
   using (public.is_admin());
 
+drop policy if exists "clips: admin ve todos"     on public.clips;
+drop policy if exists "clips: admin apaga todos"  on public.clips;
+
 create policy "clips: admin ve todos" on public.clips
   for select to authenticated
+  using (public.is_admin());
+
+create policy "clips: admin apaga todos" on public.clips
+  for delete to authenticated
   using (public.is_admin());
 
 -- ---------- Admin pode ver os arquivos de todos (Storage) ------------

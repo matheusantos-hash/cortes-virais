@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
-import { Cpu, Clock, Film, HardDrive, FileText, CheckCircle, TrendingUp } from "lucide-react";
+import { Cpu, Clock, Film, HardDrive, FileText, CheckCircle, TrendingUp, Calendar, Link as LinkIcon, Upload as UploadIcon, Smartphone, Monitor } from "lucide-react";
 
 interface Props {
   jobs: Job[];
@@ -117,8 +117,8 @@ export default function ResourcesTab({ jobs }: Props) {
         </div>
         <div className="admin-filter-group">
           {(["all", "link", "upload"] as const).map((s) => (
-            <button key={s} className={`filter-btn ${sourceFilter === s ? "active" : ""}`} onClick={() => setSourceFilter(s)}>
-              {s === "all" ? "Toda origem" : s === "link" ? "🔗 Link" : "📁 Upload"}
+            <button key={s} className={`filter-btn ${sourceFilter === s ? "active" : ""}`} onClick={() => setSourceFilter(s)} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+              {s === "all" ? "Toda origem" : s === "link" ? <><LinkIcon size={12} /> Link</> : <><UploadIcon size={12} /> Upload</>}
             </button>
           ))}
         </div>
@@ -161,7 +161,9 @@ export default function ResourcesTab({ jobs }: Props) {
       {/* Gráfico de barras: jobs por dia */}
       {metrics.dailySorted.length > 0 && (
         <div className="chart-section">
-          <h3 className="chart-title">📅 Jobs por dia</h3>
+          <h3 className="chart-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <Calendar size={18} style={{ color: "var(--primary)" }} /> Jobs por dia
+          </h3>
           <div className="bar-chart">
             {metrics.dailySorted.map(([day, count]) => (
               <div key={day} className="bar-col">
@@ -203,9 +205,13 @@ export default function ResourcesTab({ jobs }: Props) {
                   <tr key={j.id}>
                     <td className="td-muted">{fmtDate(j.created_at)}</td>
                     <td>
-                      <span className="source-badge">{j.source_type === "link" ? "🔗 Link" : "📁 Upload"}</span>
+                      <span className="source-badge" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                        {j.source_type === "link" ? <><LinkIcon size={12} /> Link</> : <><UploadIcon size={12} /> Upload</>}
+                      </span>
                     </td>
-                    <td className="td-muted">{j.orientation === "vertical" ? "📱 9:16" : "🖥️ 16:9"}</td>
+                    <td className="td-muted" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      {j.orientation === "vertical" ? <><Smartphone size={13} /> 9:16</> : <><Monitor size={13} /> 16:9</>}
+                    </td>
                     <td>{j.clip_count ?? "—"}</td>
                     <td className="td-mono">{dur ? formatDuration(dur) : "—"}</td>
                     <td>

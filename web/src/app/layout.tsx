@@ -4,10 +4,10 @@ import { signOut } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
-import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon } from "@/components/Icons";
+import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon, HelpCircleIcon } from "@/components/Icons";
 
 export const metadata: Metadata = {
-  title: "Cortes Virais",
+  title: "Cortes AI",
   description: "Transforme vídeos longos em cortes prontos para as redes sociais.",
 };
 
@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <span className="brand-icon-wrap">
                 <ScissorsIcon size={19} />
               </span>
-              <span className="brand-text">Cortes Virais AI</span>
+              <span className="brand-text">Cortes AI</span>
             </Link>
 
             <div className="topbar-right">
@@ -94,8 +94,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       <CoinsIcon size={12} /> {credits.toFixed(1)}m
                     </span>
                   ) : null}
-                  <Link href="/ajuda" className="navlink-help" title="Central de Ajuda">
-                    ❓ Ajuda
+                  <Link href="/ajuda" className="navlink-help" title="Central de Ajuda" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                    <HelpCircleIcon size={14} /> Ajuda
                   </Link>
                   {isAdmin && (
                     <Link href="/admin" className="navlink-admin">

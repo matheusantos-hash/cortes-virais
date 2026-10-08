@@ -47,6 +47,21 @@ import {
   Activity,
   Zap,
   Type,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  HelpCircle,
+  BookOpen,
+  Camera,
+  Square,
+  Minus,
+  Terminal,
+  HardDrive,
+  FileText,
+  AlertTriangle,
+  Settings,
+  Pencil,
   type LucideProps,
 } from "lucide-react";
 
@@ -92,6 +107,10 @@ export {
   RotateCcw,
   ChevronRight,
   ArrowRight,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
   FileCode,
   TrendingUp,
   Crown,
@@ -99,6 +118,17 @@ export {
   Activity,
   Zap,
   Type,
+  HelpCircle,
+  BookOpen,
+  Camera,
+  Square,
+  Minus,
+  Terminal,
+  HardDrive,
+  FileText,
+  AlertTriangle,
+  Settings,
+  Pencil,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores
@@ -241,4 +271,32 @@ export function WandIcon(props: LucideProps) {
 
 export function FilmIcon(props: LucideProps) {
   return <Film {...props} />;
+}
+
+export function HelpCircleIcon(props: LucideProps) {
+  return <HelpCircle {...props} />;
+}
+
+export function BookOpenIcon(props: LucideProps) {
+  return <BookOpen {...props} />;
+}
+
+export function CameraIcon(props: LucideProps) {
+  return <Camera {...props} />;
+}
+
+export function TerminalIcon(props: LucideProps) {
+  return <Terminal {...props} />;
+}
+
+export function AlertTriangleIcon(props: LucideProps) {
+  return <AlertTriangle {...props} />;
+}
+
+export function SettingsIcon(props: LucideProps) {
+  return <Settings {...props} />;
+}
+
+export function PencilIcon(props: LucideProps) {
+  return <Pencil {...props} />;
 }

@@ -1,9 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  Settings,
+  Zap,
+  Sparkles,
+  Smartphone,
+  Subtitles,
+  Film,
+  Copy,
+  Volume2,
+  FileCode,
+  Download,
+  TrendingUp,
+  Clock,
+  HelpCircle,
+  CheckCircle,
+} from "@/components/Icons";
 
 export const metadata: Metadata = {
-  title: "Central de Ajuda · Cortes Virais",
-  description: "Aprenda a usar todas as funções do Cortes Virais AI.",
+  title: "Central de Ajuda · Cortes AI",
+  description: "Aprenda a usar todas as funções do Cortes AI.",
 };
 
 const SECTIONS = [
@@ -27,13 +44,13 @@ export default function AjudaPage() {
     <div className="help-shell">
       <header className="help-hero">
         <span className="help-kicker">Central de Ajuda</span>
-        <h1>Como tirar o máximo do Cortes Virais AI</h1>
+        <h1>Como tirar o máximo do Cortes AI</h1>
         <p>
           Guia completo de todas as funções: da escolha automática dos melhores trechos às legendas animadas,
           B-Rolls gerados por IA e sound design.
         </p>
-        <Link href="/" className="btn-cta help-hero-cta">
-          ← Voltar e criar cortes
+        <Link href="/" className="btn-cta help-hero-cta" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+          <ArrowLeft size={16} /> Voltar e criar cortes
         </Link>
       </header>
 
@@ -50,7 +67,9 @@ export default function AjudaPage() {
         <div className="help-content">
           {/* COMO FUNCIONA */}
           <section id="como-funciona" className="card help-section">
-            <h2>⚙️ Como funciona</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Settings size={20} style={{ color: "var(--primary)" }} /> Como funciona
+            </h2>
             <p>Cada vídeo enviado passa por um pipeline automático de 5 etapas:</p>
             <ol className="help-steps">
               <li>
@@ -80,7 +99,9 @@ export default function AjudaPage() {
 
           {/* PRIMEIROS PASSOS */}
           <section id="primeiros-passos" className="card help-section">
-            <h2>🚀 Primeiros passos</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Zap size={20} style={{ color: "var(--primary)" }} /> Primeiros passos
+            </h2>
             <ol className="help-steps">
               <li>
                 Em <strong>Criar Cortes com IA</strong>, escolha <em>Link de Vídeo</em> (cole a URL) ou{" "}
@@ -110,7 +131,9 @@ export default function AjudaPage() {
 
           {/* TRECHOS */}
           <section id="trechos" className="card help-section">
-            <h2>🎯 Como a IA escolhe os trechos importantes</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Sparkles size={20} style={{ color: "var(--primary)" }} /> Como a IA escolhe os trechos importantes
+            </h2>
             <p>
               A transcrição é dividida em blocos de frases e enviada ao Claude, que atua como um editor especialista em
               conteúdo viral. Um bom trecho, para a IA, precisa ter:
@@ -162,7 +185,9 @@ export default function AjudaPage() {
 
           {/* FORMATO */}
           <section id="formato" className="card help-section">
-            <h2>📱 Formato e enquadramento vertical</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Smartphone size={20} style={{ color: "var(--primary)" }} /> Formato e enquadramento vertical
+            </h2>
             <p>No formato Vertical (9:16), você escolhe como o vídeo original será enquadrado:</p>
             <div className="help-table-wrap">
               <table className="help-table">
@@ -210,7 +235,9 @@ export default function AjudaPage() {
 
           {/* LEGENDAS */}
           <section id="legendas" className="card help-section">
-            <h2>💬 Legendas animadas palavra por palavra</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Subtitles size={20} style={{ color: "var(--primary)" }} /> Legendas animadas palavra por palavra
+            </h2>
             <p>
               As legendas são sincronizadas com a fala: a palavra que está sendo dita no momento fica destacada em cor e
               levemente ampliada (efeito karaokê). O texto aparece em blocos curtos de 2 a 4 palavras para leitura
@@ -226,20 +253,20 @@ export default function AjudaPage() {
                 <span>Fonte Impact, 2 palavras por vez e cores neon que mudam a cada bloco. Ritmo frenético.</span>
               </div>
               <div className="help-mini">
-                <strong>🍏 Apple Minimal</strong>
+                <strong>Apple Minimal</strong>
                 <span>Tipografia limpa, sem caixa alta, destaque em azul. Ideal para tecnologia e conteúdo corporativo.</span>
               </div>
               <div className="help-mini">
-                <strong>🎙️ Minimal Podcast</strong>
+                <strong>Minimal Podcast</strong>
                 <span>Discreta e mais baixa na tela, até 4 palavras por vez. Para podcasts e falas longas.</span>
               </div>
             </div>
             <h3>Emojis automáticos</h3>
             <p>
               Com a opção <em>Injetar Emojis Automáticos</em> ligada, palavras-chave da fala ganham um emoji ao lado.
-              Exemplos: <code>dinheiro</code> 💰, <code>lucro</code> 📈, <code>viral</code> 🚀, <code>segredo</code> 🔑,{" "}
-              <code>ideia</code> 💡, <code>cuidado</code> ⚠️, <code>erro</code> ❌, <code>foco</code> 🎯,{" "}
-              <code>mente</code> 🧠, <code>incrível</code> 🤯.
+              Exemplos: <code>dinheiro</code>, <code>lucro</code>, <code>viral</code>, <code>segredo</code>,{" "}
+              <code>ideia</code>, <code>cuidado</code>, <code>erro</code>, <code>foco</code>,{" "}
+              <code>mente</code>, <code>incrível</code>.
             </p>
             <div className="help-callout help-callout-warn">
               <strong>Importante:</strong> as legendas são aplicadas apenas no formato <strong>Vertical (9:16)</strong>.
@@ -250,7 +277,9 @@ export default function AjudaPage() {
 
           {/* BROLLS */}
           <section id="brolls" className="card help-section">
-            <h2>🎬 B-Rolls: vídeos de apoio e ilustrações por IA</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Film size={20} style={{ color: "var(--primary)" }} /> B-Rolls: vídeos de apoio e ilustrações por IA
+            </h2>
             <p>
               B-Rolls são vídeos curtos (2 a 4 segundos) que cobrem a imagem do orador para ilustrar o que está sendo
               dito, mantendo o áudio original. Ao gerar os cortes, o Claude indica <strong>em qual segundo</strong> o
@@ -290,7 +319,9 @@ export default function AjudaPage() {
 
           {/* ESTILO */}
           <section id="estilo" className="card help-section">
-            <h2>✨ Copiar estilo de edição</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Copy size={20} style={{ color: "var(--primary)" }} /> Copiar estilo de edição
+            </h2>
             <p>
               Envie ou cole o link de um vídeo modelo (TikTok, Reels ou Shorts) cuja edição você quer imitar. O sistema:
             </p>
@@ -324,7 +355,9 @@ export default function AjudaPage() {
 
           {/* SOM */}
           <section id="som" className="card help-section">
-            <h2>🔊 Sound design automático</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Volume2 size={20} style={{ color: "var(--primary)" }} /> Sound design automático
+            </h2>
             <p>Com a opção de Sound Design ligada, efeitos sonoros discretos são mixados ao áudio original:</p>
             <ul>
               <li><strong>Ding</strong> logo no início do corte, para prender a atenção no gancho.</li>
@@ -336,14 +369,16 @@ export default function AjudaPage() {
 
           {/* EXPORTAÇÃO NLE PROFISSIONAL */}
           <section id="exportacao-nle" className="card help-section">
-            <h2>🎬 Exportação para Premiere Pro e DaVinci Resolve</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <FileCode size={20} style={{ color: "var(--primary)" }} /> Exportação para Premiere Pro e DaVinci Resolve
+            </h2>
             <p>
               Para editores de vídeo profissionais, os cortes não precisam parar no arquivo MP4 renderizado.
               Você pode exportar a estrutura completa do projeto para o seu editor de vídeo favorito:
             </p>
             <div className="help-grid help-grid-2">
               <div className="help-mini">
-                <strong>🎬 Exportar XML (FCP7 xmeml)</strong>
+                <strong>Exportar XML (FCP7 xmeml)</strong>
                 <span>
                   Reconstrói as timelines no <strong>Adobe Premiere Pro</strong> e no <strong>DaVinci Resolve</strong>.
                   Preserva as trilhas de vídeo (V1 com o orador e V2 com os B-Rolls), áudio (A1 da fala e A2 dos SFX),
@@ -351,14 +386,14 @@ export default function AjudaPage() {
                 </span>
               </div>
               <div className="help-mini">
-                <strong>📄 EDL (CMX 3600)</strong>
+                <strong>EDL (CMX 3600)</strong>
                 <span>
                   Padrão universal da indústria cinematográfica e broadcast. Gera a lista de eventos com timecode SMPTE
                   milimétrico para conform e substituição instantânea (relink) dos proxies pela mídia original em 4K/RAW.
                 </span>
               </div>
               <div className="help-mini">
-                <strong>💬 Legendas SRT Sincronizadas</strong>
+                <strong>Legendas SRT Sincronizadas</strong>
                 <span>
                   Baixe as legendas como arquivos <code>.srt</code> editáveis (por corte individual ou do projeto todo).
                   Ao importar no Premiere ou Resolve, elas entram como trilhas nativas de texto/legendas.
@@ -384,7 +419,9 @@ export default function AjudaPage() {
 
           {/* RESULTADOS */}
           <section id="resultados" className="card help-section">
-            <h2>📥 Resultados, edição e download</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Download size={20} style={{ color: "var(--primary)" }} /> Resultados, edição e download
+            </h2>
             <ul>
               <li>Os cortes aparecem na galeria com player, título, gancho, nota viral e justificativa da IA.</li>
               <li>
@@ -403,7 +440,9 @@ export default function AjudaPage() {
 
           {/* DICAS */}
           <section id="dicas" className="card help-section">
-            <h2>💡 Dicas para cortes que viralizam</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <TrendingUp size={20} style={{ color: "var(--primary)" }} /> Dicas para cortes que viralizam
+            </h2>
             <div className="help-grid help-grid-2">
               <div className="help-mini">
                 <strong>Use vídeos com muita fala</strong>
@@ -434,7 +473,9 @@ export default function AjudaPage() {
 
           {/* LIMITES */}
           <section id="limites" className="card help-section">
-            <h2>📏 Limites e requisitos</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Clock size={20} style={{ color: "var(--primary)" }} /> Limites e requisitos
+            </h2>
             <ul>
               <li>Duração máxima do vídeo original: <strong>120 minutos</strong> (padrão do servidor).</li>
               <li>Quantidade de cortes por pedido: <strong>1 a 20</strong>.</li>
@@ -450,7 +491,9 @@ export default function AjudaPage() {
 
           {/* FAQ */}
           <section id="faq" className="card help-section">
-            <h2>❓ Perguntas frequentes</h2>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <HelpCircle size={20} style={{ color: "var(--primary)" }} /> Perguntas frequentes
+            </h2>
             <details className="help-faq">
               <summary>Quanto tempo demora para gerar os cortes?</summary>
               <p>

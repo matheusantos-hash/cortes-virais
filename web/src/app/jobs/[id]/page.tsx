@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import JobView from "@/components/JobView";
+import { ArrowLeft } from "@/components/Icons";
 import { createClient } from "@/lib/supabase/server";
 import type { Clip, Job } from "@/lib/types";
 
@@ -20,8 +21,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="stack-lg">
-      <Link href="/" className="link">
-        ← Voltar
+      <Link href="/" className="link" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+        <ArrowLeft size={16} /> Voltar
       </Link>
       <JobView initialJob={job as Job} initialClips={(clips ?? []) as Clip[]} />
     </div>

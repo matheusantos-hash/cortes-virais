@@ -16,6 +16,18 @@ import {
   SmartphoneIcon,
   MonitorIcon,
   XIcon,
+  ArrowLeft,
+  AlertCircle,
+  AlertTriangle,
+  User,
+  Users,
+  Layers,
+  Columns,
+  Film,
+  FileCode,
+  Subtitles,
+  Clock,
+  Pencil,
 } from "./Icons";
 
 export default function JobView({ initialJob, initialClips }: { initialJob: Job; initialClips: Clip[] }) {
@@ -126,8 +138,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   return (
     <div className="stack-lg" style={{ maxWidth: "1000px", margin: "0 auto" }}>
       <div className="row">
-        <Link href="/" className="btn btn-small btn-secondary">
-          ← Voltar ao Painel
+        <Link href="/" className="btn btn-small btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+          <ArrowLeft size={14} /> Voltar ao Painel
         </Link>
         <span className="muted small">ID: {job.id}</span>
       </div>
@@ -137,8 +149,9 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           <div>
             <div className="row" style={{ justifyContent: "flex-start", gap: "0.5rem", marginBottom: "0.3rem" }}>
               <StatusBadge status={job.status} />
-              <span className="badge" style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1" }}>
-                {vertical ? "📱 9:16 Vertical" : "🖥️ 16:9 Horizontal"}
+              <span className="badge" style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                {vertical ? <SmartphoneIcon size={13} /> : <MonitorIcon size={13} />}
+                {vertical ? "9:16 Vertical" : "16:9 Horizontal"}
               </span>
               <span className="muted small">{clips.length > 0 ? `${clips.length} clipes` : ""}</span>
             </div>
@@ -152,8 +165,10 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
               onClick={handleCancel}
               disabled={canceling}
               title="Interromper e cancelar o processamento deste vídeo"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
             >
-              {canceling ? "Cancelando…" : "✕ Cancelar Processo"}
+              <XIcon size={14} />
+              <span>{canceling ? "Cancelando…" : "Cancelar Processo"}</span>
             </button>
           )}
         </div>
@@ -164,27 +179,37 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           </div>
         )}
 
-        {job.status === "failed" && <p className="error">❌ {job.error ?? "Falha ao processar o vídeo."}</p>}
-        {job.status === "canceled" && <p className="muted" style={{ color: "var(--warning)" }}>⚠️ Processamento cancelado pelo usuário.</p>}
+        {job.status === "failed" && (
+          <p className="error" style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <AlertCircle size={15} /> {job.error ?? "Falha ao processar o vídeo."}
+          </p>
+        )}
+        {job.status === "canceled" && (
+          <p className="muted" style={{ color: "var(--warning)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <AlertTriangle size={15} /> Processamento cancelado pelo usuário.
+          </p>
+        )}
 
         {/* Informações de Design e Referência */}
         {(job.reference_style || job.reference_url || job.design_instructions || job.vertical_mode) && (
           <div className="card" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid var(--card-border)", fontSize: "0.88rem", padding: "0.75rem 1rem" }}>
             <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
               {job.vertical_mode && (
-                <span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                   <strong>Layout:</strong>{" "}
-                  {job.vertical_mode === "face_tracking"
-                    ? "👤 Auto-Face (IA)"
-                    : job.vertical_mode === "split_face"
-                    ? "👥 Podcast IA (Split Rostos)"
-                    : job.vertical_mode === "crop"
-                    ? "📱 Crop 9:16"
-                    : job.vertical_mode === "blur"
-                    ? "🎞️ Fundo Blur"
-                    : job.vertical_mode === "split"
-                    ? "🎙️ Split Screen"
-                    : job.vertical_mode}
+                  {job.vertical_mode === "face_tracking" ? (
+                    <><User size={13} /> Auto-Face (IA)</>
+                  ) : job.vertical_mode === "split_face" ? (
+                    <><Users size={13} /> Podcast IA (Split Rostos)</>
+                  ) : job.vertical_mode === "crop" ? (
+                    <><SmartphoneIcon size={13} /> Crop 9:16</>
+                  ) : job.vertical_mode === "blur" ? (
+                    <><Layers size={13} /> Fundo Blur</>
+                  ) : job.vertical_mode === "split" ? (
+                    <><Columns size={13} /> Split Screen</>
+                  ) : (
+                    job.vertical_mode
+                  )}
                 </span>
               )}
               {job.reference_style && (
@@ -238,25 +263,27 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                 }}
                 title="Exportar projeto XML (FCP7) compatível com Adobe Premiere Pro e DaVinci Resolve com preservação da timeline e cortes"
               >
-                🎬 Exportar XML (Premiere / Resolve)
+                <Film size={14} /> Exportar XML (Premiere / Resolve)
               </a>
 
               <a
                 href={`/api/jobs/${job.id}/export?format=edl`}
                 download
                 className="btn btn-small btn-secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                 title="Exportar lista de cortes EDL CMX 3600 universal para conform e relink com a mídia original"
               >
-                📄 EDL (CMX 3600)
+                <FileCode size={14} /> EDL (CMX 3600)
               </a>
 
               <a
                 href={`/api/jobs/${job.id}/export?format=srt`}
                 download
                 className="btn btn-small btn-secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
                 title="Baixar legendas em formato SRT sincronizado para todos os clipes"
               >
-                💬 Legendas SRT
+                <Subtitles size={14} /> Legendas SRT
               </a>
             </div>
           </div>
@@ -292,9 +319,12 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                           fontSize: "0.75rem",
                           padding: "0.15rem 0.5rem",
                           fontWeight: 600,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.3rem",
                         }}
                       >
-                        ⏳ Re-renderizando corte...
+                        <Clock size={12} /> Re-renderizando corte...
                       </span>
                     )}
                   </div>
@@ -319,20 +349,20 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
+                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}
                       onClick={() => setEditingClip(clip)}
                       title="Ajustar tempo de corte e criar capa personalizada"
                     >
-                      ✏️ Editar
+                      <Pencil size={13} /> Editar
                     </button>
                     <a
                       href={`/api/jobs/${job.id}/export?format=srt&clipId=${clip.id}`}
                       download
                       className="btn btn-secondary"
-                      style={{ padding: "0.55rem 0.5rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center" }}
+                      style={{ padding: "0.55rem 0.5rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                       title="Baixar legenda SRT sincronizada deste clipe específico"
                     >
-                      💬 SRT
+                      <Subtitles size={13} /> SRT
                     </a>
                     <button
                       type="button"

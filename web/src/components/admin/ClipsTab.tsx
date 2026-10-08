@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { AdminUsuario } from "@/app/admin/page";
 import type { Clip, Job } from "@/lib/types";
 import { fmtDate, fmtClock } from "@/lib/format";
@@ -16,6 +17,8 @@ import {
   XIcon,
   CheckCircleIcon,
   AlertCircleIcon,
+  CrownIcon,
+  ZapIcon,
 } from "@/components/Icons";
 import { HardDrive } from "lucide-react";
 
@@ -26,6 +29,13 @@ interface Props {
 }
 
 export default function ClipsTab({ clips, users, jobs }: Props) {
+  const router = useRouter();
+  const [items, setItems] = useState<Clip[]>(clips);
+
+  useEffect(() => {
+    setItems(clips);
+  }, [clips]);
+
   const [search, setSearch] = useState("");
   const [filterUser, setFilterUser] = useState<string>("all");
   const [filterScore, setFilterScore] = useState<"all" | "high" | "med" | "low">("all");
@@ -71,7 +81,7 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
 
   // Filtragem e ordenação
   const filtered = useMemo(() => {
-    return clips
+    return items
       .filter((c) => {
         // Usuário
         if (filterUser !== "all" && c.user_id !== filterUser) return false;
@@ -108,7 +118,7 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
         return dateB - dateA;
       });
-  }, [clips, filterUser, filterScore, search, sortBy, usersMap]);
+  }, [items, filterUser, filterScore, search, sortBy, usersMap]);
 
   // Estatísticas do conjunto filtrado
   const stats = useMemo(() => {
@@ -171,11 +181,13 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
         const res = await adminDeleteClip(id);
         if (res.success) {
           showMsg("Clipe excluído com sucesso!", true);
+          setItems((prev) => prev.filter((c) => c.id !== id));
           setSelectedIds((prev) => {
             const next = new Set(prev);
             next.delete(id);
             return next;
           });
+          router.refresh();
         } else {
           showMsg(res.error || "Erro ao excluir clipe.", false);
         }
@@ -187,7 +199,9 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
         const res = await adminDeleteClipsBatch(ids);
         if (res.success) {
           showMsg(`${res.count} clipe(s) excluído(s) com sucesso!`, true);
+          setItems((prev) => prev.filter((c) => !ids.includes(c.id)));
           setSelectedIds(new Set());
+          router.refresh();
         } else {
           showMsg(res.error || "Erro ao excluir clipes em lote.", false);
         }
@@ -273,17 +287,19 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
         <div className="admin-filter-group">
           {(
             [
-              { id: "all", label: "Todos" },
-              { id: "high", label: "🔥 80+ Alto" },
-              { id: "med", label: "⚡ 50-79 Médio" },
-              { id: "low", label: "❄️ <50 Baixo" },
+              { id: "all", label: "Todos", icon: null },
+              { id: "high", label: "80+ Alto", icon: <TrendingUpIcon size={12} /> },
+              { id: "med", label: "50-79 Médio", icon: <ZapIcon size={12} /> },
+              { id: "low", label: "<50 Baixo", icon: null },
             ] as const
           ).map((item) => (
             <button
               key={item.id}
               className={`filter-btn ${filterScore === item.id ? "active" : ""}`}
               onClick={() => setFilterScore(item.id)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
             >
+              {item.icon}
               {item.label}
             </button>
           ))}
@@ -478,9 +494,11 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
                       </div>
                       <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
                         {user?.pagante ? (
-                          <span style={{ color: "var(--primary)", fontWeight: 700 }}>💎 Pagante</span>
+                          <span style={{ color: "var(--primary)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                            <CrownIcon size={11} /> Pagante
+                          </span>
                         ) : (
-                          "🆓 Free"
+                          "Free"
                         )}
                       </div>
                     </td>

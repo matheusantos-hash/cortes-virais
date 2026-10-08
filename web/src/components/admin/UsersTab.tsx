@@ -5,6 +5,14 @@ import type { AdminUsuario } from "@/app/admin/page";
 import type { Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
 import { setAdminFlag, setUserPlan, setUserCredits, adminDeleteJob } from "@/app/admin/actions";
+import {
+  CrownIcon,
+  CoinsIcon,
+  CheckCircleIcon,
+  PencilIcon,
+  SaveIcon,
+  XIcon,
+} from "@/components/Icons";
 
 interface Props {
   users: AdminUsuario[];
@@ -94,7 +102,7 @@ export default function UsersTab({ users, jobs }: Props) {
       <div className="admin-filters">
         <input
           className="admin-search"
-          placeholder="🔍 Buscar por e-mail ou ID..."
+          placeholder="Buscar por e-mail ou ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -104,8 +112,17 @@ export default function UsersTab({ users, jobs }: Props) {
               key={f}
               className={`filter-btn ${filterPlan === f ? "active" : ""}`}
               onClick={() => setFilterPlan(f)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
             >
-              {f === "all" ? "Todos" : f === "pagante" ? "💎 Pagantes" : "🆓 Free"}
+              {f === "all" ? (
+                "Todos"
+              ) : f === "pagante" ? (
+                <>
+                  <CrownIcon size={13} /> Pagantes
+                </>
+              ) : (
+                "Free"
+              )}
             </button>
           ))}
         </div>
@@ -150,14 +167,18 @@ export default function UsersTab({ users, jobs }: Props) {
                   </td>
                   <td>
                     {u.pagante ? (
-                      <span className="plan-badge pagante">💎 {u.plano ?? "Pago"}</span>
+                      <span className="plan-badge pagante" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <CrownIcon size={12} /> {u.plano ?? "Pago"}
+                      </span>
                     ) : (
-                      <span className="plan-badge free">🆓 Free</span>
+                      <span className="plan-badge free">Free</span>
                     )}
                   </td>
                   <td>
                     {u.is_xandao ? (
-                      <span className="plan-badge pagante" title="Isento de débitos">♾️ VIP Ilimitado</span>
+                      <span className="plan-badge pagante" title="Isento de débitos" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <CrownIcon size={12} /> VIP Ilimitado
+                      </span>
                     ) : (
                       <div>
                         <span
@@ -169,9 +190,12 @@ export default function UsersTab({ users, jobs }: Props) {
                             fontSize: "0.82rem",
                             padding: "0.15rem 0.45rem",
                             fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
                           }}
                         >
-                          🪙 {Number(u.creditos_minutos ?? 30).toFixed(1)} min
+                          <CoinsIcon size={12} /> {Number(u.creditos_minutos ?? 30).toFixed(1)} min
                         </span>
                         <span className="td-muted" style={{ fontSize: "0.75rem", display: "block", marginTop: "2px" }}>
                           Máx: {Number(u.limite_max_video_minutos ?? 60).toFixed(0)}m / vídeo
@@ -185,16 +209,24 @@ export default function UsersTab({ users, jobs }: Props) {
                       onClick={() => handleToggleAdmin(u)}
                       disabled={isPending}
                       title={u.is_xandao ? "Remover acesso admin" : "Conceder acesso admin"}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
                     >
-                      {u.is_xandao ? "✅ Admin" : "—"}
+                      {u.is_xandao ? (
+                        <>
+                          <CheckCircleIcon size={13} /> Admin
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </button>
                   </td>
                   <td>
                     <button
                       className="admin-btn-sm"
                       onClick={() => handleOpenEdit(u)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
                     >
-                      ✏️ Editar plano / Créditos
+                      <PencilIcon size={13} /> Editar plano / Créditos
                     </button>
                   </td>
                 </tr>
@@ -209,16 +241,20 @@ export default function UsersTab({ users, jobs }: Props) {
         <div className="admin-modal-overlay" onClick={() => setEditingUser(null)}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>✏️ Editar Plano & Créditos</h3>
-              <button className="modal-close" onClick={() => setEditingUser(null)}>✕</button>
+              <h3 style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <PencilIcon size={16} /> Editar Plano & Créditos
+              </h3>
+              <button className="modal-close" onClick={() => setEditingUser(null)}>
+                <XIcon size={16} />
+              </button>
             </div>
             <p className="modal-user-email">{editingUser.email}</p>
             <form onSubmit={handleSavePlan} className="modal-form">
               <label className="form-label">
                 Status
                 <select name="pagante" defaultValue={String(editingUser.pagante)} className="form-select">
-                  <option value="false">🆓 Free</option>
-                  <option value="true">💎 Pagante</option>
+                  <option value="false">Free</option>
+                  <option value="true">Pagante</option>
                 </select>
               </label>
               <label className="form-label">
@@ -238,7 +274,9 @@ export default function UsersTab({ users, jobs }: Props) {
 
               {/* Seção de Gestão Manual de Créditos e Limites */}
               <div style={{ background: "rgba(255, 255, 255, 0.04)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.08)", marginTop: "0.5rem" }}>
-                <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.92rem", color: "var(--primary)" }}>🪙 Gestão de Créditos & Limites</h4>
+                <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.92rem", color: "var(--primary)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <CoinsIcon size={14} /> Gestão de Créditos & Limites
+                </h4>
                 <div className="form-row">
                   <label className="form-label">
                     Saldo Disponível (minutos)
@@ -267,7 +305,9 @@ export default function UsersTab({ users, jobs }: Props) {
                   <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 30)}>+30 min</button>
                   <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 60)}>+60 min</button>
                   <button type="button" className="filter-btn" onClick={() => setCreditsVal((c) => c + 300)}>+300 min (Pro)</button>
-                  <button type="button" className="filter-btn active" onClick={() => { setCreditsVal(99999); setLimitVal(3600); }}>💎 VIP Ilimitado</button>
+                  <button type="button" className="filter-btn active" onClick={() => { setCreditsVal(99999); setLimitVal(3600); }} style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <CrownIcon size={12} /> VIP Ilimitado
+                  </button>
                 </div>
               </div>
 
@@ -278,7 +318,13 @@ export default function UsersTab({ users, jobs }: Props) {
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setEditingUser(null)}>Cancelar</button>
                 <button type="submit" className="btn-save" disabled={isPending}>
-                  {isPending ? "Salvando..." : "💾 Salvar Alterações"}
+                  {isPending ? (
+                    "Salvando..."
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <SaveIcon size={14} /> Salvar Alterações
+                    </span>
+                  )}
                 </button>
               </div>
             </form>

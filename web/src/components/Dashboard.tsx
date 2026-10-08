@@ -22,6 +22,15 @@ import {
   ClockIcon,
   SmartphoneIcon,
   MonitorIcon,
+  BookOpen,
+  ArrowRight,
+  ChevronUp,
+  ChevronDown,
+  X,
+  Film,
+  User,
+  Users,
+  AlertTriangle,
 } from "./Icons";
 
 function getStageDescription(status: JobStatus): string {
@@ -178,10 +187,12 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
           {activeMode === "cortes" ? (
             <>
               <Link href="/ajuda" className="help-banner">
-                <span>
-                  📘 <strong>Primeira vez aqui?</strong> Veja como funcionam legendas, B-Rolls com IA e as demais funções.
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+                  <BookOpen size={16} style={{ color: "var(--primary)" }} /> <strong>Primeira vez aqui?</strong> Veja como funcionam legendas, B-Rolls com IA e as demais funções.
                 </span>
-                <span className="help-banner-arrow">Central de Ajuda →</span>
+                <span className="help-banner-arrow" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                  Central de Ajuda <ArrowRight size={14} />
+                </span>
               </Link>
               <NewJobForm userId={userId} onCreated={refresh} />
             </>
@@ -229,8 +240,17 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                   className="btn btn-small btn-secondary"
                   onClick={() => setShowTerminal(!showTerminal)}
                   title="Exibir ou recolher saída do terminal PowerShell"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
                 >
-                  {showTerminal ? "Recolher Terminal ▲" : "Mostrar Terminal ▼"}
+                  {showTerminal ? (
+                    <>
+                      <ChevronUp size={14} /> Recolher Terminal
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={14} /> Mostrar Terminal
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -238,8 +258,10 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                   onClick={() => handleCancel(activeJob.id)}
                   disabled={cancelingId === activeJob.id}
                   title="Interromper processamento"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
                 >
-                  {cancelingId === activeJob.id ? "Cancelando…" : "✕ Cancelar Processo"}
+                  <X size={14} />
+                  <span>{cancelingId === activeJob.id ? "Cancelando…" : "Cancelar Processo"}</span>
                 </button>
               </div>
             </div>
@@ -266,7 +288,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
 
           {jobs.length === 0 && (
             <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem" }}>
-              <span style={{ fontSize: "2.5rem", display: "block", marginBottom: "0.75rem" }}>🎬</span>
+              <Film size={44} style={{ color: "var(--text-muted)", display: "block", margin: "0 auto 0.75rem", opacity: 0.6 }} />
               <h3 style={{ color: "var(--text)", marginBottom: "0.35rem" }}>Nenhum projeto criado ainda</h3>
               <p className="muted small" style={{ maxWidth: "380px", margin: "0 auto" }}>
                 Cole um link do YouTube ou envie um vídeo no formulário ao lado para a IA começar a extrair os melhores cortes virais.
@@ -290,13 +312,13 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                         {vertical ? "Vertical (9:16)" : "Horizontal (16:9)"}
                       </span>
                       {job.vertical_mode === "face_tracking" && (
-                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)" }}>
-                          👤 Auto-Face IA
+                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                          <User size={12} /> Auto-Face IA
                         </span>
                       )}
                       {job.vertical_mode === "split_face" && (
-                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)" }}>
-                          👥 Podcast IA
+                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                          <Users size={12} /> Podcast IA
                         </span>
                       )}
                       <span className="muted small">· {fmtDate(job.created_at)}</span>
@@ -339,14 +361,14 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                 )}
 
                 {job.status === "failed" && (
-                  <p className="error" style={{ margin: "0.3rem 0" }}>
-                    ❌ {job.error ?? "Ocorreu uma falha durante o processamento."}
+                  <p className="error" style={{ margin: "0.3rem 0", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                    <AlertCircleIcon size={14} /> {job.error ?? "Ocorreu uma falha durante o processamento."}
                   </p>
                 )}
 
                 {job.status === "canceled" && (
-                  <p className="muted" style={{ color: "var(--warning)", margin: "0.3rem 0", fontSize: "0.88rem" }}>
-                    ⚠️ Processamento cancelado pelo usuário.
+                  <p className="muted" style={{ color: "var(--warning)", margin: "0.3rem 0", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                    <AlertTriangle size={14} /> Processamento cancelado pelo usuário.
                   </p>
                 )}
 

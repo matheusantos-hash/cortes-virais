@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/types";
+import { Terminal, Copy, Check, Minus, Square } from "./Icons";
 
 interface PowerShellTerminalProps {
   logs: string[];
@@ -73,10 +74,7 @@ export default function PowerShellTerminal({ logs = [], status, jobId }: PowerSh
       {/* Barra de Título do PowerShell */}
       <div className="ps-header">
         <div className="ps-title">
-          <svg className="ps-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-            <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H2z"/>
-            <path d="M4.5 4a.5.5 0 0 0-.354.854L6.293 7 4.146 9.146a.5.5 0 1 0 .708.708l2.5-2.5a.5.5 0 0 0 0-.708l-2.5-2.5A.5.5 0 0 0 4.5 4zm4 6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1h-4z"/>
-          </svg>
+          <Terminal size={14} className="ps-icon" />
           <span>Windows PowerShell &mdash; [Backend do Processo]</span>
           {isRunning && <span className="ps-live-badge">● AO VIVO</span>}
         </div>
@@ -86,8 +84,17 @@ export default function PowerShellTerminal({ logs = [], status, jobId }: PowerSh
             className="ps-btn-action"
             onClick={copyLogs}
             title="Copiar saída do terminal"
+            style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
           >
-            {copied ? "✓ Copiado" : "Copiar"}
+            {copied ? (
+              <>
+                <Check size={12} /> Copiado
+              </>
+            ) : (
+              <>
+                <Copy size={12} /> Copiar
+              </>
+            )}
           </button>
           <button
             type="button"
@@ -95,7 +102,7 @@ export default function PowerShellTerminal({ logs = [], status, jobId }: PowerSh
             onClick={() => setIsExpanded(!isExpanded)}
             title={isExpanded ? "Minimizar" : "Restaurar"}
           >
-            &minus;
+            <Minus size={13} />
           </button>
           <button
             type="button"
@@ -103,7 +110,7 @@ export default function PowerShellTerminal({ logs = [], status, jobId }: PowerSh
             onClick={() => setIsMaximized(!isMaximized)}
             title={isMaximized ? "Restaurar tamanho" : "Maximizar"}
           >
-            &#9633;
+            <Square size={11} />
           </button>
         </div>
       </div>

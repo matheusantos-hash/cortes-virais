@@ -41,7 +41,7 @@ export default function ModeSelectorCards({ currentMode, onSelectMode }: ModeSel
           </div>
 
           <div className="mode-card-body">
-            <h3 className="mode-card-title">Cortes Virais com IA</h3>
+            <h3 className="mode-card-title">Cortes AI</h3>
             <p className="mode-card-desc">
               Envie um vídeo longo ou link do YouTube. A inteligência artificial garimpa os melhores momentos,
               detecta ganchos hipnóticos e gera clipes prontos para TikTok, Reels e Shorts.

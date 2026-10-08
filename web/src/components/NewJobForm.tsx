@@ -21,6 +21,10 @@ import {
   TrendingUpIcon,
   CrownIcon,
   CoinsIcon,
+  FilmIcon,
+  Palette,
+  Volume2,
+  AlertCircleIcon,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -44,10 +48,10 @@ function formatBytes(bytes: number): string {
 
 const STYLE_PRESETS = [
   { id: "ganchos_rapidos", name: "Ganchos Rápidos (TikTok/Reels)", desc: "Cortes dinâmicos com abertura impactante e ritmo acelerado" },
-  { id: "podcast", name: "🎙️ Podcast & Entrevistas", desc: "Focado em perguntas instigantes, respostas marcantes e diálogos" },
-  { id: "storytelling", name: "💡 Storytelling & Reflexão", desc: "Histórias envolventes com começo, meio e desfecho emocionante" },
-  { id: "educacional", name: "🧠 Educacional & Dicas Práticas", desc: "Explicações diretas ao ponto com alto valor informativo" },
-  { id: "humor", name: "🎭 Humor & Momentos Cômicos", desc: "Piadas, reações engraçadas e momentos descontraídos" },
+  { id: "podcast", name: "Podcast & Entrevistas", desc: "Focado em perguntas instigantes, respostas marcantes e diálogos" },
+  { id: "storytelling", name: "Storytelling & Reflexão", desc: "Histórias envolventes com começo, meio e desfecho emocionante" },
+  { id: "educacional", name: "Educacional & Dicas Práticas", desc: "Explicações diretas ao ponto com alto valor informativo" },
+  { id: "humor", name: "Humor & Momentos Cômicos", desc: "Piadas, reações engraçadas e momentos descontraídos" },
 ];
 
 export default function NewJobForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
@@ -323,10 +327,13 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 border: `1px solid ${credits > 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
                 fontWeight: 600,
                 fontSize: "0.82rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
               }}
               title="Saldo disponível de minutos de vídeo para processar"
             >
-              🪙 Saldo: {credits.toFixed(1)} min
+              <CoinsIcon size={12} /> Saldo: {credits.toFixed(1)} min
             </span>
           ) : null}
         </div>
@@ -614,7 +621,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
               <strong style={{ fontSize: "1rem", color: "var(--primary)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span>✨</span> Copiar Estilo de Edição
+                <SparklesIcon size={16} /> Copiar Estilo de Edição
               </strong>
               <span className="badge badge-done" style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem" }}>
                 <SparklesIcon size={12} /> Higgsfield AI + Claude Vision
@@ -697,7 +704,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 />
                 <div style={{ flex: 1 }}>
                   <strong style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                    🎬 Inserir B-Rolls Cinematográficos nos Ganchos
+                    <FilmIcon size={15} /> Inserir B-Rolls Cinematográficos nos Ganchos
                   </strong>
                   <small style={{ display: "block", color: "var(--text-muted)", fontSize: "0.78rem" }}>
                     Vídeos de apoio gerados para reforçar momentos de maior retenção.
@@ -760,7 +767,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               onChange={(e) => setUseBroll(e.target.checked)}
             />
             <div>
-              <strong style={{ fontSize: "0.92rem", color: "var(--text)" }}>🎬 Inserir B-Rolls automáticos nos momentos-chave</strong>
+              <strong style={{ fontSize: "0.92rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <FilmIcon size={15} /> Inserir B-Rolls automáticos nos momentos-chave
+              </strong>
               <small style={{ display: "block", color: "var(--text-muted)" }}>
                 Intercala vídeos de apoio em Full HD para aumentar a retenção.
               </small>
@@ -786,7 +795,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       <div className="card stack" style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)", padding: "1rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
           <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--primary)" }}>
-            <span>🎨</span> Estilo de Legenda & Sound Design
+            <Palette size={16} /> Estilo de Legenda &amp; Sound Design
           </strong>
           <span className="badge" style={{ background: "rgba(99, 102, 241, 0.15)", color: "#a5b4fc", fontSize: "0.72rem" }}>
             Alta Retenção
@@ -816,8 +825,8 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 onChange={(e) => setEnableEmojis(e.target.checked)}
                 style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
               />
-              <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-                ✨ Injetar Emojis Automáticos (🚀, 💰, 💡, 🎯)
+              <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <SparklesIcon size={14} style={{ color: "var(--primary)" }} /> Injetar Emojis Automáticos na fala
               </span>
             </label>
 
@@ -828,8 +837,8 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 onChange={(e) => setEnableSfx(e.target.checked)}
                 style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
               />
-              <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-                🔊 Sound Design (Whoosh, Pop e Ding sincronizados)
+              <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <Volume2 size={14} style={{ color: "var(--primary)" }} /> Sound Design (Whoosh, Pop e Ding sincronizados)
               </span>
             </label>
           </div>
@@ -871,9 +880,13 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
             color: "#f87171",
             fontSize: "0.88rem",
             lineHeight: 1.4,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
           }}
         >
-          ⚠️ <strong>Saldo de minutos esgotado (0.0 min).</strong> Você atingiu seu limite gratuito de processamento. Fale com o administrador para recarregar sua conta.
+          <AlertCircleIcon size={18} style={{ flexShrink: 0 }} />
+          <span><strong>Saldo de minutos esgotado (0.0 min).</strong> Você atingiu seu limite gratuito de processamento. Fale com o administrador para recarregar sua conta.</span>
         </div>
       )}
 
