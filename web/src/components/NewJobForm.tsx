@@ -219,6 +219,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     }
 
     const payload: Record<string, any> = {
+      user_id: userId,
       ...source,
       file_name: mode === "upload" && file ? file.name : null,
       orientation,

@@ -147,9 +147,13 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     if (!clip.file_path) return;
     setDownloadingId(clip.id);
     const name = `corte-${String(clip.position).padStart(2, "0")}.mp4`;
-    const { data } = await supabase.storage.from("clips").createSignedUrl(clip.file_path, 300, { download: name });
+    const { data, error } = await supabase.storage.from("clips").createSignedUrl(clip.file_path, 300, { download: name });
     setDownloadingId(null);
-    if (data?.signedUrl) window.location.href = data.signedUrl;
+    if (error || !data?.signedUrl) {
+      alert("Não foi possível gerar link de download para este clipe. Verifique sua conexão ou tente novamente.");
+      return;
+    }
+    window.location.href = data.signedUrl;
   }
 
   // Progresso ao vivo (Realtime)

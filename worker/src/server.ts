@@ -445,6 +445,7 @@ async function processJob(job: Job) {
 
         if (debitErr) {
           console.error(`[${job.id}] Erro ao debitar créditos:`, debitErr.message);
+          throw new Error(`Falha ao debitar créditos da conta: ${debitErr.message}`);
         } else if (Number(remainingCredits) < 0) {
           const currentBal = Number(userData.creditos_minutos ?? 0).toFixed(1);
           throw new UserError(
@@ -605,6 +606,18 @@ async function processJob(job: Job) {
         console.error(`[${job.id}] Falha ao estornar créditos:`, refundErr);
       }
       debitedMinutes = 0;
+    }
+
+    // Se era um job de ajuste (trim), libera o clipe do estado de travamento is_trimming
+    if (job.job_type === "trim" && job.target_clip_id) {
+      try {
+        await supabase
+          .from("clips")
+          .update({ is_trimming: false })
+          .eq("id", job.target_clip_id);
+      } catch (clipResetErr) {
+        console.error(`[${job.id}] Falha ao resetar is_trimming:`, clipResetErr);
+      }
     }
 
     if (err instanceof CanceledError || abortCtrl.signal.aborted) {

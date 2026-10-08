@@ -32,9 +32,18 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; erro
   }
 
   if (job.user_id !== user.id) {
-    const { data: isAdmin } = await supabase.rpc("is_admin");
-    if (!isAdmin) {
-      return { success: false, error: "Você não tem permissão para cancelar este pedido." };
+    const { data: me } = await supabase
+      .from("usuarios")
+      .select("is_xandao, xandao")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isUserAdmin = me?.is_xandao === true || me?.xandao === 1;
+    if (!isUserAdmin) {
+      const { data: isAdmin } = await supabase.rpc("is_admin");
+      if (!isAdmin) {
+        return { success: false, error: "Você não tem permissão para cancelar este pedido." };
+      }
     }
   }
 
@@ -97,14 +106,43 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; erro
   return { success: true };
 }
 
-/** Exclui um job pertencente ao usuário. */
+/** Exclui um job pertencente ao usuário, limpando também arquivos de mídia do Storage. */
 export async function deleteUserJob(jobId: string): Promise<{ success: boolean; error?: string }> {
   if (!jobId) return { success: false, error: "ID não fornecido" };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autenticado" };
 
-  const { error } = await supabase
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+
+  // Busca dados de arquivos para limpeza prévia do Storage
+  const { data: job } = await clientToUse
+    .from("jobs")
+    .select("source_path, source_type")
+    .eq("id", jobId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { data: clips } = await clientToUse
+    .from("clips")
+    .select("file_path")
+    .eq("job_id", jobId)
+    .eq("user_id", user.id);
+
+  if (job?.source_type === "upload" && job?.source_path) {
+    try {
+      await clientToUse.storage.from("sources").remove([job.source_path]);
+    } catch {}
+  }
+  const clipPaths = (clips ?? []).map((c) => c.file_path).filter(Boolean) as string[];
+  if (clipPaths.length > 0) {
+    try {
+      await clientToUse.storage.from("clips").remove(clipPaths);
+    } catch {}
+  }
+
+  const { error } = await clientToUse
     .from("jobs")
     .delete()
     .eq("id", jobId)

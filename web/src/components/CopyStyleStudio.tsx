@@ -799,6 +799,7 @@ export default function CopyStyleStudio({
 
       // 4. Criação do Job no Banco com todos os metadados de clonagem
       const jobPayload: Record<string, any> = {
+        user_id: userId,
         ...sourcePayload,
         orientation: resolution.includes("1920x1080") ? "horizontal" : "vertical",
         vertical_mode: verticalMode || "face_tracking",
