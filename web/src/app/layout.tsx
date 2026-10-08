@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon, HelpCircleIcon } from "@/components/Icons";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "Cortes AI",
@@ -30,13 +31,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
           rel="stylesheet"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var stored = localStorage.getItem('cortes_theme');
+                  var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark');
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {}
+              })();
+            `,
+          }}
         />
       </head>
       <body>
@@ -55,6 +69,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <span className="status-pulse-dot" />
                 <span className="status-label">Sistema Online</span>
               </div>
+
+              {/* Botão de Alternância de Tema (Dark / Light) */}
+              <ThemeToggle />
 
               {user && (
                 <nav className="user-nav">

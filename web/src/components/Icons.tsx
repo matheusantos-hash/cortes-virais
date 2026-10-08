@@ -62,6 +62,10 @@ import {
   AlertTriangle,
   Settings,
   Pencil,
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
   type LucideProps,
 } from "lucide-react";
 
@@ -129,9 +133,29 @@ export {
   AlertTriangle,
   Settings,
   Pencil,
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores
+export function EyeIcon(props: LucideProps) {
+  return <Eye {...props} />;
+}
+
+export function EyeOffIcon(props: LucideProps) {
+  return <EyeOff {...props} />;
+}
+
+export function SunIcon(props: LucideProps) {
+  return <Sun {...props} />;
+}
+
+export function MoonIcon(props: LucideProps) {
+  return <Moon {...props} />;
+}
+
 export function SparklesIcon(props: LucideProps) {
   return <Sparkles {...props} />;
 }
