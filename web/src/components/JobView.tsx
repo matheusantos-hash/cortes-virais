@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cancelJob, requestClipTrimAction } from "@/app/actions";
+import { cancelJob, deleteUserClip, requestClipTrimAction, saveClipCanvasBrollsAction } from "@/app/actions";
 import { fmtClock, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job } from "@/lib/types";
@@ -11,6 +11,7 @@ import StatusBadge from "./StatusBadge";
 import ClipEditorModal from "./ClipEditorModal";
 import {
   DownloadIcon,
+  TrashIcon,
   TrendingUpIcon,
   SparklesIcon,
   SmartphoneIcon,
@@ -38,6 +39,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   const [downloading, setDownloading] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const { data: j } = await supabase.from("jobs").select("*").eq("id", initialJob.id).single();
@@ -102,6 +104,24 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       alert(`Erro inesperado ao cancelar: ${err?.message || "Tente novamente."}`);
     } finally {
       setCanceling(false);
+    }
+  }
+
+  async function handleDeleteClip(clipId: string) {
+    if (!confirm("Tem certeza que deseja apagar permanentemente este clipe? O arquivo será removido do armazenamento.")) return;
+    setDeletingClipId(clipId);
+    try {
+      const res = await deleteUserClip(clipId);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível excluir o clipe: ${res.error}`);
+        return;
+      }
+      setClips((prev) => prev.filter((c) => c.id !== clipId));
+    } catch (err: any) {
+      console.error("Falha ao excluir clipe:", err);
+      alert(`Erro inesperado ao excluir clipe: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setDeletingClipId(null);
     }
   }
 
@@ -371,12 +391,22 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     <button
                       type="button"
                       className="btn-cta"
-                      style={{ flex: 1, minWidth: "100px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
+                      style={{ flex: 1, minWidth: "90px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
                       onClick={() => download(clip)}
                       disabled={downloading === clip.id}
                     >
                       <DownloadIcon size={15} />
                       <span>{downloading === clip.id ? "…" : "Baixar"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: "0.55rem 0.6rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--danger)" }}
+                      onClick={() => handleDeleteClip(clip.id)}
+                      disabled={deletingClipId === clip.id}
+                      title="Excluir este corte permanentemente"
+                    >
+                      <TrashIcon size={14} />
                     </button>
                   </div>
                 </div>
@@ -386,22 +416,31 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
         </section>
       )}
 
-      {/* Modal Interativo de Trimming & Gerador de Capas (Fase 5) */}
+      {/* Modal Interativo de Trimming & Gerador de Capas & B-Rolls Canvas */}
       {editingClip && (
         <ClipEditorModal
           clip={editingClip}
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
           onClose={() => setEditingClip(null)}
-          onUpdateClipTime={async (clipId, trimStart, trimEnd) => {
-            const res = await requestClipTrimAction(clipId, trimStart, trimEnd);
+          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls) => {
+            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls);
             if (!res.success) {
               alert(`Falha ao iniciar recorte: ${res.error}`);
               return;
             }
             setClips((prev) =>
-              prev.map((c) => (c.id === clipId ? { ...c, is_trimming: true } : c))
+              prev.map((c) => (c.id === clipId ? { ...c, is_trimming: true, canvas_brolls: canvasBrolls ?? c.canvas_brolls } : c))
             );
             alert("Ajuste solicitado com sucesso! O worker está re-renderizando seu corte em alta definição...");
+          }}
+          onSaveCanvasBrolls={async (clipId, brolls) => {
+            const res = await saveClipCanvasBrollsAction(clipId, brolls);
+            if (!res.success) {
+              throw new Error(res.error || "Falha ao salvar");
+            }
+            setClips((prev) =>
+              prev.map((c) => (c.id === clipId ? { ...c, canvas_brolls: brolls } : c))
+            );
           }}
         />
       )}

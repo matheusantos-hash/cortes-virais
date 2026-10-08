@@ -176,34 +176,46 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
   function handleExecuteDelete() {
     if (confirmDelete.type === "single" && confirmDelete.targetId) {
       const id = confirmDelete.targetId;
-      setConfirmDelete({ open: false, type: "single" });
       startTransition(async () => {
-        const res = await adminDeleteClip(id);
-        if (res.success) {
-          showMsg("Clipe excluído com sucesso!", true);
-          setItems((prev) => prev.filter((c) => c.id !== id));
-          setSelectedIds((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-          router.refresh();
-        } else {
-          showMsg(res.error || "Erro ao excluir clipe.", false);
+        try {
+          const res = await adminDeleteClip(id);
+          if (res.success) {
+            setConfirmDelete({ open: false, type: "single" });
+            showMsg("Clipe excluído com sucesso!", true);
+            setItems((prev) => prev.filter((c) => c.id !== id));
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+            router.refresh();
+          } else {
+            showMsg(res.error || "Erro ao excluir clipe.", false);
+            alert(`Não foi possível excluir o clipe: ${res.error || "Erro desconhecido"}`);
+          }
+        } catch (err: any) {
+          showMsg(err?.message || "Falha ao excluir clipe.", false);
+          alert(`Erro inesperado ao excluir: ${err?.message || "Tente novamente."}`);
         }
       });
     } else if (confirmDelete.type === "batch") {
       const ids = Array.from(selectedIds);
-      setConfirmDelete({ open: false, type: "batch" });
       startTransition(async () => {
-        const res = await adminDeleteClipsBatch(ids);
-        if (res.success) {
-          showMsg(`${res.count} clipe(s) excluído(s) com sucesso!`, true);
-          setItems((prev) => prev.filter((c) => !ids.includes(c.id)));
-          setSelectedIds(new Set());
-          router.refresh();
-        } else {
-          showMsg(res.error || "Erro ao excluir clipes em lote.", false);
+        try {
+          const res = await adminDeleteClipsBatch(ids);
+          if (res.success) {
+            setConfirmDelete({ open: false, type: "batch" });
+            showMsg(`${res.count} clipe(s) excluído(s) com sucesso!`, true);
+            setItems((prev) => prev.filter((c) => !ids.includes(c.id)));
+            setSelectedIds(new Set());
+            router.refresh();
+          } else {
+            showMsg(res.error || "Erro ao excluir clipes em lote.", false);
+            alert(`Não foi possível excluir os clipes: ${res.error || "Erro desconhecido"}`);
+          }
+        } catch (err: any) {
+          showMsg(err?.message || "Falha ao excluir em lote.", false);
+          alert(`Erro inesperado ao excluir lote: ${err?.message || "Tente novamente."}`);
         }
       });
     }
@@ -211,10 +223,26 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
 
   return (
     <div className="admin-tab-content">
+      {/* Toast flutuante visível em qualquer altura de rolagem (scroll) */}
       {msg && (
-        <div className={`admin-msg ${msg.ok ? "ok" : "err"}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {msg.ok ? <CheckCircleIcon size={16} /> : <AlertCircleIcon size={16} />}
-          <span>{msg.text}</span>
+        <div
+          className={`admin-msg ${msg.ok ? "ok" : "err"}`}
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)",
+            padding: "12px 20px",
+            borderRadius: "10px",
+            maxWidth: "420px",
+          }}
+        >
+          {msg.ok ? <CheckCircleIcon size={18} /> : <AlertCircleIcon size={18} />}
+          <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{msg.text}</span>
         </div>
       )}
 

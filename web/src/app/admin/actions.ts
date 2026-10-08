@@ -23,6 +23,17 @@ async function checkAdmin(supabase: any): Promise<boolean> {
     if (rpcAdmin === true) return true;
   } catch {}
 
+  // Fallback seguro via admin client para garantir checagem sem bloqueio de RLS
+  try {
+    const admin = await getAdminClient();
+    const { data: adminMe } = await admin
+      .from("usuarios")
+      .select("is_xandao, xandao")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (adminMe?.is_xandao === true || adminMe?.xandao === 1) return true;
+  } catch {}
+
   return false;
 }
 
@@ -94,23 +105,73 @@ export async function setUserPlan(
   }
 }
 
-/** Exclui um job (somente admin). */
+/** Exclui um job (somente admin). Limpa arquivos de Storage e registros vinculados. */
 export async function adminDeleteJob(jobId: string): Promise<{ success: boolean; error?: string }> {
+  if (!jobId) return { success: false, error: "ID do job não fornecido" };
   const supabase = await createClient();
   const isAdmin = await checkAdmin(supabase);
-  if (!isAdmin) return { success: false, error: "Sem permissão" };
+  if (!isAdmin) return { success: false, error: "Sem permissão de administrador" };
 
   try {
     const admin = await getAdminClient();
-    // Remove os clipes filhos primeiro
+
+    // 1. Busca dados do job para limpeza prévia do Storage
+    const { data: job } = await admin
+      .from("jobs")
+      .select("id, source_path, source_type, reference_path")
+      .eq("id", jobId)
+      .maybeSingle();
+
+    // 2. Busca clipes gerados por este job
+    const { data: clips } = await admin
+      .from("clips")
+      .select("id, file_path")
+      .eq("job_id", jobId);
+
+    const clipIds = (clips ?? []).map((c) => c.id);
+    const clipPaths = (clips ?? []).map((c) => c.file_path).filter(Boolean) as string[];
+
+    // 3. Remove eventuais jobs de trimming que apontem para esses clipes
+    if (clipIds.length > 0) {
+      await admin.from("jobs").delete().in("target_clip_id", clipIds);
+    }
+
+    // 4. Limpa mídias do Storage
+    if (job?.source_type === "upload" && job?.source_path) {
+      try {
+        await admin.storage.from("sources").remove([job.source_path]);
+      } catch (e) {
+        console.warn("[adminDeleteJob] aviso ao remover source do storage:", e);
+      }
+    }
+    if (job?.reference_path) {
+      try {
+        await admin.storage.from("sources").remove([job.reference_path]);
+      } catch (e) {
+        console.warn("[adminDeleteJob] aviso ao remover reference do storage:", e);
+      }
+    }
+    if (clipPaths.length > 0) {
+      try {
+        await admin.storage.from("clips").remove(clipPaths);
+      } catch (e) {
+        console.warn("[adminDeleteJob] aviso ao remover clipes do storage:", e);
+      }
+    }
+
+    // 5. Remove clipes filhos e o job
     await admin.from("clips").delete().eq("job_id", jobId);
     const { error } = await admin.from("jobs").delete().eq("id", jobId);
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("[adminDeleteJob] erro ao excluir job:", error);
+      return { success: false, error: error.message };
+    }
 
     revalidatePath("/admin");
     revalidatePath("/");
     return { success: true };
   } catch (err: any) {
+    console.error("[adminDeleteJob] exceção:", err);
     return { success: false, error: err?.message || "Erro ao excluir job" };
   }
 }
@@ -174,7 +235,12 @@ export async function adminDeleteClip(clipId: string): Promise<{ success: boolea
       }
     }
 
-    // 3. Apaga da tabela clips
+    // 3. Remove eventuais jobs de trimming que apontem para este clipe
+    try {
+      await admin.from("jobs").delete().eq("target_clip_id", clipId);
+    } catch {}
+
+    // 4. Apaga da tabela clips
     const { error: delErr } = await admin.from("clips").delete().eq("id", clipId);
     if (delErr) {
       console.error("[adminDeleteClip] erro ao deletar:", delErr);
@@ -211,7 +277,12 @@ export async function adminDeleteClipsBatch(clipIds: string[]): Promise<{ succes
       }
     }
 
-    // 2. Apaga da tabela clips
+    // 2. Remove jobs filhos que apontem para estes clipes
+    try {
+      await admin.from("jobs").delete().in("target_clip_id", clipIds);
+    } catch {}
+
+    // 3. Apaga da tabela clips
     const { error: delErr } = await admin.from("clips").delete().in("id", clipIds);
     if (delErr) {
       console.error("[adminDeleteClipsBatch] erro ao deletar:", delErr);

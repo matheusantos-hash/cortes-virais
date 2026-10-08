@@ -78,6 +78,8 @@ interface Job {
   export_settings?: Record<string, any> | null;
   custom_font_path?: string | null;
   custom_font_name?: string | null;
+  transcription_provider?: "deepgram" | "gemini" | "auto";
+  canvas_brolls?: any[] | null;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -217,6 +219,7 @@ async function processJob(job: Job) {
 
       const trimStart = Number(job.trim_start ?? 0);
       const trimEnd = Number(job.trim_end ?? (Number(clip.end_seconds) - Number(clip.start_seconds)));
+      const activeCanvasBrolls = (job.canvas_brolls as any) || (clip.canvas_brolls as any) || [];
 
       await updateJob(job.id, { progress: 50 });
       await trimClip({
@@ -224,6 +227,7 @@ async function processJob(job: Job) {
         output: trimmedClipPath,
         trimStartSec: trimStart,
         trimEndSec: trimEnd,
+        canvasBrolls: activeCanvasBrolls,
         signal: abortCtrl.signal,
         onLog: pushLog,
       });
@@ -253,6 +257,7 @@ async function processJob(job: Job) {
           version: newVersion,
           start_seconds: newAbsStart,
           end_seconds: newAbsEnd,
+          canvas_brolls: activeCanvasBrolls,
           is_trimming: false,
         })
         .eq("id", clip.id);
@@ -505,6 +510,7 @@ async function processJob(job: Job) {
       dynamicZoom: manualAdj?.keyMoments?.smartPunchInZoom !== false,
       customFontName,
       fontsDir,
+      transcriptionProvider: job.transcription_provider ?? "auto",
       force: false,
       dryRun: false,
     };

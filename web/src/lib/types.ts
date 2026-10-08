@@ -68,6 +68,7 @@ export interface Job {
   use_broll?: boolean;
   broll_source?: "auto" | "pexels" | "higgsfield" | "none";
   subtitle_style?: SubtitleStyle;
+  transcription_provider?: "deepgram" | "gemini" | "auto";
   custom_font_path?: string | null;
   custom_font_name?: string | null;
   enable_sfx?: boolean;
@@ -81,6 +82,7 @@ export interface Job {
   finished_at: string | null;
   clips?: Clip[];
   job_type?: "full" | "trim";
+  canvas_brolls?: CanvasBroll[];
 }
 
 export interface ManualAdjustments {
@@ -161,6 +163,24 @@ export interface SavedReference {
   created_at?: string;
 }
 
+export type CanvasBrollTemplate = "metric_counter" | "growth_chart" | "glass_alert" | "viral_tag";
+
+export interface CanvasBrollData {
+  title?: string;
+  value?: string;
+  subtitle?: string;
+  color?: "cyan" | "green" | "yellow" | "purple";
+  positionY?: "top" | "center" | "bottom";
+}
+
+export interface CanvasBroll {
+  id: string;
+  offsetSec: number;
+  durationSec: number;
+  template: CanvasBrollTemplate;
+  data: CanvasBrollData;
+}
+
 export interface Clip {
   id: string;
   job_id: string;
@@ -177,6 +197,8 @@ export interface Clip {
   version?: number;
   is_trimming?: boolean;
   edit_decisions?: ClipEditDecisions | null;
+  canvas_brolls?: CanvasBroll[];
   created_at?: string;
 }
+
 

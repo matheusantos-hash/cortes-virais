@@ -25,6 +25,11 @@ import {
   Palette,
   Volume2,
   AlertCircleIcon,
+  Zap,
+  Cpu,
+  Shield,
+  Check,
+  Save,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -58,17 +63,30 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   const [credits, setCredits] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const [transcriptionProvider, setTranscriptionProvider] = useState<"deepgram" | "gemini" | "auto">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("cv_default_transcription_provider");
+      if (saved === "deepgram" || saved === "gemini" || saved === "auto") return saved;
+    }
+    return "auto";
+  });
+  const [savingDefaultProvider, setSavingDefaultProvider] = useState(false);
+  const [savedDefaultSuccess, setSavedDefaultSuccess] = useState(false);
+
   const fetchCredits = useCallback(() => {
     const supabase = createClient();
     supabase
       .from("usuarios")
-      .select("creditos_minutos, is_xandao")
+      .select("creditos_minutos, is_xandao, default_transcription_provider")
       .eq("id", userId)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setCredits(Number(data.creditos_minutos ?? 30));
           setIsAdmin(Boolean(data.is_xandao));
+          if (data.default_transcription_provider) {
+            setTranscriptionProvider(data.default_transcription_provider as any);
+          }
         }
       });
   }, [userId]);
@@ -76,6 +94,23 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
   useEffect(() => {
     fetchCredits();
   }, [fetchCredits]);
+
+  async function handleSaveDefaultProvider() {
+    setSavingDefaultProvider(true);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("cv_default_transcription_provider", transcriptionProvider);
+      }
+      const supabase = createClient();
+      await supabase.from("usuarios").update({ default_transcription_provider: transcriptionProvider }).eq("id", userId);
+      setSavedDefaultSuccess(true);
+      setTimeout(() => setSavedDefaultSuccess(false), 2500);
+    } catch (err) {
+      console.error("Falha ao salvar preferência:", err);
+    } finally {
+      setSavingDefaultProvider(false);
+    }
+  }
 
   const [mode, setMode] = useState<"link" | "upload">("link");
   const [url, setUrl] = useState("");
@@ -237,11 +272,19 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
       subtitle_style: subtitleStyle,
+      transcription_provider: transcriptionProvider,
       enable_sfx: enableSfx,
       enable_emojis: enableEmojis,
     };
 
     let { error: insError } = await supabase.from("jobs").insert(payload);
+
+    // Se o banco ainda não tiver a nova coluna de transcription_provider, tenta sem ela
+    if (insError && insError.message.includes("transcription_provider")) {
+      delete payload.transcription_provider;
+      const retry = await supabase.from("jobs").insert(payload);
+      insError = retry.error;
+    }
 
     // Se o banco ainda não tiver as novas colunas de legendas/sfx, tenta novamente sem elas
     if (insError && (insError.message.includes("subtitle_style") || insError.message.includes("enable_sfx") || insError.message.includes("enable_emojis"))) {
@@ -842,6 +885,107 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
                 <Volume2 size={14} style={{ color: "var(--primary)" }} /> Sound Design (Whoosh, Pop e Ding sincronizados)
               </span>
             </label>
+          </div>
+        </div>
+      </div>
+
+      {/* SEÇÃO: MOTOR DE TRANSCRIÇÃO & FALLBACK (DEEPGRAM vs GEMINI PRO) */}
+      <div className="card stack" style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)", padding: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div>
+            <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--text)" }}>
+              <Zap size={16} style={{ color: "var(--primary)" }} /> Motor de Transcrição &amp; IA de Áudio
+            </strong>
+            <small style={{ color: "var(--text-muted)", display: "block", marginTop: "0.15rem" }}>
+              Escolha a inteligência usada para mapear falas, timestamps e eventos sonoros.
+            </small>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveDefaultProvider}
+            disabled={savingDefaultProvider}
+            className="btn-ghost"
+            style={{
+              fontSize: "0.78rem",
+              padding: "0.3rem 0.65rem",
+              borderRadius: "6px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              border: savedDefaultSuccess ? "1px solid rgba(16, 185, 129, 0.5)" : "1px solid var(--card-border)",
+              color: savedDefaultSuccess ? "#10b981" : "var(--text-muted)",
+              background: savedDefaultSuccess ? "rgba(16, 185, 129, 0.1)" : "transparent",
+              transition: "all 0.2s ease",
+              cursor: "pointer",
+            }}
+            title="Salva este provedor como preferência padrão para seus próximos vídeos"
+          >
+            {savedDefaultSuccess ? (
+              <>
+                <Check size={13} /> Padrão Salvo!
+              </>
+            ) : (
+              <>
+                <Save size={13} /> Salvar como Padrão
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="selection-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginTop: "0.4rem" }}>
+          {/* Card Auto / Fallback */}
+          <div
+            className={`selection-card ${transcriptionProvider === "auto" ? "active" : ""}`}
+            onClick={() => setTranscriptionProvider("auto")}
+            style={{ cursor: "pointer", position: "relative" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+              <Shield size={20} style={{ color: transcriptionProvider === "auto" ? "var(--primary)" : "var(--text-muted)" }} />
+              <span className="badge badge-done" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem" }}>
+                Recomendado
+              </span>
+            </div>
+            <div className="selection-card-title">Auto + Fallback</div>
+            <span className="selection-card-desc">
+              Usa Deepgram Nova-3. Se a cota acabar ou houver erro, alterna para o Gemini Pro sem travar o vídeo.
+            </span>
+          </div>
+
+          {/* Card Deepgram */}
+          <div
+            className={`selection-card ${transcriptionProvider === "deepgram" ? "active" : ""}`}
+            onClick={() => setTranscriptionProvider("deepgram")}
+            style={{ cursor: "pointer" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+              <Zap size={20} style={{ color: transcriptionProvider === "deepgram" ? "var(--primary)" : "var(--text-muted)" }} />
+              <span className="badge" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", background: "rgba(99, 102, 241, 0.15)", color: "#a5b4fc" }}>
+                Nova-3
+              </span>
+            </div>
+            <div className="selection-card-title">Deepgram Nova-3</div>
+            <span className="selection-card-desc">
+              Velocidade ultrarrápida com precisão milimétrica palavra por palavra para legendas karaokê dinâmicas.
+            </span>
+          </div>
+
+          {/* Card Gemini Pro */}
+          <div
+            className={`selection-card ${transcriptionProvider === "gemini" ? "active" : ""}`}
+            onClick={() => setTranscriptionProvider("gemini")}
+            style={{ cursor: "pointer" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+              <Cpu size={20} style={{ color: transcriptionProvider === "gemini" ? "var(--primary)" : "var(--text-muted)" }} />
+              <span className="badge" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", background: "rgba(16, 185, 129, 0.15)", color: "#34d399" }}>
+                Multimodal
+              </span>
+            </div>
+            <div className="selection-card-title">Google Gemini Pro</div>
+            <span className="selection-card-desc">
+              Analisa áudio nativamente com tags de risos, aplausos e emoção. Econômico e suporta horas de vídeo.
+            </span>
           </div>
         </div>
       </div>

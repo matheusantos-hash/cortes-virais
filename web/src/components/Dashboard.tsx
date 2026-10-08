@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cancelJob, deleteUserJob } from "@/app/actions";
+import { cancelJob, deleteUserJob, deleteUserClip } from "@/app/actions";
 import { fmtClock, fmtDate, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { Clip, Job, JobStatus } from "@/lib/types";
@@ -62,6 +62,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   const [activeMode, setActiveMode] = useState<DashboardMode>("cortes");
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [showTerminal, setShowTerminal] = useState(true);
@@ -140,6 +141,34 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
       alert(`Erro ao excluir: ${err?.message || "Tente novamente."}`);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteClip(clipId: string, jobId: string) {
+    if (!confirm("Tem certeza que deseja apagar permanentemente este clipe?")) return;
+    setDeletingClipId(clipId);
+    try {
+      const res = await deleteUserClip(clipId);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível excluir o clipe: ${res.error}`);
+        return;
+      }
+      setJobs((prev) =>
+        prev.map((j) => {
+          if (j.id === jobId) {
+            return {
+              ...j,
+              clips: (j.clips ?? []).filter((c) => c.id !== clipId),
+            };
+          }
+          return j;
+        })
+      );
+    } catch (err: any) {
+      console.error("Erro ao excluir clipe:", err);
+      alert(`Erro ao excluir clipe: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setDeletingClipId(null);
     }
   }
 
@@ -437,17 +466,29 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                               </p>
                             )}
 
-                            {/* Botão de Download Direto */}
-                            <button
-                              type="button"
-                              className="btn-cta"
-                              style={{ padding: "0.6rem 1rem", fontSize: "0.88rem", marginTop: "auto" }}
-                              onClick={() => download(clip)}
-                              disabled={downloadingId === clip.id}
-                            >
-                              <DownloadIcon size={16} />
-                              <span>{downloadingId === clip.id ? "Preparando…" : "Baixar Clipe MP4"}</span>
-                            </button>
+                            {/* Botões de Ação do Corte */}
+                            <div className="row" style={{ marginTop: "auto", gap: "0.5rem" }}>
+                              <button
+                                type="button"
+                                className="btn-cta"
+                                style={{ flex: 1, padding: "0.6rem 0.85rem", fontSize: "0.85rem" }}
+                                onClick={() => download(clip)}
+                                disabled={downloadingId === clip.id}
+                              >
+                                <DownloadIcon size={16} />
+                                <span>{downloadingId === clip.id ? "Preparando…" : "Baixar MP4"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-danger-outline"
+                                style={{ padding: "0.6rem 0.75rem", fontSize: "0.85rem" }}
+                                onClick={() => handleDeleteClip(clip.id, job.id)}
+                                disabled={deletingClipId === clip.id}
+                                title="Excluir este clipe permanentemente"
+                              >
+                                <TrashIcon size={15} />
+                              </button>
+                            </div>
                           </div>
                         );
                       })}

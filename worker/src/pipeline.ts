@@ -8,7 +8,7 @@ import { fetchStockBroll } from "./stock.js";
 import { extractReferenceStyle } from "./ref_analyzer.js";
 import { generateViralAssSubtitles } from "./subtitles.js";
 import { type SfxEvent } from "./sfx.js";
-import { transcribe } from "./transcribe.js";
+import { transcribeAudio } from "./transcribe.js";
 import type { Clip, Options, Word } from "./types.js";
 
 export type Stage = "transcribing" | "analyzing" | "cutting";
@@ -68,10 +68,18 @@ export async function processVideo(args: {
   const transcriptPath = path.join(workDir, "transcript.json");
   let words: Word[];
   if (opts.force || !existsSync(transcriptPath)) {
-    await hooks?.onLog?.(`Enviando áudio para transcrição no Deepgram (idioma: ${opts.language})...`);
-    console.log("Transcrevendo no Deepgram…");
-    words = await transcribe(audioPath, opts.language);
+    const prov = opts.transcriptionProvider ?? "auto";
+    const res = await transcribeAudio({
+      audioPath,
+      language: opts.language,
+      provider: prov,
+      onLog: hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined,
+    });
+    words = res.words;
     await writeFile(transcriptPath, JSON.stringify(words));
+    if (res.audioTags && res.audioTags.length > 0) {
+      await writeFile(path.join(workDir, "audio_tags.json"), JSON.stringify(res.audioTags, null, 2));
+    }
   } else {
     await hooks?.onLog?.("Transcrição existente encontrada em cache, reutilizando.");
     console.log("Transcrição já existe, reaproveitando.");

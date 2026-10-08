@@ -164,11 +164,85 @@ export async function deleteJob(formData: FormData) {
   revalidatePath("/admin");
 }
 
-/** Solicita o re-corte (trimming) do clipe com re-renderização milimétrica no worker */
+/** Exclui um clipe individual pertencente ao usuário autenticado (ou por admin). Remove do Storage e da tabela clips. */
+export async function deleteUserClip(clipId: string): Promise<{ success: boolean; error?: string }> {
+  if (!clipId) return { success: false, error: "ID do clipe não fornecido." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Não autenticado." };
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+
+  try {
+    // 1. Busca clipe para verificar se pertence ao usuário (ou se usuário é admin)
+    const { data: clip, error: fetchErr } = await clientToUse
+      .from("clips")
+      .select("id, user_id, job_id, file_path")
+      .eq("id", clipId)
+      .maybeSingle();
+
+    if (fetchErr || !clip) {
+      return { success: false, error: "Clipe não encontrado." };
+    }
+
+    // Se não for dono direto, verifica se é admin
+    if (clip.user_id !== user.id) {
+      const { data: me } = await clientToUse
+        .from("usuarios")
+        .select("is_xandao, xandao")
+        .eq("id", user.id)
+        .maybeSingle();
+      const isAdmin = me?.is_xandao === true || me?.xandao === 1;
+      if (!isAdmin) {
+        return { success: false, error: "Sem permissão para excluir este clipe." };
+      }
+    }
+
+    // 2. Remove jobs filhos que dependam deste target_clip_id
+    try {
+      await clientToUse.from("jobs").delete().eq("target_clip_id", clipId);
+    } catch {}
+
+    // 3. Remove arquivo do bucket de Storage se houver
+    if (clip.file_path) {
+      try {
+        await clientToUse.storage.from("clips").remove([clip.file_path]);
+      } catch (e) {
+        console.warn("[deleteUserClip] aviso ao remover do storage:", e);
+      }
+    }
+
+    // 4. Remove o clipe da tabela
+    const { error: delErr } = await clientToUse.from("clips").delete().eq("id", clipId);
+    if (delErr) {
+      console.error("[deleteUserClip] erro ao deletar:", delErr);
+      return { success: false, error: delErr.message };
+    }
+
+    revalidatePath("/");
+    if (clip.job_id) {
+      revalidatePath(`/jobs/${clip.job_id}`);
+    }
+    revalidatePath("/admin");
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[deleteUserClip] exceção:", err);
+    return { success: false, error: err?.message || "Erro interno ao excluir clipe." };
+  }
+}
+
+import type { CanvasBroll } from "@/lib/types";
+
+/** Solicita o re-corte (trimming) do clipe com re-renderização milimétrica no worker, incluindo overlays Canvas */
 export async function requestClipTrimAction(
   clipId: string,
   startSec: number,
-  endSec: number
+  endSec: number,
+  canvasBrolls?: CanvasBroll[]
 ): Promise<{ success: boolean; jobId?: string; error?: string }> {
   if (!clipId) return { success: false, error: "ID do clipe não fornecido." };
   if (startSec < 0 || endSec <= startSec) {
@@ -184,6 +258,7 @@ export async function requestClipTrimAction(
       p_clip_id: clipId,
       p_start: startSec,
       p_end: endSec,
+      p_canvas_brolls: canvasBrolls ?? null,
     });
 
     if (rpcErr) {
@@ -196,4 +271,41 @@ export async function requestClipTrimAction(
     return { success: false, error: err?.message || "Falha ao solicitar ajuste de corte." };
   }
 }
+
+/** Salva B-Rolls Canvas configurados pelo usuário na tabela clips */
+export async function saveClipCanvasBrollsAction(
+  clipId: string,
+  canvasBrolls: CanvasBroll[]
+): Promise<{ success: boolean; error?: string }> {
+  if (!clipId) return { success: false, error: "ID do clipe não fornecido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    const { error: rpcErr } = await supabase.rpc("save_clip_canvas_brolls", {
+      p_clip_id: clipId,
+      p_canvas_brolls: canvasBrolls,
+    });
+
+    if (rpcErr) {
+      // Fallback caso a RPC ainda não esteja instalada no banco
+      const { error: updErr } = await supabase
+        .from("clips")
+        .update({ canvas_brolls: canvasBrolls })
+        .eq("id", clipId);
+
+      if (updErr) {
+        return { success: false, error: updErr.message };
+      }
+    }
+
+    revalidatePath("/");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Falha ao salvar B-Rolls Canvas." };
+  }
+}
+
 

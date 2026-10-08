@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Job } from "@/lib/types";
 import type { AdminUsuario } from "@/app/admin/page";
 import { fmtDate } from "@/lib/format";
@@ -33,24 +34,30 @@ function periodStart(p: Period): Date | null {
 }
 
 export default function PerformanceTab({ jobs, users }: Props) {
+  const router = useRouter();
+  const [jobList, setJobList] = useState<Job[]>(jobs);
   const [period, setPeriod] = useState<Period>("30d");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "vertical" | "horizontal">("all");
   const [taskFilter, setTaskFilter] = useState<"all" | "link" | "upload">("all");
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  useEffect(() => {
+    setJobList(jobs);
+  }, [jobs]);
+
   const emailOf = useMemo(() => new Map(users.map((u) => [u.id, u.email ?? "—"])), [users]);
 
   const filtered = useMemo(() => {
     const cutoff = periodStart(period);
-    return jobs.filter((j) => {
+    return jobList.filter((j) => {
       if (cutoff && new Date(j.created_at) < cutoff) return false;
       if (userFilter !== "all" && j.user_id !== userFilter) return false;
       if (deviceFilter !== "all" && j.orientation !== deviceFilter) return false;
       if (taskFilter !== "all" && j.source_type !== taskFilter) return false;
       return true;
     });
-  }, [jobs, period, userFilter, deviceFilter, taskFilter]);
+  }, [jobList, period, userFilter, deviceFilter, taskFilter]);
 
   // Taxas globais
   const total = filtered.length;
@@ -128,20 +135,31 @@ export default function PerformanceTab({ jobs, users }: Props) {
   }, [filtered]);
 
   async function handleDelete(jobId: string) {
-    if (!confirm("Excluir este job?")) return;
+    if (!confirm("Tem certeza que deseja excluir este projeto e todos os seus clipes do banco e do storage?")) return;
     setDeleting(jobId);
-    await adminDeleteJob(jobId);
-    setDeleting(null);
+    try {
+      const res = await adminDeleteJob(jobId);
+      if (res.success) {
+        setJobList((prev) => prev.filter((j) => j.id !== jobId));
+        router.refresh();
+      } else {
+        alert(`Não foi possível excluir: ${res.error || "Erro desconhecido"}`);
+      }
+    } catch (err: any) {
+      alert(`Erro inesperado ao excluir: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setDeleting(null);
+    }
   }
 
   // Usuários únicos para filtro
   const uniqueUsers = useMemo(() => {
     const seen = new Set<string>();
-    return jobs
+    return jobList
       .filter((j) => { if (seen.has(j.user_id)) return false; seen.add(j.user_id); return true; })
       .map((j) => ({ id: j.user_id, email: emailOf.get(j.user_id) ?? j.user_id.slice(0, 8) }))
       .sort((a, b) => a.email.localeCompare(b.email));
-  }, [jobs, emailOf]);
+  }, [jobList, emailOf]);
 
   return (
     <div className="admin-tab-content">

@@ -83,6 +83,7 @@ export interface Options {
   customFontPath?: string | null;
   customFontName?: string | null;
   fontsDir?: string | null;
+  transcriptionProvider?: "deepgram" | "gemini" | "auto";
   force: boolean;
   dryRun: boolean;
 }
@@ -136,6 +137,25 @@ export interface ClipEditDecisions {
   sfx: { timeSec: number; type: "whoosh" | "pop" | "ding"; volume: number }[];
   /** Palavras do trecho em segundos absolutos (para gerar SRT editável). */
   words: { w: string; s: number; e: number }[];
+  canvasBrolls?: CanvasBroll[];
+}
+
+export type CanvasBrollTemplate = "metric_counter" | "growth_chart" | "glass_alert" | "viral_tag";
+
+export interface CanvasBrollData {
+  title?: string;
+  value?: string;
+  subtitle?: string;
+  color?: "cyan" | "green" | "yellow" | "purple";
+  positionY?: "top" | "center" | "bottom";
+}
+
+export interface CanvasBroll {
+  id: string;
+  offsetSec: number;
+  durationSec: number;
+  template: CanvasBrollTemplate;
+  data: CanvasBrollData;
 }
 
 

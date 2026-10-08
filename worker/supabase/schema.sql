@@ -36,6 +36,9 @@ create table if not exists public.jobs (
   custom_font_path     text,
   custom_font_name     text,
 
+  -- Motor de Transcrição e Inteligência de Áudio
+  transcription_provider text not null default 'auto' check (transcription_provider in ('deepgram', 'gemini', 'auto')),
+
   status        text not null default 'queued'
                 check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed','canceled')),
   progress      int  not null default 0 check (progress between 0 and 100),

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ensureSfxAssets, type SfxEvent } from "./sfx.js";
-import type { Orientation, VerticalMode } from "./types.js";
+import type { Orientation, VerticalMode, CanvasBroll } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -317,10 +317,11 @@ export async function trimClip(opts: {
   output: string;
   trimStartSec: number;
   trimEndSec: number;
+  canvasBrolls?: CanvasBroll[];
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, trimStartSec, trimEndSec, signal, onLog } = opts;
+  const { input, output, trimStartSec, trimEndSec, canvasBrolls, signal, onLog } = opts;
   const duration = trimEndSec - trimStartSec;
   if (duration <= 0) {
     throw new Error("Duração do corte ajustado deve ser maior que zero.");
@@ -328,19 +329,67 @@ export async function trimClip(opts: {
 
   onLog?.(`[TRIM] Recortando trecho [${trimStartSec.toFixed(2)}s a ${trimEndSec.toFixed(2)}s] (${duration.toFixed(2)}s) com re-encode acelerado...`);
 
+  const vfFilters: string[] = [];
+
+  // Se houver overlays de CanvasBroll ativos, compõe filtros de vídeo com precisão milimétrica
+  if (canvasBrolls && canvasBrolls.length > 0) {
+    for (const b of canvasBrolls) {
+      const relStart = b.offsetSec - trimStartSec;
+      const relEnd = relStart + b.durationSec;
+      if (relEnd <= 0 || relStart >= duration) continue;
+
+      const s = Math.max(0, relStart).toFixed(2);
+      const e = Math.min(duration, relEnd).toFixed(2);
+      const enableExpr = `between(t\\,${s}\\,${e})`;
+
+      const colorHex =
+        b.data?.color === "green"
+          ? "0x10B981"
+          : b.data?.color === "yellow"
+          ? "0xFFE600"
+          : b.data?.color === "purple"
+          ? "0xA855F7"
+          : "0x00F0FF";
+
+      const title = (b.data?.title || "DESTAQUE").replace(/[':\\]/g, "");
+      const val = (b.data?.value || "+300%").replace(/[':\\]/g, "");
+
+      // Posicionamento vertical (Safe Zone)
+      const posY = b.data?.positionY === "center" ? "ih*0.48" : b.data?.positionY === "bottom" ? "ih*0.72" : "ih*0.35";
+
+      onLog?.(`[B-ROLL CANVAS] Aplicando overlay "${title}" (${val}) no intervalo [${s}s a ${e}s]...`);
+
+      // 1. Fundo do Card com transparência
+      vfFilters.push(`drawbox=x=(w-860)/2:y=${posY}-160:w=860:h=320:color=black@0.85:t=fill:enable='${enableExpr}'`);
+      // 2. Borda Neon estilizada
+      vfFilters.push(`drawbox=x=(w-860)/2:y=${posY}-160:w=860:h=320:color=${colorHex}@0.9:t=6:enable='${enableExpr}'`);
+      // 3. Título / Categoria
+      vfFilters.push(`drawtext=text='${title}':fontcolor=0x94A3B8:fontsize=36:x=(w-text_w)/2:y=${posY}-100:enable='${enableExpr}'`);
+      // 4. Métrica / Valor em destaque grande
+      vfFilters.push(`drawtext=text='${val}':fontcolor=${colorHex}:fontsize=100:x=(w-text_w)/2:y=${posY}:enable='${enableExpr}'`);
+    }
+  }
+
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
     "-threads", "1",
     "-ss", trimStartSec.toFixed(3),
     "-i", input,
     "-t", duration.toFixed(3),
+  ];
+
+  if (vfFilters.length > 0) {
+    args.push("-vf", vfFilters.join(","));
+  }
+
+  args.push(
     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
     "-threads", "1",
     "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
     "-c:a", "aac", "-b:a", "160k",
     "-avoid_negative_ts", "make_zero",
-    output,
-  ];
+    output
+  );
 
   await run("ffmpeg", args, signal, onLog);
   onLog?.(`[TRIM] Re-renderização milimétrica do corte concluída.`);
