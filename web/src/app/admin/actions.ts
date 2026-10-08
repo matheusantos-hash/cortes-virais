@@ -37,14 +37,24 @@ async function checkAdmin(supabase: any): Promise<boolean> {
   return false;
 }
 
-/** Obtém cliente Supabase com chave de serviço (ignora RLS para operações administrativas) */
-async function getAdminClient() {
+/** Obtém cliente Supabase com chave de serviço (ignora RLS) ou recai no cliente autenticado */
+async function getAdminClient(fallbackClient?: any) {
   const { createClient: createAdmin } = await import("@supabase/supabase-js");
   const { supabaseUrl, supabaseServiceRoleKey } = await import("@/lib/supabase/env");
 
-  return createAdmin(supabaseUrl(), supabaseServiceRoleKey(), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const key = supabaseServiceRoleKey(false);
+  if (key) {
+    return createAdmin(supabaseUrl(), key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  if (fallbackClient) {
+    return fallbackClient;
+  }
+
+  const { createClient } = await import("@/lib/supabase/server");
+  return createClient();
 }
 
 /** Atualiza o campo is_xandao / xandao de um usuário (somente admin pode executar). */
@@ -54,7 +64,7 @@ export async function setAdminFlag(userId: string, value: boolean): Promise<{ su
   if (!isAdmin) return { success: false, error: "Sem permissão" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
     const { error } = await admin
       .from("usuarios")
       .update({ is_xandao: value, xandao: value ? 1 : 0 })
@@ -78,7 +88,7 @@ export async function setUserPlan(
   if (!isAdmin) return { success: false, error: "Sem permissão" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
     const { error } = await admin
       .from("usuarios")
       .update({
@@ -106,7 +116,7 @@ export async function adminDeleteJob(jobId: string): Promise<{ success: boolean;
   if (!isAdmin) return { success: false, error: "Sem permissão de administrador" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
 
     // 1. Busca dados do job para limpeza prévia do Storage
     const { data: job } = await admin
@@ -121,8 +131,9 @@ export async function adminDeleteJob(jobId: string): Promise<{ success: boolean;
       .select("id, file_path")
       .eq("job_id", jobId);
 
-    const clipIds = (clips ?? []).map((c) => c.id);
-    const clipPaths = (clips ?? []).map((c) => c.file_path).filter(Boolean) as string[];
+    const clipList = (clips ?? []) as Array<{ id: string; file_path?: string | null }>;
+    const clipIds = clipList.map((c) => c.id);
+    const clipPaths = clipList.map((c) => c.file_path).filter(Boolean) as string[];
 
     // 3. Remove eventuais jobs de trimming que apontem para esses clipes
     if (clipIds.length > 0) {
@@ -180,7 +191,7 @@ export async function setUserCredits(
   if (!isAdmin) return { success: false, error: "Sem permissão" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
     const { error } = await admin
       .from("usuarios")
       .update({
@@ -206,7 +217,7 @@ export async function adminDeleteClip(clipId: string): Promise<{ success: boolea
   if (!isAdmin) return { success: false, error: "Sem permissão de administrador" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
 
     // 1. Busca dados do clipe para obter file_path antes de remover
     const { data: clip, error: fetchErr } = await admin
@@ -257,11 +268,12 @@ export async function adminDeleteClipsBatch(clipIds: string[]): Promise<{ succes
   if (!isAdmin) return { success: false, count: 0, error: "Sem permissão de administrador" };
 
   try {
-    const admin = await getAdminClient();
+    const admin = await getAdminClient(supabase);
 
     // 1. Busca caminhos para remoção do storage
     const { data: clips } = await admin.from("clips").select("file_path").in("id", clipIds);
-    const paths = (clips ?? []).map((c) => c.file_path).filter(Boolean) as string[];
+    const clipList = (clips ?? []) as Array<{ file_path?: string | null }>;
+    const paths = clipList.map((c) => c.file_path).filter(Boolean) as string[];
     if (paths.length > 0) {
       try {
         await admin.storage.from("clips").remove(paths);

@@ -5,3 +5,5 @@ db_map.md
 ROADMAP.md
 roadmap.md
 .gemini/
+.env*.local
+.env

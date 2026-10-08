@@ -14,13 +14,13 @@ export function supabaseAnonKey(): string {
   return key;
 }
 
-export function supabaseServiceRoleKey(): string {
+export function supabaseServiceRoleKey(required = false): string {
   const key = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ??
     process.env.SUPABASE_SERVICE_KEY ??
     ""
   ).trim();
-  if (!key) {
+  if (!key && required) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor (.env.local). Configure a chave secreta de serviço do Supabase para permitir exclusão e operações de administração."
     );
