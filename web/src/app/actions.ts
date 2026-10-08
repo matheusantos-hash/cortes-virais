@@ -5,7 +5,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { supabaseUrl } from "@/lib/supabase/env";
+import { supabaseUrl, supabaseServiceRoleKey } from "@/lib/supabase/env";
+
+function getServiceClient(fallbackClient: any) {
+  try {
+    const key = supabaseServiceRoleKey();
+    return createAdminClient(supabaseUrl(), key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  } catch {
+    return fallbackClient;
+  }
+}
 
 export async function signOut() {
   const supabase = await createClient();
@@ -63,9 +74,8 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; erro
     // segue para fallback
   }
 
-  // 3. Fallback: Se houver chave Service Role no ambiente (Vercel), usa client com bypass de RLS
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+  // 3. Fallback: Se houver chave Service Role no ambiente, usa client com bypass de RLS
+  const clientToUse = getServiceClient(supabase);
 
   const now = new Date().toISOString();
   let { error: updateError } = await clientToUse
@@ -113,8 +123,7 @@ export async function deleteUserJob(jobId: string): Promise<{ success: boolean; 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autenticado" };
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+  const clientToUse = getServiceClient(supabase);
 
   // Busca dados de arquivos para limpeza prévia do Storage
   const { data: job } = await clientToUse
@@ -135,7 +144,7 @@ export async function deleteUserJob(jobId: string): Promise<{ success: boolean; 
       await clientToUse.storage.from("sources").remove([job.source_path]);
     } catch {}
   }
-  const clipPaths = (clips ?? []).map((c) => c.file_path).filter(Boolean) as string[];
+  const clipPaths = ((clips as any[]) ?? []).map((c: any) => c.file_path).filter(Boolean) as string[];
   if (clipPaths.length > 0) {
     try {
       await clientToUse.storage.from("clips").remove(clipPaths);
@@ -173,8 +182,7 @@ export async function deleteUserClip(clipId: string): Promise<{ success: boolean
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autenticado." };
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  const clientToUse = serviceKey ? createAdminClient(supabaseUrl(), serviceKey) : supabase;
+  const clientToUse = getServiceClient(supabase);
 
   try {
     // 1. Busca clipe para verificar se pertence ao usuário (ou se usuário é admin)

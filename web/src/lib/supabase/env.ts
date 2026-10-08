@@ -13,3 +13,17 @@ export function supabaseAnonKey(): string {
   if (!key) throw new Error("Falta NEXT_PUBLIC_SUPABASE_ANON_KEY no .env.local");
   return key;
 }
+
+export function supabaseServiceRoleKey(): string {
+  const key = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_SERVICE_KEY ??
+    ""
+  ).trim();
+  if (!key) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY não configurada no servidor (.env.local). Configure a chave secreta de serviço do Supabase para permitir exclusão e operações de administração."
+    );
+  }
+  return key;
+}
