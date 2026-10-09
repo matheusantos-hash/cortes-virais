@@ -197,6 +197,38 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
     window.location.href = data.signedUrl;
   }
 
+  function handleCloneClip(clip: Clip, job: Job) {
+    const clipData = {
+      id: clip.id,
+      title: clip.title,
+      path: clip.file_path,
+      url: clip.file_path ? urls[clip.file_path] : undefined,
+      position: clip.position,
+      jobId: job.id,
+      referenceStyle: job.reference_style,
+      subtitleStyle: job.subtitle_style,
+      verticalMode: job.vertical_mode,
+    };
+    try {
+      sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));
+    } catch {}
+    setActiveMode("copiar_estilo");
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 100);
+  }
+
+  function handleCloneProject(job: Job) {
+    if (job.clips && job.clips.length > 0) {
+      handleCloneClip(job.clips[0], job);
+    } else {
+      setActiveMode("copiar_estilo");
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
+    }
+  }
+
   // Progresso ao vivo (Realtime)
   useEffect(() => {
     const channel = supabase
@@ -375,7 +407,28 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                     </h3>
                   </div>
 
-                  <div className="row" style={{ gap: "0.5rem" }}>
+                  <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => handleCloneProject(job)}
+                      title="Clonar o estilo e configurações deste projeto no Clone Studio"
+                      style={{
+                        fontSize: "0.84rem",
+                        padding: "0.45rem 0.85rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        background: "rgba(139, 92, 246, 0.12)",
+                        color: "#c084fc",
+                        border: "1px solid rgba(139, 92, 246, 0.35)",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <SparklesIcon size={14} />
+                      <span>Clonar Projeto</span>
+                    </button>
                     <Link className="btn-secondary" href={`/jobs/${job.id}`} style={{ fontSize: "0.84rem", padding: "0.45rem 0.85rem", textDecoration: "none" }}>
                       Ver detalhes
                     </Link>
@@ -479,11 +532,11 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                             )}
 
                             {/* Botões de Ação do Corte */}
-                            <div className="row" style={{ marginTop: "auto", gap: "0.5rem" }}>
+                            <div className="row" style={{ marginTop: "auto", gap: "0.4rem", flexWrap: "wrap" }}>
                               <button
                                 type="button"
                                 className="btn-cta"
-                                style={{ flex: 1, padding: "0.6rem 0.85rem", fontSize: "0.85rem" }}
+                                style={{ flex: 1, minWidth: "105px", padding: "0.6rem 0.75rem", fontSize: "0.85rem" }}
                                 onClick={() => download(clip)}
                                 disabled={downloadingId === clip.id}
                               >
@@ -492,8 +545,29 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
                               </button>
                               <button
                                 type="button"
+                                className="btn-secondary"
+                                style={{
+                                  padding: "0.6rem 0.75rem",
+                                  fontSize: "0.85rem",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.35rem",
+                                  background: "rgba(139, 92, 246, 0.15)",
+                                  color: "#c084fc",
+                                  border: "1px solid rgba(139, 92, 246, 0.35)",
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => handleCloneClip(clip, job)}
+                                title="Clonar estilo deste clipe no Clone Studio"
+                              >
+                                <SparklesIcon size={14} />
+                                <span>Clonar</span>
+                              </button>
+                              <button
+                                type="button"
                                 className="btn-danger-outline"
-                                style={{ padding: "0.6rem 0.75rem", fontSize: "0.85rem" }}
+                                style={{ padding: "0.6rem 0.65rem", fontSize: "0.85rem" }}
                                 onClick={() => handleDeleteClip(clip.id, job.id)}
                                 disabled={deletingClipId === clip.id}
                                 title="Excluir este clipe permanentemente"

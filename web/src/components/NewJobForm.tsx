@@ -129,11 +129,28 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
   // Opções de "Copiar Estilo" (Vídeo de Referência + Higgsfield AI)
   const [copyStyle, setCopyStyle] = useState(false);
+  const [refSourceType, setRefSourceType] = useState<"saved" | "custom_video">("saved");
+  const [userSavedRefs, setUserSavedRefs] = useState<{ id: string; name: string; style_category?: string; design_instructions?: string; reference_path?: string }[]>([]);
   const [refMode, setRefMode] = useState<"upload" | "link">("upload");
   const [refUrl, setRefUrl] = useState("");
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refStyle, setRefStyle] = useState(STYLE_PRESETS[0].name);
   const [designInstructions, setDesignInstructions] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("saved_references")
+      .select("id, name, style_category, design_instructions, reference_path")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setUserSavedRefs(data);
+          setRefStyle(data[0].name);
+        }
+      });
+  }, [userId]);
 
   // Opções de B-Roll
   const [useBroll, setUseBroll] = useState(false);
@@ -243,34 +260,46 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
     // Processamento de Copiar Estilo / Vídeo de Referência (se ativado)
     let refPath: string | null = null;
-    if (copyStyle && refMode === "upload" && refFile) {
-      const refStoragePath = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
-      try {
-        if (refFile.size > RESUMABLE_FROM_BYTES) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (!session) throw new Error("Sessão expirada. Faça login novamente.");
-          setUploadPct(0);
-          await uploadResumable({
-            accessToken: session.access_token,
-            bucket: "sources",
-            path: refStoragePath,
-            file: refFile,
-            onProgress: (p) => setUploadPct(p),
-          });
-          setUploadPct(null);
-        } else {
-          const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
-            contentType: refFile.type || "video/mp4",
-          });
-          if (refUpError) throw new Error(refUpError.message);
-        }
-        refPath = refStoragePath;
-      } catch (err) {
+    const selectedUserRef = userSavedRefs.find((r) => r.name === refStyle);
+
+    if (copyStyle && refSourceType === "custom_video") {
+      if (refMode === "upload" && !refFile) {
         setBusy(false);
-        setUploadPct(null);
-        return setError(`Falha ao enviar vídeo de referência: ${err instanceof Error ? err.message : "erro desconhecido"}`);
+        return setError("Por favor, selecione o arquivo do vídeo de referência ou use um estilo salvo.");
+      }
+      if (refMode === "link" && !refUrl.trim()) {
+        setBusy(false);
+        return setError("Por favor, insira o link do vídeo de referência.");
+      }
+      if (refMode === "upload" && refFile) {
+        const refStoragePath = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
+        try {
+          if (refFile.size > RESUMABLE_FROM_BYTES) {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+            setUploadPct(0);
+            await uploadResumable({
+              accessToken: session.access_token,
+              bucket: "sources",
+              path: refStoragePath,
+              file: refFile,
+              onProgress: (p) => setUploadPct(p),
+            });
+            setUploadPct(null);
+          } else {
+            const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
+              contentType: refFile.type || "video/mp4",
+            });
+            if (refUpError) throw new Error(refUpError.message);
+          }
+          refPath = refStoragePath;
+        } catch (err) {
+          setBusy(false);
+          setUploadPct(null);
+          return setError(`Falha ao enviar vídeo de referência: ${err instanceof Error ? err.message : "erro desconhecido"}`);
+        }
       }
     }
 
@@ -285,11 +314,11 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
       min_seconds: minSeconds,
       max_seconds: maxSeconds,
       language,
-      reference_type: copyStyle ? refMode : "none",
-      reference_url: copyStyle && refMode === "link" && refUrl.trim() ? refUrl.trim() : null,
-      reference_path: refPath,
+      reference_type: copyStyle ? (refSourceType === "saved" ? "preset" : refMode) : "none",
+      reference_url: copyStyle && refSourceType === "custom_video" && refMode === "link" && refUrl.trim() ? refUrl.trim() : null,
+      reference_path: copyStyle && refSourceType === "custom_video" ? refPath : (copyStyle && refSourceType === "saved" ? (selectedUserRef?.reference_path || null) : null),
       reference_style: copyStyle ? refStyle : null,
-      design_instructions: copyStyle && designInstructions.trim() ? designInstructions.trim() : null,
+      design_instructions: copyStyle ? (designInstructions.trim() || selectedUserRef?.design_instructions || null) : null,
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
       subtitle_style: subtitleStyle,
@@ -718,53 +747,105 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
         {copyStyle && (
           <div className="stack" style={{ marginTop: "1rem", paddingTop: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
             <label>
-              Origem do Vídeo Modelo de Referência:
+              Origem da Clonagem de Estilo:
               <div className="tabs" style={{ marginTop: "0.35rem" }}>
                 <button
                   type="button"
-                  className={refMode === "upload" ? "tab active" : "tab"}
-                  onClick={() => setRefMode("upload")}
+                  className={refSourceType === "saved" ? "tab active" : "tab"}
+                  onClick={() => setRefSourceType("saved")}
                 >
-                  <UploadIcon size={14} style={{ marginRight: "0.35rem" }} /> Enviar Arquivo de Vídeo
+                  <SparklesIcon size={14} style={{ marginRight: "0.35rem" }} /> Estilo Salvo da Biblioteca ({userSavedRefs.length + STYLE_PRESETS.length})
                 </button>
                 <button
                   type="button"
-                  className={refMode === "link" ? "tab active" : "tab"}
-                  onClick={() => setRefMode("link")}
+                  className={refSourceType === "custom_video" ? "tab active" : "tab"}
+                  onClick={() => setRefSourceType("custom_video")}
                 >
-                  <LinkIcon size={14} style={{ marginRight: "0.35rem" }} /> Link (TikTok / Reels / Shorts)
+                  <UploadIcon size={14} style={{ marginRight: "0.35rem" }} /> Novo Vídeo de Referência
                 </button>
               </div>
             </label>
 
-            {refMode === "upload" && (
-              <label>
-                Arquivo do Vídeo de Referência (.mp4, .mov)
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setRefFile(e.target.files?.[0] ?? null)}
-                  style={{ marginTop: "0.35rem" }}
-                />
-                {refFile && (
-                  <small style={{ color: "var(--primary)", marginTop: "0.25rem", display: "block" }}>
-                    ✓ Arquivo selecionado: <strong>{refFile.name}</strong> ({formatBytes(refFile.size)})
-                  </small>
-                )}
-              </label>
-            )}
+            {refSourceType === "saved" ? (
+              <div style={{ marginTop: "0.4rem" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                  <label style={{ fontSize: "0.88rem", fontWeight: 600, margin: 0 }}>
+                    Selecione o Estilo Salvo:
+                  </label>
+                  <span className="badge badge-done" style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem" }}>
+                    Zero vídeo necessário
+                  </span>
+                </div>
+                <select
+                  value={refStyle}
+                  onChange={(e) => setRefStyle(e.target.value)}
+                  style={{ width: "100%", fontSize: "0.92rem", fontWeight: 600 }}
+                >
+                  {userSavedRefs.length > 0 && (
+                    <optgroup label="Seus Estilos Salvos / Treinados">
+                      {userSavedRefs.map((r) => (
+                        <option key={r.id} value={r.name}>
+                          ⭐ {r.name} ({r.style_category || "Personalizado"})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="Presets de Alta Retenção">
+                    {STYLE_PRESETS.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: "0.75rem", marginTop: "0.35rem" }}>
+                <div className="tabs">
+                  <button
+                    type="button"
+                    className={refMode === "upload" ? "tab active" : "tab"}
+                    onClick={() => setRefMode("upload")}
+                  >
+                    <UploadIcon size={14} style={{ marginRight: "0.35rem" }} /> Enviar Arquivo (.mp4, .mov)
+                  </button>
+                  <button
+                    type="button"
+                    className={refMode === "link" ? "tab active" : "tab"}
+                    onClick={() => setRefMode("link")}
+                  >
+                    <LinkIcon size={14} style={{ marginRight: "0.35rem" }} /> Link (TikTok / Reels)
+                  </button>
+                </div>
 
-            {refMode === "link" && (
-              <label>
-                Link do Vídeo Modelo de Referência
-                <input
-                  type="url"
-                  placeholder="https://www.tiktok.com/@exemplo/video/… ou https://www.instagram.com/reels/…"
-                  value={refUrl}
-                  onChange={(e) => setRefUrl(e.target.value)}
-                  style={{ marginTop: "0.35rem" }}
-                />
-              </label>
+                {refMode === "upload" ? (
+                  <label>
+                    Arquivo do Vídeo de Referência (.mp4, .mov)
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => setRefFile(e.target.files?.[0] ?? null)}
+                      style={{ marginTop: "0.35rem" }}
+                    />
+                    {refFile && (
+                      <small style={{ color: "var(--primary)", marginTop: "0.25rem", display: "block" }}>
+                        ✓ Arquivo selecionado: <strong>{refFile.name}</strong> ({formatBytes(refFile.size)})
+                      </small>
+                    )}
+                  </label>
+                ) : (
+                  <label>
+                    Link do Vídeo Modelo de Referência
+                    <input
+                      type="url"
+                      placeholder="https://www.tiktok.com/@exemplo/video/… ou https://www.instagram.com/reels/…"
+                      value={refUrl}
+                      onChange={(e) => setRefUrl(e.target.value)}
+                      style={{ marginTop: "0.35rem" }}
+                    />
+                  </label>
+                )}
+              </div>
             )}
 
             {/* Configuração de B-Rolls Inteligentes com Higgsfield */}
@@ -812,20 +893,9 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
               )}
             </div>
 
-            <div className="grid2" style={{ marginTop: "0.5rem" }}>
+            <div style={{ marginTop: "0.5rem" }}>
               <label>
-                Estilo / Vibe do Corte:
-                <select value={refStyle} onChange={(e) => setRefStyle(e.target.value)}>
-                  {STYLE_PRESETS.map((p) => (
-                    <option key={p.id} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Instruções Adicionais (Opcional):
+                Instruções Adicionais de Edição (Opcional):
                 <input
                   type="text"
                   placeholder="Ex: Focar em falas de superação ou ganchos polêmicos"

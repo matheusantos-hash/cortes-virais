@@ -199,7 +199,8 @@ export default function CopyStyleStudio({
 }) {
   const supabase = createClient();
 
-  // 1. VÍDEO DE REFERÊNCIA
+  // 1. VÍDEO DE REFERÊNCIA OU ESTILO SALVO
+  const [styleSourceType, setStyleSourceType] = useState<"saved" | "custom_video">("saved");
   const [refMode, setRefMode] = useState<"upload" | "link">("upload");
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refUrl, setRefUrl] = useState("");
@@ -360,18 +361,27 @@ export default function CopyStyleStudio({
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
+      let fullList: SavedReference[] = PRESET_REFERENCES;
       if (data && data.length > 0) {
         const combined = [...data, ...userList.filter((u) => !data.some((d) => d.id === u.id))];
-        setSavedRefs([...combined, ...PRESET_REFERENCES]);
+        fullList = [...combined, ...PRESET_REFERENCES];
       } else if (userList.length > 0) {
-        setSavedRefs([...userList, ...PRESET_REFERENCES]);
-      } else {
-        setSavedRefs(PRESET_REFERENCES);
+        fullList = [...userList, ...PRESET_REFERENCES];
+      }
+      setSavedRefs(fullList);
+      setSelectedRefId((prev) => {
+        if (prev && fullList.some((r) => r.id === prev)) return prev;
+        return fullList[0]?.id ?? null;
+      });
+      if (fullList.length > 0 && !referenceName) {
+        setReferenceName(fullList[0].name);
+        if (fullList[0].design_instructions) setDesignInstructions(fullList[0].design_instructions);
       }
     } catch {
       setSavedRefs(PRESET_REFERENCES);
+      setSelectedRefId((prev) => prev ?? PRESET_REFERENCES[0]?.id ?? null);
     }
-  }, [supabase, userId]);
+  }, [supabase, userId, referenceName]);
 
   useEffect(() => {
     loadSavedReferences();
@@ -381,6 +391,9 @@ export default function CopyStyleStudio({
   function applyReference(ref: SavedReference) {
     setSelectedRefId(ref.id);
     setReferenceName(ref.name);
+    setStyleSourceType("saved");
+    setRefFile(null);
+    setRefUrl("");
     if (ref.reference_type === "link" && ref.reference_url) {
       setRefMode("link");
       setRefUrl(ref.reference_url);
@@ -808,28 +821,34 @@ export default function CopyStyleStudio({
     setError(null);
     setSuccessMsg(null);
 
-    // Validação do Vídeo de Referência
-    if (refMode === "upload" && !refFile && !selectedRefId) {
-      return setError("Por favor, envie o vídeo de referência ou selecione um preset da biblioteca.");
-    }
-    if (refMode === "link" && !refUrl.trim() && !selectedRefId) {
-      return setError("Insira o link do vídeo de referência que você deseja clonar.");
+    // Validação da Referência (Estilo Salvo ou Vídeo Avulso)
+    if (styleSourceType === "custom_video") {
+      if (refMode === "upload" && !refFile) {
+        return setError("Por favor, envie o arquivo de vídeo de referência (.mp4, .mov) ou use um estilo salvo.");
+      }
+      if (refMode === "link" && !refUrl.trim()) {
+        return setError("Insira o link do vídeo de referência que você deseja clonar.");
+      }
+    } else {
+      if (!selectedRefId) {
+        return setError("Por favor, selecione um estilo salvo ou preset da biblioteca.");
+      }
     }
 
     // Validação do Vídeo Principal
-    if (sourceMode === "upload" && !sourceFile) {
+    if (sourceMode === "upload" && !sourceFile && !sourceClip) {
       return setError("Selecione o vídeo principal que será transformado.");
     }
-    if (sourceMode === "link" && !sourceUrl.trim()) {
+    if (sourceMode === "link" && !sourceUrl.trim() && !sourceClip) {
       return setError("Insira o link do vídeo principal (YouTube, etc.).");
     }
 
     setBusy(true);
 
     try {
-      // 1. Upload do vídeo de referência (se for arquivo novo)
+      // 1. Upload do vídeo de referência (somente se for modo vídeo avulso com arquivo novo)
       let refPath: string | null = null;
-      if (refMode === "upload" && refFile) {
+      if (styleSourceType === "custom_video" && refMode === "upload" && refFile) {
         const path = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
         if (refFile.size > RESUMABLE_FROM_BYTES) {
           const {
@@ -1023,9 +1042,9 @@ export default function CopyStyleStudio({
         min_seconds: minSeconds,
         max_seconds: maxSeconds,
         language: "pt-BR",
-        reference_type: refFile ? "upload" : (refMode === "link" && refUrl ? "link" : "preset"),
-        reference_url: (!refFile && refMode === "link") ? refUrl : null,
-        reference_path: refFile ? refPath : null,
+        reference_type: styleSourceType === "saved" ? (existingRef?.reference_type || "preset") : (refFile ? "upload" : (refMode === "link" && refUrl ? "link" : "preset")),
+        reference_url: styleSourceType === "custom_video" && !refFile && refMode === "link" ? refUrl : (styleSourceType === "saved" ? (existingRef?.reference_url || null) : null),
+        reference_path: styleSourceType === "custom_video" && refFile ? refPath : (styleSourceType === "saved" ? (existingRef?.reference_path || null) : null),
         reference_style: referenceName || existingRef?.name || "Estilo Clonado Studio",
         design_instructions: designInstructions || `Clonagem de ritmo ${cutPacing}, legendas ${subtitleStyle}, exportação ${resolution} ${codec}`,
         use_broll: useBroll,
@@ -1521,217 +1540,243 @@ export default function CopyStyleStudio({
             <div className="studio-section-title">
               <span className="step-number">1</span>
               <div>
-                <h3>Selecione o Estilo de Edição a Clonar</h3>
-                <p className="muted small">Escolha um estilo treinado pela IA ou selecione um preset da biblioteca</p>
+                <h3>Como você deseja clonar a edição?</h3>
+                <p className="muted small">Escolha entre um estilo já salvo na sua biblioteca (zero vídeo necessário) ou envie um novo vídeo de referência</p>
               </div>
             </div>
 
-            {/* SELETOR RÁPIDO DE ESTILO */}
-            <div style={{ marginBottom: "0.85rem" }}>
-              <label className="field-label">Estilo Selecionado para a Clonagem:</label>
-              <select
-                className="input select"
-                style={{ width: "100%", fontSize: "0.95rem", fontWeight: 600 }}
-                value={selectedRefId || ""}
-                onChange={(e) => {
-                  const target = savedRefs.find((r) => r.id === e.target.value);
-                  if (target) applyReference(target);
-                }}
+            {/* SELETOR DE ORIGEM: ESTILO SALVO VS VÍDEO AVULSO */}
+            <div className="segmented-control" style={{ marginBottom: "1.25rem", maxWidth: "600px" }}>
+              <button
+                type="button"
+                className={`segmented-btn ${styleSourceType === "saved" ? "active" : ""}`}
+                onClick={() => setStyleSourceType("saved")}
               >
-                {savedRefs.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.style_category || "Geral"})
-                  </option>
-                ))}
-              </select>
+                <Bookmark size={15} />
+                <span>Estilo Salvo da Biblioteca ({savedRefs.length})</span>
+              </button>
+              <button
+                type="button"
+                className={`segmented-btn ${styleSourceType === "custom_video" ? "active" : ""}`}
+                onClick={() => setStyleSourceType("custom_video")}
+              >
+                <Upload size={15} />
+                <span>Novo Vídeo de Referência</span>
+              </button>
             </div>
 
-            {/* BANNER COM RESUMO DO ESTILO SELECIONADO */}
-            {selectedRefId && (
-              <div
-                style={{
-                  background: "rgba(139, 92, 246, 0.08)",
-                  border: "1px solid rgba(139, 92, 246, 0.3)",
-                  borderRadius: "8px",
-                  padding: "0.75rem 1rem",
-                  marginBottom: "0.85rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "0.5rem",
-                }}
-              >
+            {/* OPÇÃO 1: ESTILO SALVO DA BIBLIOTECA (SEM VÍDEO EXIGIDO) */}
+            {styleSourceType === "saved" && (
+              <div className="stack" style={{ gap: "0.85rem" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Sparkles size={16} style={{ color: "var(--primary)" }} />
-                    <strong style={{ color: "var(--text)", fontSize: "0.92rem" }}>
-                      {referenceName || "Estilo Selecionado"}
-                    </strong>
-                    <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>Ativo</span>
-                    <span
-                      className="badge"
-                      style={{
-                        fontSize: "0.68rem",
-                        background: "rgba(16, 185, 129, 0.15)",
-                        color: "#10b981",
-                        border: "1px solid rgba(16, 185, 129, 0.3)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "3px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <Zap size={10} />
-                      {(() => {
-                        const target = savedRefs.find((r) => r.id === selectedRefId);
-                        return target?.learning_metrics?.accuracyScore ?? (target?.sample_videos && target.sample_videos.length > 1 ? 86 : 78);
-                      })()}% Acurácia
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                    <label className="field-label" style={{ margin: 0 }}>Selecione o Estilo Salvo:</label>
+                    <span className="badge badge-accent" style={{ fontSize: "0.7rem", padding: "0.15rem 0.45rem" }}>
+                      Zero vídeo necessário
                     </span>
                   </div>
-                  <p className="muted small" style={{ margin: "0.2rem 0 0" }}>
-                    Legendas: <strong>{subtitleStyle}</strong> • Destaque:{" "}
-                    <span style={{ color: highlightColor, fontWeight: 700 }}>● {highlightColor}</span> • Câmera:{" "}
-                    <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : "Auto-Face"}</strong> • Ritmo:{" "}
-                    <strong>{cutPacing}</strong>
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-small"
-                    onClick={() => {
-                      const target = savedRefs.find((r) => r.id === selectedRefId);
-                      if (target) handleOpenEditModal(target);
+                  <select
+                    className="input select"
+                    style={{ width: "100%", fontSize: "0.95rem", fontWeight: 600 }}
+                    value={selectedRefId || ""}
+                    onChange={(e) => {
+                      const target = savedRefs.find((r) => r.id === e.target.value);
+                      if (target) applyReference(target);
                     }}
-                    title="Editar estilo (renomear e adicionar mais vídeos de treinamento)"
-                    style={{ color: "var(--primary)" }}
                   >
-                    <Pencil size={13} style={{ marginRight: "4px" }} />
-                    Editar Estilo
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-small"
-                    onClick={() => setActiveStudioTab("estilos")}
-                  >
-                    <Palette size={14} style={{ marginRight: "4px" }} />
-                    Gerenciar / Treinar Estilos
-                  </button>
+                    {savedRefs.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.style_category || "Geral"})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-            )}
 
-            {/* OPÇÃO DE MODO AVULSO (SUBIR VÍDEO NOVO OU LINK COMO REFERÊNCIA) */}
-            <div style={{ marginTop: "0.75rem", borderTop: "1px dashed var(--card-border)", paddingTop: "0.75rem" }}>
-              <span className="muted small" style={{ display: "block", marginBottom: "0.4rem" }}>
-                Ou forneça um vídeo de referência avulso para copiar na hora:
-              </span>
+                {/* BANNER COM RESUMO DO ESTILO SELECIONADO */}
+                {selectedRefId && (
+                  <div
+                    style={{
+                      background: "rgba(139, 92, 246, 0.08)",
+                      border: "1px solid rgba(139, 92, 246, 0.3)",
+                      borderRadius: "8px",
+                      padding: "0.85rem 1rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: "0.6rem",
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <Sparkles size={16} style={{ color: "var(--primary)" }} />
+                        <strong style={{ color: "var(--text)", fontSize: "0.95rem" }}>
+                          {referenceName || "Estilo Selecionado"}
+                        </strong>
+                        <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>Ativo</span>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: "0.68rem",
+                            background: "rgba(16, 185, 129, 0.15)",
+                            color: "#10b981",
+                            border: "1px solid rgba(16, 185, 129, 0.3)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Zap size={10} />
+                          {(() => {
+                            const target = savedRefs.find((r) => r.id === selectedRefId);
+                            return target?.learning_metrics?.accuracyScore ?? (target?.sample_videos && target.sample_videos.length > 1 ? 86 : 78);
+                          })()}% Acurácia
+                        </span>
+                      </div>
+                      <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
+                        Legendas: <strong>{subtitleStyle}</strong> • Destaque:{" "}
+                        <span style={{ color: highlightColor, fontWeight: 700 }}>● {highlightColor}</span> • Câmera:{" "}
+                        <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : "Auto-Face"}</strong> • Ritmo:{" "}
+                        <strong>{cutPacing}</strong>
+                      </p>
+                    </div>
 
-              <div className="tab-group" style={{ marginBottom: "0.75rem" }}>
-                <button
-                  type="button"
-                  className={`tab-btn ${refMode === "upload" ? "active" : ""}`}
-                  onClick={() => setRefMode("upload")}
-                >
-                  <Upload size={14} style={{ marginRight: "4px" }} />
-                  Subir Arquivo de Referência (.mp4, .mov)
-                </button>
-                <button
-                  type="button"
-                  className={`tab-btn ${refMode === "link" ? "active" : ""}`}
-                  onClick={() => setRefMode("link")}
-                >
-                  <LucideLink size={14} style={{ marginRight: "4px" }} />
-                  Link do Vídeo (YouTube, TikTok, Reels)
-                </button>
-              </div>
-
-          {refMode === "upload" ? (
-            <div>
-              <input
-                ref={refFileInputRef}
-                type="file"
-                accept="video/*,.mp4,.mov,.mkv"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setRefFile(e.target.files[0]);
-                    if (!referenceName) {
-                      setReferenceName(e.target.files[0].name.replace(/\.[^/.]+$/, ""));
-                    }
-                  }
-                }}
-              />
-              <div
-                className="drop-zone"
-                onClick={() => refFileInputRef.current?.click()}
-                style={{ padding: "1.5rem 1rem", textAlign: "center", cursor: "pointer" }}
-              >
-                <Upload size={28} style={{ color: "var(--primary)", marginBottom: "0.5rem" }} />
-                {refFile ? (
-                  <div>
-                    <strong style={{ color: "var(--primary)", display: "block" }}>
-                      ✓ {refFile.name}
-                    </strong>
-                    <span className="muted small">Clique para trocar de arquivo</span>
-                  </div>
-                ) : (
-                  <div>
-                    <strong>Clique para subir o vídeo de referência</strong>
-                    <p className="muted small" style={{ margin: "0.2rem 0 0" }}>
-                      MP4, MOV ou MKV com cortes ou legendas que você quer replicar
-                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => {
+                          const target = savedRefs.find((r) => r.id === selectedRefId);
+                          if (target) handleOpenEditModal(target);
+                        }}
+                        title="Editar estilo (renomear e adicionar mais vídeos de treinamento)"
+                        style={{ color: "var(--primary)" }}
+                      >
+                        <Pencil size={13} style={{ marginRight: "4px" }} />
+                        Editar Estilo
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => setActiveStudioTab("estilos")}
+                      >
+                        <Palette size={14} style={{ marginRight: "4px" }} />
+                        Gerenciar / Treinar Estilos
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div>
-              <input
-                type="url"
-                className="input"
-                placeholder="Ex: https://www.youtube.com/shorts/..."
-                value={refUrl}
-                onChange={(e) => setRefUrl(e.target.value)}
-                style={{ width: "100%" }}
-              />
-            </div>
-          )}
+            )}
 
-          {/* OPÇÃO DE SALVAR REFERÊNCIA PARA REUTILIZAR */}
-          <div className="card-subtle stack" style={{ marginTop: "0.85rem", padding: "0.85rem" }}>
-            <label className="checkbox-row" style={{ cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={saveReference}
-                onChange={(e) => setSaveReference(e.target.checked)}
-              />
-              <span style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <Save size={16} style={{ color: "var(--primary)" }} />
-                Deixar esta referência salva para ser reutilizada em outros projetos
-              </span>
-            </label>
+            {/* OPÇÃO 2: NOVO VÍDEO DE REFERÊNCIA AVULSO */}
+            {styleSourceType === "custom_video" && (
+              <div className="stack" style={{ gap: "0.85rem" }}>
+                <div className="tab-group" style={{ marginBottom: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className={`tab-btn ${refMode === "upload" ? "active" : ""}`}
+                    onClick={() => setRefMode("upload")}
+                  >
+                    <Upload size={14} style={{ marginRight: "4px" }} />
+                    Subir Arquivo de Referência (.mp4, .mov)
+                  </button>
+                  <button
+                    type="button"
+                    className={`tab-btn ${refMode === "link" ? "active" : ""}`}
+                    onClick={() => setRefMode("link")}
+                  >
+                    <LucideLink size={14} style={{ marginRight: "4px" }} />
+                    Link do Vídeo (YouTube, TikTok, Reels)
+                  </button>
+                </div>
 
-            {saveReference && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <label className="field-label" style={{ fontSize: "0.82rem" }}>
-                  Nome da Referência (Para encontrar na sua biblioteca)
-                </label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Ex: Estilo Hormozi - Amarelo Dinâmico / Vlog Retenção Máxima"
-                  value={referenceName}
-                  onChange={(e) => setReferenceName(e.target.value)}
-                  style={{ width: "100%", marginTop: "0.2rem" }}
-                />
+                {refMode === "upload" ? (
+                  <div>
+                    <input
+                      ref={refFileInputRef}
+                      type="file"
+                      accept="video/*,.mp4,.mov,.mkv"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setRefFile(e.target.files[0]);
+                          if (!referenceName) {
+                            setReferenceName(e.target.files[0].name.replace(/\.[^/.]+$/, ""));
+                          }
+                        }
+                      }}
+                    />
+                    <div
+                      className="drop-zone"
+                      onClick={() => refFileInputRef.current?.click()}
+                      style={{ padding: "1.5rem 1rem", textAlign: "center", cursor: "pointer" }}
+                    >
+                      <Upload size={28} style={{ color: "var(--primary)", marginBottom: "0.5rem" }} />
+                      {refFile ? (
+                        <div>
+                          <strong style={{ color: "var(--primary)", display: "block" }}>
+                            ✓ {refFile.name}
+                          </strong>
+                          <span className="muted small">Clique para trocar de arquivo</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <strong>Clique para subir o vídeo de referência</strong>
+                          <p className="muted small" style={{ margin: "0.2rem 0 0" }}>
+                            MP4, MOV ou MKV com cortes ou legendas que você quer replicar
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="url"
+                      className="input"
+                      placeholder="Ex: https://www.youtube.com/shorts/... ou https://www.instagram.com/reels/..."
+                      value={refUrl}
+                      onChange={(e) => setRefUrl(e.target.value)}
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                )}
+
+                {/* OPÇÃO DE SALVAR REFERÊNCIA PARA REUTILIZAR */}
+                <div className="card-subtle stack" style={{ padding: "0.85rem" }}>
+                  <label className="checkbox-row" style={{ cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={saveReference}
+                      onChange={(e) => setSaveReference(e.target.checked)}
+                    />
+                    <span style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <Save size={16} style={{ color: "var(--primary)" }} />
+                      Deixar esta referência salva para ser reutilizada em outros projetos
+                    </span>
+                  </label>
+
+                  {saveReference && (
+                    <div style={{ marginTop: "0.5rem" }}>
+                      <label className="field-label" style={{ fontSize: "0.82rem" }}>
+                        Nome da Referência (Para encontrar na sua biblioteca)
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Ex: Estilo Hormozi - Amarelo Dinâmico / Vlog Retenção Máxima"
+                        value={referenceName}
+                        onChange={(e) => setReferenceName(e.target.value)}
+                        style={{ width: "100%", marginTop: "0.2rem" }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        </div>
-      </section>
+          </section>
 
         {/* ========================================================
             ETAPA 2: O VÍDEO PRINCIPAL (O QUE SERÁ EDITADO)
