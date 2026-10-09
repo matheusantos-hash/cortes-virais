@@ -246,13 +246,30 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
     if (copyStyle && refMode === "upload" && refFile) {
       const refStoragePath = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
       try {
-        const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
-          contentType: refFile.type || "video/mp4",
-        });
-        if (refUpError) throw new Error(refUpError.message);
+        if (refFile.size > RESUMABLE_FROM_BYTES) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+          setUploadPct(0);
+          await uploadResumable({
+            accessToken: session.access_token,
+            bucket: "sources",
+            path: refStoragePath,
+            file: refFile,
+            onProgress: (p) => setUploadPct(p),
+          });
+          setUploadPct(null);
+        } else {
+          const { error: refUpError } = await supabase.storage.from("sources").upload(refStoragePath, refFile, {
+            contentType: refFile.type || "video/mp4",
+          });
+          if (refUpError) throw new Error(refUpError.message);
+        }
         refPath = refStoragePath;
       } catch (err) {
         setBusy(false);
+        setUploadPct(null);
         return setError(`Falha ao enviar vídeo de referência: ${err instanceof Error ? err.message : "erro desconhecido"}`);
       }
     }

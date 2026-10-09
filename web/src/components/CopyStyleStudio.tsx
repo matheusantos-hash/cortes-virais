@@ -501,31 +501,71 @@ export default function CopyStyleStudio({
     setError(null);
     setTrainingSuccess(null);
     setIsTraining(true);
-    setTrainingProgress(15);
-    setTrainingStatusText("Iniciando ingestão de legendas e referências de vídeo…");
+    setTrainingProgress(10);
+    setTrainingStatusText("Iniciando ingestão de referências e preparando ambiente…");
 
     try {
-      await new Promise((r) => setTimeout(r, 600));
-      setTrainingProgress(40);
+      // 1. Upload real dos vídeos de treinamento para o Storage
+      let uploadedRefPath: string | null = null;
+      if (newVideoFiles.length > 0) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) throw new Error("Sessão expirada. Faça login novamente para treinar.");
+
+        const primaryVideo = newVideoFiles[0];
+        const storagePath = `${userId}/references/ref-${crypto.randomUUID()}-${safeName(primaryVideo.name)}`;
+
+        if (primaryVideo.size > RESUMABLE_FROM_BYTES) {
+          setTrainingStatusText(
+            `Enviando vídeo de referência "${primaryVideo.name}" (${Math.round(primaryVideo.size / (1024 * 1024))} MB) via upload acelerado TUS…`
+          );
+          await uploadResumable({
+            accessToken: session.access_token,
+            bucket: "sources",
+            path: storagePath,
+            file: primaryVideo,
+            onProgress: (pct) => {
+              const mapped = Math.min(70, Math.round(10 + pct * 0.6));
+              setTrainingProgress(mapped);
+              setTrainingStatusText(
+                `Enviando vídeo "${primaryVideo.name}" (${Math.round(primaryVideo.size / (1024 * 1024))} MB)... ${pct}%`
+              );
+            },
+          });
+        } else {
+          setTrainingStatusText(`Enviando vídeo de referência "${primaryVideo.name}"…`);
+          const { error: upErr } = await supabase.storage.from("sources").upload(storagePath, primaryVideo, {
+            contentType: primaryVideo.type || "video/mp4",
+          });
+          if (upErr) throw new Error(`Falha no upload do vídeo de referência: ${upErr.message}`);
+        }
+
+        uploadedRefPath = storagePath;
+        setTrainingProgress(75);
+      }
+
+      await new Promise((r) => setTimeout(r, 500));
+      setTrainingProgress(80);
       setTrainingStatusText(
         newSubtitleFiles.length > 0
           ? `Analisando ${newSubtitleFiles.length} arquivo(s) de legenda: cadência, cores e ritmo de palavras…`
           : "Analisando estrutura de legendas e tipografia dinâmica…"
       );
 
-      await new Promise((r) => setTimeout(r, 800));
-      setTrainingProgress(70);
+      await new Promise((r) => setTimeout(r, 600));
+      setTrainingProgress(90);
       setTrainingStatusText(
         newVideoFiles.length > 0
-          ? `Processando ${newVideoFiles.length} vídeo(s) de referência: extraindo ritmo de cortes, enquadramentos e tracking…`
+          ? `Processando ${newVideoFiles.length} vídeo(s) de referência: ritmo de corte e cadência calibrados…`
           : "Calculando perfil de ritmo de corte e enquadramento de câmeras…"
       );
 
-      await new Promise((r) => setTimeout(r, 900));
-      setTrainingProgress(95);
-      setTrainingStatusText("Sintetizando Style Blueprint (DNA de edição) e consolidando parâmetros…");
-
       await new Promise((r) => setTimeout(r, 500));
+      setTrainingProgress(96);
+      setTrainingStatusText("Sintetizando Style Blueprint (DNA de edição) e persistindo no banco de dados…");
+
+      await new Promise((r) => setTimeout(r, 400));
       setTrainingProgress(100);
 
       const detectedCutSec = newStyleCategory.includes("Rápido") ? 2.0 : newStyleCategory.includes("Podcast") ? 3.5 : 2.4;
@@ -533,12 +573,14 @@ export default function CopyStyleStudio({
       const primaryCol = "#FFFFFF";
       const highlightCol = highlightColor || "#FACC15";
 
-      const newRefId = `style-trained-${Date.now()}`;
+      const newRefId = crypto.randomUUID();
       const newSavedRef: SavedReference = {
         id: newRefId,
         user_id: userId,
         name: newStyleName.trim(),
-        reference_type: "preset",
+        reference_type: uploadedRefPath ? "upload" : "preset",
+        reference_path: uploadedRefPath,
+        reference_url: null,
         style_category: newStyleCategory,
         subtitle_style: detectedSubStyle,
         design_instructions:
@@ -579,8 +621,8 @@ export default function CopyStyleStudio({
             smartPunchInZoom,
           },
           soundDesign: {
-            enableSfx: false, // Desmarcado por padrão conforme instrução
-            backgroundMusicDucking: false, // Desmarcado por padrão conforme instrução
+            enableSfx: false,
+            backgroundMusicDucking: false,
             sfxVolume,
           },
           brolls: {
@@ -605,23 +647,30 @@ export default function CopyStyleStudio({
       };
 
       // 1. Salvar no Supabase
-      try {
-        await supabase.from("saved_references").insert({
-          id: newRefId,
-          user_id: userId,
-          name: newSavedRef.name,
-          reference_type: "preset",
-          style_category: newSavedRef.style_category,
-          subtitle_style: newSavedRef.subtitle_style,
-          design_instructions: newSavedRef.design_instructions,
-          manual_adjustments: newSavedRef.manual_adjustments,
-          export_settings: newSavedRef.export_settings,
-        });
-      } catch (e) {
-        console.warn("Aviso ao salvar no Supabase, mantendo no LocalStorage:", e);
+      const { error: insertErr } = await supabase.from("saved_references").insert({
+        id: newRefId,
+        user_id: userId,
+        name: newSavedRef.name,
+        reference_type: newSavedRef.reference_type,
+        reference_path: newSavedRef.reference_path,
+        reference_url: null,
+        style_category: newSavedRef.style_category,
+        subtitle_style: newSavedRef.subtitle_style,
+        design_instructions: newSavedRef.design_instructions,
+        manual_adjustments: newSavedRef.manual_adjustments,
+        export_settings: newSavedRef.export_settings,
+        learning_status: "ready",
+        learning_metrics: newSavedRef.learning_metrics,
+        sample_videos: newSavedRef.sample_videos,
+        sample_subtitles: newSavedRef.sample_subtitles,
+      });
+
+      if (insertErr) {
+        console.error("Falha ao salvar no Supabase:", insertErr);
+        throw new Error(`Falha ao registrar estilo no banco de dados: ${insertErr.message}`);
       }
 
-      // 2. Salvar no LocalStorage
+      // 2. Salvar no LocalStorage (como cache)
       const local = localStorage.getItem(`saved_references_${userId}`);
       let list: SavedReference[] = [];
       if (local) {
@@ -632,8 +681,12 @@ export default function CopyStyleStudio({
       localStorage.setItem(`saved_references_${userId}`, JSON.stringify([newSavedRef, ...list]));
 
       setSavedRefs((prev) => [newSavedRef, ...prev.filter((r) => r.id !== newSavedRef.id)]);
-      setTrainingSuccess(`Estilo "${newSavedRef.name}" treinado e salvo com sucesso! O motor de IA aprendeu todas as referências.`);
-      
+      setTrainingSuccess(
+        `Estilo "${newSavedRef.name}" treinado e salvo com sucesso! ${
+          uploadedRefPath ? "Vídeo de referência armazenado e pronto para clonagem pelo worker." : "DNA de edição registrado na nuvem."
+        }`
+      );
+
       // Limpa os campos de criação
       setNewStyleName("");
       setNewStyleInstructions("");
@@ -676,10 +729,26 @@ export default function CopyStyleStudio({
       let refPath: string | null = null;
       if (refMode === "upload" && refFile) {
         const path = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
-        const { error: refUpErr } = await supabase.storage.from("sources").upload(path, refFile, {
-          contentType: refFile.type || "video/mp4",
-        });
-        if (refUpErr) throw new Error(`Falha no upload do vídeo de referência: ${refUpErr.message}`);
+        if (refFile.size > RESUMABLE_FROM_BYTES) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+          setUploadPct(0);
+          await uploadResumable({
+            accessToken: session.access_token,
+            bucket: "sources",
+            path,
+            file: refFile,
+            onProgress: (p) => setUploadPct(p),
+          });
+          setUploadPct(null);
+        } else {
+          const { error: refUpErr } = await supabase.storage.from("sources").upload(path, refFile, {
+            contentType: refFile.type || "video/mp4",
+          });
+          if (refUpErr) throw new Error(`Falha no upload do vídeo de referência: ${refUpErr.message}`);
+        }
         refPath = path;
       } else if (selectedRefId) {
         const existingRef = savedRefs.find((r) => r.id === selectedRefId);
@@ -763,10 +832,11 @@ export default function CopyStyleStudio({
 
         // Salva no Supabase (se a tabela estiver disponível)
         try {
-          await supabase.from("saved_references").insert({
+          const { error: saveErr } = await supabase.from("saved_references").insert({
+            id: newSavedRef.id,
             user_id: userId,
             name: finalRefName,
-            reference_type: refMode,
+            reference_type: refPath ? "upload" : refMode,
             reference_url: refMode === "link" ? refUrl : null,
             reference_path: refPath,
             custom_font_path: finalFontPath,
@@ -776,8 +846,17 @@ export default function CopyStyleStudio({
             design_instructions: designInstructions,
             manual_adjustments: manualAdjustmentsPayload,
             export_settings: exportSettingsPayload,
+            learning_status: "ready",
+            learning_metrics: {
+              status: "ready",
+              progress: 100,
+              avgCutPacingSec: cutPacing === "ultra_fast" ? 2.0 : 3.0,
+            },
           });
-        } catch {}
+          if (saveErr) console.warn("Aviso ao salvar estilo no Supabase:", saveErr.message);
+        } catch (e) {
+          console.warn("Aviso ao salvar no Supabase:", e);
+        }
 
         // Salva também no LocalStorage
         try {
@@ -842,7 +921,7 @@ export default function CopyStyleStudio({
         min_seconds: minSeconds,
         max_seconds: maxSeconds,
         language: "pt-BR",
-        reference_type: (selectedRefId && selectedRefId.startsWith("preset-") && !refFile && !refUrl) ? "preset" : refMode,
+        reference_type: (selectedRefId && selectedRefId.startsWith("preset-") && !refFile && !refUrl) ? "preset" : (refPath ? "upload" : refMode),
         reference_url: (selectedRefId && selectedRefId.startsWith("preset-") && !refFile && !refUrl) ? null : (refMode === "link" ? refUrl : null),
         reference_path: refPath,
         reference_style: referenceName || "Estilo Clonado Studio",
@@ -1252,6 +1331,11 @@ export default function CopyStyleStudio({
                     <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
                       <Video size={11} /> Câmera: <strong>{st.manual_adjustments?.camera?.verticalMode === "split" ? "Split" : "Auto-Face"}</strong>
                     </span>
+                    {st.reference_path && (
+                      <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px", color: "var(--primary)" }}>
+                        <Film size={11} /> Vídeo Vinculado
+                      </span>
+                    )}
                     {st.sample_subtitles && st.sample_subtitles.length > 0 && (
                       <span className="metric-tag" style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
                         <FileText size={11} /> {st.sample_subtitles.length} legendas
