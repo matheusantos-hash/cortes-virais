@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
 import { analyzeVideoVisuals } from "./gemini_video.js";
 import { fetchHiggsfieldBroll } from "./higgsfield.js";
-import { type ActiveBroll, CanceledError, cutClip, extractAudio } from "./media.js";
+import { type ActiveBroll, CanceledError, cutClip, downloadVideoSegment, extractAudio } from "./media.js";
 import { fetchStockBroll } from "./stock.js";
 import { extractReferenceStyle } from "./ref_analyzer.js";
 import { generateViralAssSubtitles } from "./subtitles.js";
@@ -49,17 +49,23 @@ export async function processVideo(args: {
   workDir: string;
   opts: Options;
   hooks?: Hooks;
+  remoteSourceUrl?: string | null;
 }): Promise<{ clips: Clip[]; files: string[]; editDecisions: import("./types.js").ClipEditDecisions[] }> {
-  const { sourcePath, workDir, opts, hooks } = args;
+  const { sourcePath, workDir, opts, hooks, remoteSourceUrl } = args;
 
   await hooks?.checkCanceled?.();
 
   // Áudio
   const audioPath = path.join(workDir, "audio.mp3");
   if (opts.force || !existsSync(audioPath)) {
-    await hooks?.onLog?.("Extraindo áudio do vídeo para transcrição (FFmpeg)...");
+    const inputForAudio = (sourcePath && existsSync(sourcePath)) ? sourcePath : (remoteSourceUrl || sourcePath);
+    await hooks?.onLog?.(
+      remoteSourceUrl
+        ? "Extraindo áudio diretamente da nuvem com FFmpeg (sem baixar o vídeo completo)..."
+        : "Extraindo áudio do vídeo para transcrição (FFmpeg)..."
+    );
     console.log("Extraindo o áudio…");
-    await extractAudio(sourcePath, audioPath, hooks?.signal);
+    await extractAudio(inputForAudio, audioPath, hooks?.signal, hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined);
   }
 
   await hooks?.checkCanceled?.();
@@ -325,23 +331,53 @@ export async function processVideo(args: {
       }
     }
 
-    const cutRes = await cutClip({
-      input: sourcePath,
-      output: file,
-      start: c.start,
-      end: c.end,
-      orientation: opts.orientation,
-      verticalMode: opts.verticalMode,
-      cropX: opts.cropX,
-      brolls: activeBrolls,
-      subtitlesPath: subFile,
-      fontsDir: opts.fontsDir ?? undefined,
-      dynamicPacingSec: dynamicPacing,
-      colorGrade: shouldColorGrade,
-      sfxEvents,
-      signal: hooks?.signal,
-      onLog: hooks?.onLog,
-    });
+    let clipInput = sourcePath;
+    let clipStart = c.start;
+    let clipEnd = c.end;
+    let rawSegmentPath: string | null = null;
+
+    if (remoteSourceUrl) {
+      rawSegmentPath = path.join(workDir, `raw-clip-${i + 1}.mp4`);
+      await hooks?.onLog?.(
+        `[BOX ON-DEMAND] Baixando trecho bruto do corte ${i + 1} (${fmt(c.start)} - ${fmt(c.end)}) diretamente da nuvem...`
+      );
+      await downloadVideoSegment(
+        remoteSourceUrl,
+        c.start,
+        clipDuration,
+        rawSegmentPath,
+        hooks?.signal,
+        hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined
+      );
+      clipInput = rawSegmentPath;
+      clipStart = 0;
+      clipEnd = clipDuration;
+    }
+
+    let cutRes: import("./media.js").CutResult;
+    try {
+      cutRes = await cutClip({
+        input: clipInput,
+        output: file,
+        start: clipStart,
+        end: clipEnd,
+        orientation: opts.orientation,
+        verticalMode: opts.verticalMode,
+        cropX: opts.cropX,
+        brolls: activeBrolls,
+        subtitlesPath: subFile,
+        fontsDir: opts.fontsDir ?? undefined,
+        dynamicPacingSec: dynamicPacing,
+        colorGrade: shouldColorGrade,
+        sfxEvents,
+        signal: hooks?.signal,
+        onLog: hooks?.onLog,
+      });
+    } finally {
+      if (rawSegmentPath && existsSync(rawSegmentPath)) {
+        await rm(rawSegmentPath, { force: true }).catch(() => {});
+      }
+    }
     files.push(file);
 
     // Palavras que caem dentro deste corte

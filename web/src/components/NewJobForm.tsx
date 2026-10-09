@@ -443,15 +443,15 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
       {mode === "link" ? (
         <label>
-          URL do Vídeo (YouTube / Vimeo / Web)
+          URL do Vídeo (YouTube / Box.com / Vimeo / Web)
           <input
             type="url"
-            placeholder="https://www.youtube.com/watch?v=… ou Vimeo"
+            placeholder="https://www.youtube.com/watch?v=… ou Box.com"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             required
           />
-          <small>Cole o link de podcasts, palestras ou entrevistas para cortar trechos virais.</small>
+          <small>Cole o link do YouTube, Box.com (com streaming sob demanda de alta velocidade) ou Vimeo.</small>
         </label>
       ) : (
         <div>

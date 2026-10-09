@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { downloadVideo, tryDirectDownload } from "./media.js";
+import { downloadVideo, isBoxUrl, resolveBoxDirectUrl, tryDirectDownload } from "./media.js";
 import { processVideo, slug } from "./pipeline.js";
 import type { Options, Orientation, VerticalMode } from "./types.js";
 
@@ -82,16 +82,23 @@ async function main() {
   console.log(`Pasta de trabalho: ${workDir}\n`);
 
   // Vídeo de origem
-  let sourcePath: string;
+  let sourcePath = "";
+  let remoteSourceUrl: string | null = null;
   if (isUrl) {
-    sourcePath = path.join(workDir, "source.mp4");
-    if (opts.force || !existsSync(sourcePath)) {
-      console.log("Baixando o vídeo…");
-      const direct = await tryDirectDownload(input, sourcePath).catch(() => "not-direct" as const);
-      if (direct === "too-large") throw new Error("O arquivo desse link é grande demais.");
-      if (direct === "not-direct") await downloadVideo(input, sourcePath);
+    if (isBoxUrl(input)) {
+      console.log("Link do Box.com detectado! Usando streaming sob demanda (Clip-on-Demand)...");
+      remoteSourceUrl = await resolveBoxDirectUrl(input);
+      console.log("Conexão com Box.com estabelecida. Áudio e clipes serão obtidos sob demanda.");
     } else {
-      console.log("Vídeo já baixado, reaproveitando.");
+      sourcePath = path.join(workDir, "source.mp4");
+      if (opts.force || !existsSync(sourcePath)) {
+        console.log("Baixando o vídeo…");
+        const direct = await tryDirectDownload(input, sourcePath).catch(() => "not-direct" as const);
+        if (direct === "too-large") throw new Error("O arquivo desse link é grande demais.");
+        if (direct === "not-direct") await downloadVideo(input, sourcePath);
+      } else {
+        console.log("Vídeo já baixado, reaproveitando.");
+      }
     }
   } else {
     sourcePath = path.resolve(input);
@@ -99,7 +106,7 @@ async function main() {
     console.log("Usando o arquivo local.");
   }
 
-  await processVideo({ sourcePath, workDir, opts });
+  await processVideo({ sourcePath, workDir, opts, remoteSourceUrl });
   if (!opts.dryRun) console.log(`\nPronto! Clipes em: ${workDir}`);
 }
 

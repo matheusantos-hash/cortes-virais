@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { CanceledError, downloadVideo, probeDuration, probeSource, trimClip, tryDirectDownload } from "./media.js";
+import { CanceledError, downloadVideo, isBoxUrl, probeDuration, probeSource, resolveBoxDirectUrl, trimClip, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
 import { prepareCustomFont } from "./fonts.js";
 import type { Options, Orientation, VerticalMode } from "./types.js";
@@ -304,8 +304,10 @@ async function processJob(job: Job) {
 
     await checkCanceled();
 
-    // 1. Obter o vídeo
+    // 1. Obter o vídeo (ou resolver stream sob demanda para Box.com)
     await updateJob(job.id, { status: "downloading", progress: 5 });
+    let remoteStreamUrl: string | null = null;
+
     if (job.source_type === "upload") {
       await pushLog("Baixando arquivo enviado pelo usuário no Storage...");
       await flushLogs();
@@ -315,24 +317,33 @@ async function processJob(job: Job) {
       try {
         await pushLog(`Analisando link de vídeo: ${job.source_url}`);
         await flushLogs();
-        // 1º: link direto de arquivo (Box, Dropbox…). 2º: sites de vídeo via yt-dlp.
-        let direct: "ok" | "not-direct" | "too-large" = "not-direct";
-        try {
-          direct = await tryDirectDownload(job.source_url!, sourcePath, abortCtrl.signal);
-        } catch (err) {
-          if (err instanceof CanceledError) throw err;
-          console.error(`[${job.id}] download direto falhou, tentando yt-dlp:`, err);
-          await rm(sourcePath, { force: true });
-        }
-        if (direct === "too-large") {
-          throw new UserError("O arquivo desse link é grande demais para processar.");
-        }
-        if (direct === "not-direct") {
-          await pushLog("Baixando stream de vídeo em alta qualidade com yt-dlp...");
+
+        if (isBoxUrl(job.source_url!)) {
+          await pushLog("Link do Box.com detectado! Ativando modo sob demanda (Clip-on-Demand Streaming)...");
           await flushLogs();
-          await downloadVideo(job.source_url!, sourcePath, abortCtrl.signal, pushLog);
+          remoteStreamUrl = await resolveBoxDirectUrl(job.source_url!, abortCtrl.signal);
+          await pushLog("Conexão direta com Box.com estabelecida. Áudio e cortes serão extraídos sob demanda.");
+          await flushLogs();
+        } else {
+          // 1º: link direto de arquivo (Dropbox…). 2º: sites de vídeo via yt-dlp.
+          let direct: "ok" | "not-direct" | "too-large" = "not-direct";
+          try {
+            direct = await tryDirectDownload(job.source_url!, sourcePath, abortCtrl.signal);
+          } catch (err) {
+            if (err instanceof CanceledError) throw err;
+            console.error(`[${job.id}] download direto falhou, tentando yt-dlp:`, err);
+            await rm(sourcePath, { force: true });
+          }
+          if (direct === "too-large") {
+            throw new UserError("O arquivo desse link é grande demais para processar.");
+          }
+          if (direct === "not-direct") {
+            await pushLog("Baixando stream de vídeo em alta qualidade com yt-dlp...");
+            await flushLogs();
+            await downloadVideo(job.source_url!, sourcePath, abortCtrl.signal, pushLog);
+          }
+          await pushLog("Download do vídeo finalizado com sucesso.");
         }
-        await pushLog("Download do vídeo finalizado com sucesso.");
       } catch (err) {
         if (err instanceof CanceledError) throw err;
         if (err instanceof UserError) throw err;
@@ -341,7 +352,7 @@ async function processJob(job: Job) {
         await pushLog(`[ERRO] ${rawErr}`);
         await flushLogs();
         throw new UserError(
-          "Não foi possível baixar o vídeo desse link. Ele pode estar privado, bloqueado ou ter expirado. Gere um link novo ou envie o arquivo."
+          "Não foi possível acessar ou baixar o vídeo desse link. Ele pode estar privado, bloqueado ou ter expirado. Gere um link novo ou envie o arquivo."
         );
       }
     } else {
@@ -407,15 +418,16 @@ async function processJob(job: Job) {
     // 2. Limite de duração e Verificação/Débito Atômico de Créditos
     let seconds: number;
     let sourceMeta: import("./types.js").SourceMeta | null = null;
+    const mediaToProbe = remoteStreamUrl || sourcePath;
     try {
-      const originalFileName = job.file_name || (job.source_path ? path.basename(job.source_path) : "source.mp4");
-      sourceMeta = await probeSource(sourcePath, originalFileName);
+      const originalFileName = job.file_name || (job.source_path ? path.basename(job.source_path) : (remoteStreamUrl ? "box_video.mp4" : "source.mp4"));
+      sourceMeta = await probeSource(mediaToProbe, originalFileName);
       seconds = sourceMeta.durationSec;
     } catch {
       try {
-        seconds = await probeDuration(sourcePath);
+        seconds = await probeDuration(mediaToProbe);
       } catch {
-        throw new UserError("O arquivo baixado não parece ser um vídeo válido.");
+        throw new UserError("O arquivo de vídeo não parece ser válido ou acessível.");
       }
     }
     const minutes = seconds / 60;
@@ -542,9 +554,10 @@ async function processJob(job: Job) {
     };
 
     const { clips, files, editDecisions } = await processVideo({
-      sourcePath,
+      sourcePath: remoteStreamUrl ? "" : sourcePath,
       workDir,
       opts,
+      remoteSourceUrl: remoteStreamUrl,
       hooks: {
         onStage: async (status, progress) => {
           await updateJob(job.id, { status, progress });

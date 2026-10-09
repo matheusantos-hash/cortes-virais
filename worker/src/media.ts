@@ -179,6 +179,133 @@ export function normalizeVideoUrl(rawUrl: string): { url: string; referer?: stri
   return { url: rawUrl };
 }
 
+/**
+ * Verifica se a URL é do provedor de armazenamento Box.com.
+ */
+export function isBoxUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    return /(^|\.)box\.com$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve uma URL compartilhada do Box.com para a URL direta assinada de download/streaming (HTTP Range compatível).
+ */
+export async function resolveBoxDirectUrl(rawUrl: string, signal?: AbortSignal): Promise<string> {
+  // Caso a URL já seja direta de download assinada
+  if (/boxcloud\.com\/d\/1\//i.test(rawUrl)) {
+    return rawUrl;
+  }
+
+  let sharedName: string | null = null;
+  let fileId: string | null = null;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const sMatch = parsed.pathname.match(/\/s\/([a-zA-Z0-9_-]+)/);
+    if (sMatch) sharedName = sMatch[1];
+
+    const fMatch = parsed.pathname.match(/\/file\/(\d+)/);
+    if (fMatch) fileId = fMatch[1];
+  } catch {}
+
+  // Se tivermos apenas o sharedName sem fileId, busca a página inicial do link para extrair o ID do arquivo
+  if (sharedName && !fileId) {
+    try {
+      const pageRes = await fetch(rawUrl, {
+        signal,
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+      });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const matchFileId =
+          html.match(/"typedID"\s*:\s*"f_(\d+)"/) ||
+          html.match(/"itemID"\s*:\s*"f_(\d+)"/) ||
+          html.match(/\/file\/(\d+)/);
+        if (matchFileId) {
+          fileId = matchFileId[1];
+        }
+      }
+    } catch (e: any) {
+      if (signal?.aborted) throw new CanceledError();
+    }
+  }
+
+  if (sharedName && fileId) {
+    const dlEndpoint = `https://app.box.com/index.php?rm=box_download_shared_file&shared_name=${sharedName}&file_id=f_${fileId}`;
+    const headRes = await fetch(dlEndpoint, {
+      method: "GET",
+      redirect: "manual",
+      signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    });
+
+    const location = headRes.headers.get("location");
+    if (location) {
+      return location;
+    }
+  }
+
+  // Fallback: se não conseguiu via endpoint acima, tenta fetch com follow de redirects para pegar a URL final
+  const res = await fetch(rawUrl, {
+    method: "HEAD",
+    redirect: "follow",
+    signal,
+    headers: { "User-Agent": "Mozilla/5.0" },
+  });
+  if (res.url && res.url !== rawUrl) {
+    return res.url;
+  }
+
+  throw new Error("Não foi possível resolver o link de streaming direto do Box.com.");
+}
+
+/**
+ * Baixa apenas um segmento/trecho específico de vídeo a partir de uma URL remota (via HTTP Range seek no FFmpeg).
+ */
+export async function downloadVideoSegment(
+  remoteUrl: string,
+  startSec: number,
+  durationSec: number,
+  outPath: string,
+  signal?: AbortSignal,
+  onLog?: (line: string) => void
+): Promise<void> {
+  await run(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-ss",
+      startSec.toFixed(3),
+      "-i",
+      remoteUrl,
+      "-t",
+      durationSec.toFixed(3),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "18",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "160k",
+      "-avoid_negative_ts",
+      "make_zero",
+      outPath,
+    ],
+    signal,
+    onLog
+  );
+}
+
 let cookiesFilePath: string | null = null;
 function getCookiesPath(): string | null {
   if (cookiesFilePath && existsSync(cookiesFilePath)) return cookiesFilePath;
