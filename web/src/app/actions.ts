@@ -245,12 +245,13 @@ export async function deleteUserClip(clipId: string): Promise<{ success: boolean
 
 import type { CanvasBroll } from "@/lib/types";
 
-/** Solicita o re-corte (trimming) do clipe com re-renderização milimétrica no worker, incluindo overlays Canvas */
+/** Solicita o re-corte (trimming) do clipe com re-renderização milimétrica no worker, incluindo overlays Canvas, formatos e enquadramento */
 export async function requestClipTrimAction(
   clipId: string,
   startSec: number,
   endSec: number,
-  canvasBrolls?: CanvasBroll[]
+  canvasBrolls?: CanvasBroll[],
+  adjustments?: Record<string, any>
 ): Promise<{ success: boolean; jobId?: string; error?: string }> {
   if (!clipId) return { success: false, error: "ID do clipe não fornecido." };
   if (startSec < 0 || endSec <= startSec) {
@@ -267,6 +268,7 @@ export async function requestClipTrimAction(
       p_start: startSec,
       p_end: endSec,
       p_canvas_brolls: canvasBrolls ?? null,
+      p_manual_adjustments: adjustments ?? null,
     });
 
     if (rpcErr) {

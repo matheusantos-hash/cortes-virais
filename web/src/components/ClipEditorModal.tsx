@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import type { Clip, CanvasBroll, CanvasBrollTemplate } from "@/lib/types";
+import type { Clip, CanvasBroll, CanvasBrollTemplate, SubtitleStyle, VerticalMode } from "@/lib/types";
 import CanvasBrollOverlay from "./CanvasBrollOverlay";
 import { detectBrollTriggers, type BrollTriggerSuggestion } from "@/lib/detectBrollTriggers";
 import CloneStudioModal from "./CloneStudioModal";
@@ -35,6 +35,9 @@ import {
   ActivityIcon,
   X,
   Check,
+  Undo,
+  Redo,
+  Subtitles,
 } from "./Icons";
 
 interface ClipEditorModalProps {
@@ -43,7 +46,18 @@ interface ClipEditorModalProps {
   userId?: string;
   projectId?: string;
   onClose: () => void;
-  onUpdateClipTime?: (clipId: string, trimStart: number, trimEnd: number, canvasBrolls?: CanvasBroll[]) => Promise<void> | void;
+  onUpdateClipTime?: (
+    clipId: string,
+    trimStart: number,
+    trimEnd: number,
+    canvasBrolls?: CanvasBroll[],
+    adjustments?: {
+      aspectRatio?: "9:16" | "1:1" | "16:9";
+      verticalMode?: VerticalMode;
+      cropX?: number;
+      subtitleStyle?: SubtitleStyle;
+    }
+  ) => Promise<void> | void;
   onSaveCanvasBrolls?: (clipId: string, brolls: CanvasBroll[]) => Promise<void> | void;
 }
 
@@ -65,9 +79,27 @@ export default function ClipEditorModal({
   const [isPlaying, setIsPlaying] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(duration);
-  const [activeTab, setActiveTab] = useState<"brolls" | "trim" | "thumbnail" | "formats">("brolls");
+  const [activeTab, setActiveTab] = useState<"brolls" | "trim" | "thumbnail" | "formats" | "subtitles" | "crop">("brolls");
   const [isSavingTrim, setIsSavingTrim] = useState(false);
   const [isSavingBrolls, setIsSavingBrolls] = useState(false);
+
+  // Estados de Formato, Enquadramento e Legendas
+  const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
+  const [verticalMode, setVerticalMode] = useState<VerticalMode>("crop");
+  const [cropX, setCropX] = useState<number>(0.5); // 0.0 (esquerda) a 1.0 (direita), 0.5 (centro)
+  const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("hormozi");
+
+  // Interface do snapshot do editor para a pilha de histórico
+  interface EditorSnapshot {
+    trimStart: number;
+    trimEnd: number;
+    canvasBrolls: CanvasBroll[];
+    selectedBrollId: string | null;
+    aspectRatio: "9:16" | "1:1" | "16:9";
+    verticalMode: VerticalMode;
+    cropX: number;
+    subtitleStyle: SubtitleStyle;
+  }
 
   // Estados de B-Rolls Canvas & Overlays
   const [canvasBrolls, setCanvasBrolls] = useState<CanvasBroll[]>(clip.canvas_brolls || []);
@@ -75,6 +107,106 @@ export default function ClipEditorModal({
     clip.canvas_brolls && clip.canvas_brolls.length > 0 ? clip.canvas_brolls[0].id : null
   );
   const [enableBrollOverlay, setEnableBrollOverlay] = useState(true);
+
+  // Pilha de Histórico de Ações (Undo / Redo)
+  const [pastStack, setPastStack] = useState<EditorSnapshot[]>([]);
+  const [futureStack, setFutureStack] = useState<EditorSnapshot[]>([]);
+  const isUndoRedoActionRef = useRef(false);
+
+  // Registra novo estado na pilha de histórico
+  const recordHistory = useCallback(
+    (overrides?: Partial<EditorSnapshot>) => {
+      if (isUndoRedoActionRef.current) return;
+      setPastStack((prev) => [
+        ...prev.slice(-30), // limita a 30 ações para memória enxuta
+        {
+          trimStart,
+          trimEnd,
+          canvasBrolls: JSON.parse(JSON.stringify(canvasBrolls)),
+          selectedBrollId,
+          aspectRatio,
+          verticalMode,
+          cropX,
+          subtitleStyle,
+          ...overrides,
+        },
+      ]);
+      setFutureStack([]); // limpa o refazer ao tomar nova ação
+    },
+    [trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]
+  );
+
+  // Função Desfazer (Undo)
+  const handleUndo = useCallback(() => {
+    if (pastStack.length === 0) return;
+    const previous = pastStack[pastStack.length - 1];
+    const newPast = pastStack.slice(0, pastStack.length - 1);
+
+    isUndoRedoActionRef.current = true;
+    setFutureStack((f) => [
+      {
+        trimStart,
+        trimEnd,
+        canvasBrolls: JSON.parse(JSON.stringify(canvasBrolls)),
+        selectedBrollId,
+        aspectRatio,
+        verticalMode,
+        cropX,
+        subtitleStyle,
+      },
+      ...f,
+    ]);
+    setPastStack(newPast);
+
+    setTrimStart(previous.trimStart);
+    setTrimEnd(previous.trimEnd);
+    setCanvasBrolls(previous.canvasBrolls);
+    setSelectedBrollId(previous.selectedBrollId);
+    setAspectRatio(previous.aspectRatio);
+    setVerticalMode(previous.verticalMode);
+    setCropX(previous.cropX);
+    setSubtitleStyle(previous.subtitleStyle);
+
+    setTimeout(() => {
+      isUndoRedoActionRef.current = false;
+    }, 50);
+  }, [pastStack, trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]);
+
+  // Função Refazer (Redo)
+  const handleRedo = useCallback(() => {
+    if (futureStack.length === 0) return;
+    const next = futureStack[0];
+    const newFuture = futureStack.slice(1);
+
+    isUndoRedoActionRef.current = true;
+    setPastStack((p) => [
+      ...p,
+      {
+        trimStart,
+        trimEnd,
+        canvasBrolls: JSON.parse(JSON.stringify(canvasBrolls)),
+        selectedBrollId,
+        aspectRatio,
+        verticalMode,
+        cropX,
+        subtitleStyle,
+      },
+    ]);
+    setFutureStack(newFuture);
+
+    setTrimStart(next.trimStart);
+    setTrimEnd(next.trimEnd);
+    setCanvasBrolls(next.canvasBrolls);
+    setSelectedBrollId(next.selectedBrollId);
+    setAspectRatio(next.aspectRatio);
+    setVerticalMode(next.verticalMode);
+    setCropX(next.cropX);
+    setSubtitleStyle(next.subtitleStyle);
+
+    setTimeout(() => {
+      isUndoRedoActionRef.current = false;
+    }, 50);
+  }, [futureStack, trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]);
 
   // Estados do Player & Safe Zones CapCut
   const [showSafeZones, setShowSafeZones] = useState(true);
@@ -131,6 +263,22 @@ export default function ClipEditorModal({
       } else if (e.code === "KeyF") {
         e.preventDefault();
         setIsFocusMode((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.code === "KeyY") {
+        e.preventDefault();
+        handleRedo();
+      } else if ((e.ctrlKey || e.metaKey || e.altKey) && e.code === "ArrowLeft") {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey || e.altKey) && e.code === "ArrowRight") {
+        e.preventDefault();
+        handleRedo();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         seekRelative(-1);
@@ -145,7 +293,7 @@ export default function ClipEditorModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, seekRelative, onClose]);
+  }, [togglePlay, seekRelative, onClose, handleUndo, handleRedo]);
 
   // Redimensionamento interativo da Timeline por arrasto (drag)
   useEffect(() => {
@@ -206,6 +354,7 @@ export default function ClipEditorModal({
 
   // Adiciona B-Roll a partir de sugestão da IA
   const addFromSuggestion = (s: BrollTriggerSuggestion) => {
+    recordHistory();
     const newId = "broll-" + Date.now();
     const newBroll: CanvasBroll = {
       id: newId,
@@ -227,6 +376,7 @@ export default function ClipEditorModal({
 
   // Adiciona B-Roll no segundo atual
   const addBrollAtCurrentTime = (template: CanvasBrollTemplate = "metric_counter") => {
+    recordHistory();
     const offset = Number(currentTime.toFixed(1));
     const newId = "broll-" + Date.now();
     const newBroll: CanvasBroll = {
@@ -248,6 +398,7 @@ export default function ClipEditorModal({
   };
 
   const removeBroll = (id: string) => {
+    recordHistory();
     setCanvasBrolls((prev) => prev.filter((b) => b.id !== id));
     if (selectedBrollId === id) {
       setSelectedBrollId(null);
@@ -255,6 +406,7 @@ export default function ClipEditorModal({
   };
 
   const updateBroll = (id: string, partial: Partial<CanvasBroll>) => {
+    recordHistory();
     setCanvasBrolls((prev) =>
       prev.map((b) => (b.id === id ? { ...b, ...partial, data: { ...b.data, ...(partial.data || {}) } } : b))
     );
@@ -277,11 +429,16 @@ export default function ClipEditorModal({
     }
   };
 
-  // Salvar e Re-renderizar com Trimming e B-Rolls
+  // Salvar e Re-renderizar com Trimming, Formato, Enquadramento, Legendas e B-Rolls
   const handleSaveTrimAndBrolls = async () => {
     try {
       setIsSavingTrim(true);
-      await onUpdateClipTime?.(clip.id, trimStart, trimEnd, canvasBrolls);
+      await onUpdateClipTime?.(clip.id, trimStart, trimEnd, canvasBrolls, {
+        aspectRatio,
+        verticalMode,
+        cropX,
+        subtitleStyle,
+      });
       onClose();
     } catch (err: any) {
       alert(`Falha ao solicitar ajuste: ${err?.message || "Tente novamente."}`);
@@ -434,6 +591,37 @@ export default function ClipEditorModal({
             <span className="text-white">{formatTimecode(currentTime)}</span>
             <span className="text-gray-500">/</span>
             <span className="text-gray-400">{formatTimecode(duration)}</span>
+          </div>
+
+          {/* Botões de Desfazer e Refazer (Undo/Redo) */}
+          <div className="flex items-center gap-1 bg-[#151822] border border-[#232838] p-0.5 rounded-md">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={pastStack.length === 0}
+              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-all ${
+                pastStack.length > 0
+                  ? "text-gray-200 hover:text-white hover:bg-[#202536] cursor-pointer"
+                  : "text-gray-600 cursor-not-allowed"
+              }`}
+              title="Desfazer alteração (Ctrl+Z ou Ctrl+←)"
+            >
+              <Undo size={13} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={futureStack.length === 0}
+              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-all ${
+                futureStack.length > 0
+                  ? "text-gray-200 hover:text-white hover:bg-[#202536] cursor-pointer"
+                  : "text-gray-600 cursor-not-allowed"
+              }`}
+              title="Refazer alteração (Ctrl+Y ou Ctrl+→)"
+            >
+              <Redo size={13} />
+            </button>
           </div>
 
           <button
@@ -606,9 +794,9 @@ export default function ClipEditorModal({
               onClick={() => setActiveTab("formats")}
               style={{
                 flex: 1,
-                padding: "0.45rem 0.3rem",
+                padding: "0.45rem 0.2rem",
                 borderRadius: "6px",
-                fontSize: "0.76rem",
+                fontSize: "0.72rem",
                 fontWeight: 700,
                 border: "none",
                 cursor: "pointer",
@@ -620,8 +808,54 @@ export default function ClipEditorModal({
                 gap: "0.2rem",
               }}
             >
-              <Crop size={15} />
+              <Crop size={14} />
               <span>Formatos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("crop")}
+              style={{
+                flex: 1,
+                padding: "0.45rem 0.2rem",
+                borderRadius: "6px",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+                background: activeTab === "crop" ? "#1E2230" : "transparent",
+                color: activeTab === "crop" ? "#00F0FF" : "#94A3B8",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.2rem",
+              }}
+            >
+              <SlidersHorizontal size={14} />
+              <span>Ângulo</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("subtitles")}
+              style={{
+                flex: 1,
+                padding: "0.45rem 0.2rem",
+                borderRadius: "6px",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+                background: activeTab === "subtitles" ? "#1E2230" : "transparent",
+                color: activeTab === "subtitles" ? "#00F0FF" : "#94A3B8",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "0.2rem",
+              }}
+            >
+              <Subtitles size={14} />
+              <span>Legenda</span>
             </button>
           </div>
 
@@ -1069,36 +1303,288 @@ export default function ClipEditorModal({
             )}
 
             {/* ABA: FORMATOS */}
+            {/* ABA: FORMATOS */}
             {activeTab === "formats" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
                 <div>
                   <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#FFF" }}>
                     Proporção &amp; Destinos
                   </h4>
                   <p style={{ margin: 0, fontSize: "0.74rem", color: "#94A3B8" }}>
-                    Formatos suportados para distribuição:
+                    Escolha a proporção ideal para distribuição nas redes:
                   </p>
                 </div>
 
-                <div style={{ padding: "0.6rem", background: "#171A25", borderRadius: "6px", border: "1px solid #2B3042" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#00F0FF", fontWeight: 700, fontSize: "0.8rem" }}>
-                    <Smartphone size={14} /> 9:16 Vertical (Padrão)
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <div
+                    onClick={() => {
+                      recordHistory({ aspectRatio: "9:16" });
+                      setAspectRatio("9:16");
+                    }}
+                    style={{
+                      padding: "0.65rem",
+                      background: aspectRatio === "9:16" ? "rgba(0, 240, 255, 0.12)" : "#171A25",
+                      borderRadius: "8px",
+                      border: `1px solid ${aspectRatio === "9:16" ? "#00F0FF" : "#2B3042"}`,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", color: aspectRatio === "9:16" ? "#00F0FF" : "#FFF", fontWeight: 700, fontSize: "0.82rem" }}>
+                        <Smartphone size={15} /> 9:16 Vertical
+                      </div>
+                      {aspectRatio === "9:16" && <span style={{ fontSize: "0.68rem", background: "#00F0FF", color: "#000", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 800 }}>Ativo</span>}
+                    </div>
+                    <span style={{ fontSize: "0.7rem", color: "#94A3B8", display: "block", marginTop: "0.2rem" }}>TikTok, Instagram Reels, YouTube Shorts</span>
                   </div>
-                  <span style={{ fontSize: "0.7rem", color: "#94A3B8" }}>TikTok, Reels, Shorts</span>
+
+                  <div
+                    onClick={() => {
+                      recordHistory({ aspectRatio: "1:1" });
+                      setAspectRatio("1:1");
+                    }}
+                    style={{
+                      padding: "0.65rem",
+                      background: aspectRatio === "1:1" ? "rgba(0, 240, 255, 0.12)" : "#171A25",
+                      borderRadius: "8px",
+                      border: `1px solid ${aspectRatio === "1:1" ? "#00F0FF" : "#2B3042"}`,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", color: aspectRatio === "1:1" ? "#00F0FF" : "#FFF", fontWeight: 700, fontSize: "0.82rem" }}>
+                        <Square size={15} /> 1:1 Quadrado
+                      </div>
+                      {aspectRatio === "1:1" && <span style={{ fontSize: "0.68rem", background: "#00F0FF", color: "#000", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 800 }}>Ativo</span>}
+                    </div>
+                    <span style={{ fontSize: "0.7rem", color: "#94A3B8", display: "block", marginTop: "0.2rem" }}>Feed Instagram, LinkedIn, Carrosséis</span>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      recordHistory({ aspectRatio: "16:9" });
+                      setAspectRatio("16:9");
+                    }}
+                    style={{
+                      padding: "0.65rem",
+                      background: aspectRatio === "16:9" ? "rgba(0, 240, 255, 0.12)" : "#171A25",
+                      borderRadius: "8px",
+                      border: `1px solid ${aspectRatio === "16:9" ? "#00F0FF" : "#2B3042"}`,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", color: aspectRatio === "16:9" ? "#00F0FF" : "#FFF", fontWeight: 700, fontSize: "0.82rem" }}>
+                        <Monitor size={15} /> 16:9 Widescreen
+                      </div>
+                      {aspectRatio === "16:9" && <span style={{ fontSize: "0.68rem", background: "#00F0FF", color: "#000", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 800 }}>Ativo</span>}
+                    </div>
+                    <span style={{ fontSize: "0.7rem", color: "#94A3B8", display: "block", marginTop: "0.2rem" }}>YouTube Padrão, Desktop, TV</span>
+                  </div>
                 </div>
 
-                <div style={{ padding: "0.6rem", background: "#171A25", borderRadius: "6px", border: "1px solid #2B3042" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#FFF", fontWeight: 700, fontSize: "0.8rem" }}>
-                    <Square size={14} /> 1:1 Quadrado
+                {aspectRatio === "9:16" && (
+                  <div style={{ background: "#151822", padding: "0.75rem", borderRadius: "8px", border: "1px solid #232838", marginTop: "0.4rem" }}>
+                    <span style={{ fontSize: "0.76rem", color: "#94A3B8", display: "block", marginBottom: "0.4rem", fontWeight: 600 }}>
+                      Modo de Preenchimento Vertical:
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordHistory({ verticalMode: "crop" });
+                          setVerticalMode("crop");
+                        }}
+                        style={{
+                          padding: "0.45rem",
+                          borderRadius: "6px",
+                          border: verticalMode === "crop" ? "1px solid #00F0FF" : "1px solid #2A3042",
+                          background: verticalMode === "crop" ? "rgba(0,240,255,0.15)" : "#1A1D27",
+                          color: verticalMode === "crop" ? "#00F0FF" : "#94A3B8",
+                          fontSize: "0.74rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Recorte 9:16
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordHistory({ verticalMode: "blur" });
+                          setVerticalMode("blur");
+                        }}
+                        style={{
+                          padding: "0.45rem",
+                          borderRadius: "6px",
+                          border: verticalMode === "blur" ? "1px solid #00F0FF" : "1px solid #2A3042",
+                          background: verticalMode === "blur" ? "rgba(0,240,255,0.15)" : "#1A1D27",
+                          color: verticalMode === "blur" ? "#00F0FF" : "#94A3B8",
+                          fontSize: "0.74rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Fundo Desfocado (Blur)
+                      </button>
+                    </div>
                   </div>
-                  <span style={{ fontSize: "0.7rem", color: "#94A3B8" }}>Feed Instagram, LinkedIn</span>
+                )}
+              </div>
+            )}
+
+            {/* ABA: ÂNGULO / ENQUADRAMENTO HORIZONTAL (CROP X) */}
+            {activeTab === "crop" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                <div>
+                  <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#FFF" }}>
+                    Enquadramento &amp; Ângulo (Crop X)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.74rem", color: "#94A3B8" }}>
+                    Ajuste a posição horizontal do enquadramento no vídeo original:
+                  </p>
                 </div>
 
-                <div style={{ padding: "0.6rem", background: "#171A25", borderRadius: "6px", border: "1px solid #2B3042" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#FFF", fontWeight: 700, fontSize: "0.8rem" }}>
-                    <Monitor size={14} /> 16:9 Widescreen
+                <div style={{ background: "#171A25", padding: "0.85rem", borderRadius: "8px", border: "1px solid #262B3B" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#94A3B8" }}>Posição Horizontal:</span>
+                    <strong style={{ color: "#00F0FF", fontSize: "0.85rem", fontFamily: "monospace" }}>
+                      {cropX === 0.5 ? "Centro (0.5)" : cropX < 0.5 ? `Esquerda (${cropX.toFixed(2)})` : `Direita (${cropX.toFixed(2)})`}
+                    </strong>
                   </div>
-                  <span style={{ fontSize: "0.7rem", color: "#94A3B8" }}>YouTube Tradicional</span>
+
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={cropX}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      recordHistory({ cropX: val });
+                      setCropX(val);
+                    }}
+                    style={{ width: "100%", accentColor: "#00F0FF", cursor: "pointer" }}
+                  />
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.4rem", marginTop: "0.75rem" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recordHistory({ cropX: 0.2 });
+                        setCropX(0.2);
+                      }}
+                      style={{
+                        padding: "0.4rem",
+                        borderRadius: "5px",
+                        border: cropX === 0.2 ? "1px solid #00F0FF" : "1px solid #2B3042",
+                        background: cropX === 0.2 ? "rgba(0,240,255,0.15)" : "#13161F",
+                        color: cropX === 0.2 ? "#00F0FF" : "#94A3B8",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Esquerda
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recordHistory({ cropX: 0.5 });
+                        setCropX(0.5);
+                      }}
+                      style={{
+                        padding: "0.4rem",
+                        borderRadius: "5px",
+                        border: cropX === 0.5 ? "1px solid #00F0FF" : "1px solid #2B3042",
+                        background: cropX === 0.5 ? "rgba(0,240,255,0.15)" : "#13161F",
+                        color: cropX === 0.5 ? "#00F0FF" : "#94A3B8",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Centro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recordHistory({ cropX: 0.8 });
+                        setCropX(0.8);
+                      }}
+                      style={{
+                        padding: "0.4rem",
+                        borderRadius: "5px",
+                        border: cropX === 0.8 ? "1px solid #00F0FF" : "1px solid #2B3042",
+                        background: cropX === 0.8 ? "rgba(0,240,255,0.15)" : "#13161F",
+                        color: cropX === 0.8 ? "#00F0FF" : "#94A3B8",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Direita
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ABA: ESTILOS DE LEGENDA */}
+            {activeTab === "subtitles" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                <div>
+                  <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#FFF" }}>
+                    Estilos de Legenda Viral
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.74rem", color: "#94A3B8" }}>
+                    Alterne o estilo das legendas dinâmicas do corte:
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {[
+                    { id: "hormozi", name: "Alex Hormozi", desc: "Caixa alta amarela/verde, negrito agressivo com borda preta" },
+                    { id: "beast", name: "MrBeast Impact", desc: "Tipografia grande, destaque multicolorido e alto contraste" },
+                    { id: "apple", name: "Apple Minimalist", desc: "Linhas limpas, tipografia neutra elegante e discreta" },
+                    { id: "minimal", name: "Legenda Clássica", desc: "Texto inferior sutil com fundo preto suave" },
+                  ].map((sub) => {
+                    const isSelected = subtitleStyle === sub.id;
+                    return (
+                      <div
+                        key={sub.id}
+                        onClick={() => {
+                          recordHistory({ subtitleStyle: sub.id as SubtitleStyle });
+                          setSubtitleStyle(sub.id as SubtitleStyle);
+                        }}
+                        style={{
+                          padding: "0.65rem",
+                          background: isSelected ? "rgba(0, 240, 255, 0.12)" : "#171A25",
+                          borderRadius: "8px",
+                          border: `1px solid ${isSelected ? "#00F0FF" : "#2B3042"}`,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <strong style={{ fontSize: "0.82rem", color: isSelected ? "#00F0FF" : "#FFF" }}>
+                            {sub.name}
+                          </strong>
+                          {isSelected && (
+                            <span style={{ fontSize: "0.68rem", background: "#00F0FF", color: "#000", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 800 }}>
+                              Selecionado
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: "0.7rem", color: "#94A3B8", display: "block", marginTop: "0.2rem" }}>
+                          {sub.desc}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1108,10 +1594,24 @@ export default function ClipEditorModal({
         {/* COLUNA CENTRAL: PLAYER VIEWPORT COM SAFE ZONES DO TIKTOK */}
         {/* COLUNA CENTRAL: PLAYER VIEWPORT (PREVIEW GRANDE 9:16) */}
         <main className="relative flex flex-col items-center justify-center p-3 bg-[#090B10] overflow-hidden min-h-0">
-          {/* Container do Player 9:16 Responsivo que ocupa toda a altura útil */}
-          <div className="relative aspect-[9/16] h-full max-h-[calc(100%-48px)] bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center">
+          {/* Container do Player Responsivo (9:16, 1:1, 16:9) que ocupa a altura útil */}
+          <div
+            className={`relative h-full max-h-[calc(100%-48px)] bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center transition-all duration-300 ${
+              aspectRatio === "9:16" ? "aspect-[9/16]" : aspectRatio === "1:1" ? "aspect-square" : "aspect-video max-w-full"
+            }`}
+          >
             {videoSrc ? (
               <>
+                {/* Fundo Desfocado (Blur) quando ativado em modo 9:16 */}
+                {aspectRatio === "9:16" && verticalMode === "blur" && (
+                  <video
+                    src={videoSrc}
+                    playsInline
+                    muted
+                    className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-125 pointer-events-none"
+                  />
+                )}
+
                 <video
                   ref={videoRef}
                   src={videoSrc}
@@ -1121,7 +1621,12 @@ export default function ClipEditorModal({
                   onPause={() => setIsPlaying(false)}
                   onEnded={() => setIsPlaying(false)}
                   onClick={togglePlay}
-                  className="w-full h-full object-contain cursor-pointer"
+                  style={{
+                    objectPosition: `${cropX * 100}% 50%`,
+                  }}
+                  className={`w-full h-full relative z-10 cursor-pointer ${
+                    aspectRatio === "9:16" && verticalMode === "blur" ? "object-contain" : "object-cover"
+                  }`}
                 />
 
                 {/* Camada Dinâmica de B-Rolls Canvas em Tempo Real */}

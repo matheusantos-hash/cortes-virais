@@ -462,8 +462,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           userId={job.user_id}
           projectId={job.project_id || undefined}
           onClose={() => setEditingClip(null)}
-          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls) => {
-            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls);
+          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls, adjustments) => {
+            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls, adjustments);
             if (!res.success) {
               alert(`Falha ao iniciar recorte: ${res.error}`);
               return;

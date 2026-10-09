@@ -524,8 +524,8 @@ export default function ProjectWorkspace({
           userId={userId}
           projectId={project.id}
           onClose={() => setEditingClip(null)}
-          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls) => {
-            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls);
+          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls, adjustments) => {
+            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls, adjustments);
             if (!res.success) {
               throw new Error(res.error || "Falha ao ajustar corte.");
             }
