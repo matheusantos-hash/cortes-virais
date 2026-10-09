@@ -494,6 +494,22 @@ async function processJob(job: Job) {
       maxSeconds = Math.ceil(seconds);
     }
 
+    let styleBlueprint: import("./types.js").StyleBlueprint | null = null;
+    if (manualAdj?.learning_metrics?.avgCutPacingSec) {
+      const lm = manualAdj.learning_metrics;
+      styleBlueprint = {
+        pacing: lm.avgCutPacingSec <= 2.2 ? "fast" : lm.avgCutPacingSec <= 3.5 ? "dynamic" : "moderate",
+        averageCutDurationSec: lm.avgCutPacingSec,
+        aestheticStyle: job.design_instructions || `${job.reference_style || "Estilo"} alta retenção`,
+        higgsfieldPromptModifier: "cinematic lighting, ultra detailed, modern viral aesthetics, smooth motion",
+        suggestedBrollKeywords: ["technology", "business", "growth", "mindset"],
+        editingTips: job.design_instructions || "Cortes dinâmicos e legendas sincronizadas com foco em retenção.",
+      };
+      await pushLog(
+        `[CLONE ESTILO] Aplicando Style Blueprint pré-treinado de "${job.reference_style || "Estilo Selecionado"}": ritmo médio a cada ~${lm.avgCutPacingSec}s, enquadramento ${job.vertical_mode || "auto"}. Download repetido de vídeo de treino poupado!`
+      );
+    }
+
     const opts: Options = {
       orientation: job.orientation,
       clips: job.clip_count,
@@ -507,6 +523,7 @@ async function processJob(job: Job) {
       referencePath: localRefPath,
       referenceStyle: job.reference_style,
       designInstructions: job.design_instructions,
+      styleBlueprint: styleBlueprint ?? undefined,
       useBroll: job.use_broll ?? manualAdj?.brolls?.enabled ?? false,
       brollSource: job.broll_source ?? manualAdj?.brolls?.source ?? "pexels",
       subtitleStyle: job.subtitle_style ?? manualAdj?.subtitles?.style,

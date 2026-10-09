@@ -124,6 +124,7 @@ export interface ManualAdjustments {
     enableExtendedThinking?: boolean;
     thinkingBudgetTokens?: number;
   };
+  learning_metrics?: StyleLearningMetrics;
 }
 
 export interface ExportSettings {

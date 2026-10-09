@@ -750,12 +750,9 @@ export default function CopyStyleStudio({
           if (refUpErr) throw new Error(`Falha no upload do vídeo de referência: ${refUpErr.message}`);
         }
         refPath = path;
-      } else if (selectedRefId) {
-        const existingRef = savedRefs.find((r) => r.id === selectedRefId);
-        if (existingRef?.reference_path) {
-          refPath = existingRef.reference_path;
-        }
       }
+      // Se selecionou um estilo já treinado/salvo da biblioteca, NÃO passamos refPath para re-download.
+      // O worker aplicará diretamente o Style Blueprint, métricas e design já aprendidos.
 
       // 1.1 Upload do arquivo de fonte customizada (se selecionado)
       let finalFontPath = customFontPath;
@@ -770,6 +767,8 @@ export default function CopyStyleStudio({
       const finalFontName = customFontName.trim() || (customFontFile?.name.replace(/\.[^/.]+$/, "") ?? null);
 
       // 2. Salvar na biblioteca de referências se o usuário solicitou
+      const existingRef = selectedRefId ? savedRefs.find((r) => r.id === selectedRefId) : null;
+
       const manualAdjustmentsPayload: ManualAdjustments = {
         subtitles: {
           style: subtitleStyle,
@@ -800,6 +799,7 @@ export default function CopyStyleStudio({
           verticalMode,
           dynamicZoom: smartPunchInZoom,
         },
+        learning_metrics: existingRef?.learning_metrics,
       };
 
       const exportSettingsPayload: ExportSettings = {
@@ -921,10 +921,10 @@ export default function CopyStyleStudio({
         min_seconds: minSeconds,
         max_seconds: maxSeconds,
         language: "pt-BR",
-        reference_type: (selectedRefId && selectedRefId.startsWith("preset-") && !refFile && !refUrl) ? "preset" : (refPath ? "upload" : refMode),
-        reference_url: (selectedRefId && selectedRefId.startsWith("preset-") && !refFile && !refUrl) ? null : (refMode === "link" ? refUrl : null),
-        reference_path: refPath,
-        reference_style: referenceName || "Estilo Clonado Studio",
+        reference_type: refFile ? "upload" : (refMode === "link" && refUrl ? "link" : "preset"),
+        reference_url: (!refFile && refMode === "link") ? refUrl : null,
+        reference_path: refFile ? refPath : null,
+        reference_style: referenceName || existingRef?.name || "Estilo Clonado Studio",
         design_instructions: designInstructions || `Clonagem de ritmo ${cutPacing}, legendas ${subtitleStyle}, exportação ${resolution} ${codec}`,
         use_broll: useBroll,
         broll_source: brollSource,
