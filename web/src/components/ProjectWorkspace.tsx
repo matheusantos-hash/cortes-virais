@@ -430,6 +430,7 @@ export default function ProjectWorkspace({
 
           <NewJobForm
             userId={userId}
+            projectId={project.id}
             onCreated={() => {
               setActiveTab("cortes");
               refreshProjectData();
@@ -454,6 +455,7 @@ export default function ProjectWorkspace({
 
           <CopyStyleStudio
             userId={userId}
+            projectId={project.id}
             onCreated={() => {
               setActiveTab("cortes");
               refreshProjectData();

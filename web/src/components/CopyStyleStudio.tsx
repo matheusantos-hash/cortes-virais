@@ -196,9 +196,11 @@ const PRESET_REFERENCES: SavedReference[] = [
 
 export default function CopyStyleStudio({
   userId,
+  projectId,
   onCreated,
 }: {
   userId: string;
+  projectId?: string;
   onCreated: () => void;
 }) {
   const supabase = createClient();
@@ -1103,6 +1105,7 @@ export default function CopyStyleStudio({
       // 4. Criação do Job no Banco com todos os metadados de clonagem
       const jobPayload: Record<string, any> = {
         user_id: userId,
+        ...(projectId ? { project_id: projectId } : {}),
         ...sourcePayload,
         orientation: resolution.includes("1920x1080") ? "horizontal" : "vertical",
         vertical_mode: verticalMode || "face_tracking",

@@ -59,7 +59,15 @@ const STYLE_PRESETS = [
   { id: "humor", name: "Humor & Momentos Cômicos", desc: "Piadas, reações engraçadas e momentos descontraídos" },
 ];
 
-export default function NewJobForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
+export default function NewJobForm({
+  userId,
+  projectId,
+  onCreated,
+}: {
+  userId: string;
+  projectId?: string;
+  onCreated: () => void;
+}) {
   const [credits, setCredits] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -305,6 +313,7 @@ export default function NewJobForm({ userId, onCreated }: { userId: string; onCr
 
     const payload: Record<string, any> = {
       user_id: userId,
+      ...(projectId ? { project_id: projectId } : {}),
       ...source,
       file_name: mode === "upload" && file ? file.name : null,
       orientation,

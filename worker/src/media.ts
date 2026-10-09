@@ -759,8 +759,15 @@ export async function cutClip(opts: {
     onLog?.(`[LEGENDAS] Queimando legendas animadas palavra por palavra no vídeo...`);
     const safeAssPath = subtitlesPath.replace(/\\/g, "/").replace(/:/g, "\\:");
     const subbedLayer = "subbed_v";
-    if (fontsDir && existsSync(fontsDir)) {
-      const safeFontsDir = fontsDir.replace(/\\/g, "/").replace(/:/g, "\\:");
+
+    // Se nenhum fontsDir específico foi passado, busca no diretório de fontes do sistema/worker (assets/fonts)
+    const defaultAssetsFonts = path.resolve(__dirname, "..", "assets", "fonts");
+    const activeFontsDir = (fontsDir && existsSync(fontsDir)) 
+      ? fontsDir 
+      : (existsSync(defaultAssetsFonts) ? defaultAssetsFonts : null);
+
+    if (activeFontsDir) {
+      const safeFontsDir = activeFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:");
       filterParts.push(`[${currentLayer}]ass='${safeAssPath}':fontsdir='${safeFontsDir}'[${subbedLayer}]`);
     } else {
       filterParts.push(`[${currentLayer}]ass='${safeAssPath}'[${subbedLayer}]`);
