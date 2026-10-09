@@ -79,6 +79,8 @@ interface Job {
   custom_font_path?: string | null;
   custom_font_name?: string | null;
   transcription_provider?: "deepgram" | "gemini" | "auto";
+  enable_visual_analysis?: boolean;
+  enable_extended_thinking?: boolean;
   canvas_brolls?: any[] | null;
 }
 
@@ -515,6 +517,9 @@ async function processJob(job: Job) {
       customFontName,
       fontsDir,
       transcriptionProvider: job.transcription_provider ?? "auto",
+      enableVisualAnalysis: job.enable_visual_analysis ?? manualAdj?.aiCuration?.enableVisualAnalysis ?? true,
+      enableExtendedThinking: job.enable_extended_thinking ?? manualAdj?.aiCuration?.enableExtendedThinking ?? true,
+      thinkingBudgetTokens: manualAdj?.aiCuration?.thinkingBudgetTokens ?? 2048,
       force: false,
       dryRun: false,
     };
@@ -577,6 +582,7 @@ async function processJob(job: Job) {
         title: clip.title,
         hook: clip.hook,
         reason: clip.reason,
+        visual_context: clip.visualContext ?? null,
         score: Math.round(clip.score),
         start_seconds: clip.start,
         end_seconds: clip.end,
@@ -586,7 +592,12 @@ async function processJob(job: Job) {
     }
 
     await supabase.from("clips").delete().eq("job_id", job.id);
-    const { error: insertError } = await supabase.from("clips").insert(rows);
+    let { error: insertError } = await supabase.from("clips").insert(rows);
+    if (insertError && insertError.message.includes("visual_context")) {
+      const cleanRows = rows.map(({ visual_context, ...rest }: any) => rest);
+      const retry = await supabase.from("clips").insert(cleanRows);
+      insertError = retry.error;
+    }
     if (insertError) throw new Error(`gravar clipes: ${insertError.message}`);
 
     await pushLog(`Concluído com sucesso! ${rows.length} clipes prontos para visualização e download.`);

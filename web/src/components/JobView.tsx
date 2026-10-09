@@ -369,6 +369,13 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                     </p>
                   )}
 
+                  {clip.visual_context && (
+                    <p style={{ fontSize: "0.8rem", color: "var(--primary)", margin: 0, lineHeight: 1.35, display: "flex", alignItems: "flex-start", gap: "0.35rem" }}>
+                      <SparklesIcon size={13} style={{ flexShrink: 0, marginTop: "0.15rem" }} />
+                      <span><strong>Impacto visual:</strong> {clip.visual_context}</span>
+                    </p>
+                  )}
+
                   <div style={{ display: "flex", gap: "0.4rem", marginTop: "auto", flexWrap: "wrap" }}>
                     <button
                       type="button"

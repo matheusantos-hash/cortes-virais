@@ -20,6 +20,14 @@ export interface BrollItem {
   filePath?: string;
 }
 
+export interface VisualHighlight {
+  startSec: number;
+  endSec: number;
+  type: "facial_expression" | "high_energy_gesture" | "reaction" | "screen_demo" | "audience_laughter" | "other";
+  description: string;
+  intensityScore: number;
+}
+
 /** O que o Claude devolve: índices de blocos, não segundos. */
 export interface ClipCandidate {
   startIndex: number;
@@ -28,6 +36,7 @@ export interface ClipCandidate {
   hook: string;
   score: number;
   reason: string;
+  visualContext?: string;
   brolls?: { offsetSec: number; durationSec: number; keyword: string }[];
 }
 
@@ -36,6 +45,7 @@ export interface Clip {
   hook: string;
   score: number;
   reason: string;
+  visualContext?: string;
   start: number;
   end: number;
   brolls?: BrollItem[];
@@ -84,6 +94,10 @@ export interface Options {
   customFontName?: string | null;
   fontsDir?: string | null;
   transcriptionProvider?: "deepgram" | "gemini" | "auto";
+  enableVisualAnalysis?: boolean;
+  enableExtendedThinking?: boolean;
+  thinkingBudgetTokens?: number;
+  visualHighlights?: VisualHighlight[];
   force: boolean;
   dryRun: boolean;
 }

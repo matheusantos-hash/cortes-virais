@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
+import { analyzeVideoVisuals } from "./gemini_video.js";
 import { fetchHiggsfieldBroll } from "./higgsfield.js";
 import { type ActiveBroll, CanceledError, cutClip, extractAudio } from "./media.js";
 import { fetchStockBroll } from "./stock.js";
@@ -107,11 +108,43 @@ export async function processVideo(args: {
     });
   }
 
-  await hooks?.onLog?.("Enviando transcrição para IA (Claude Sonnet) analisar melhores ganchos e momentos virais...");
+  // Análise visual multimodal com Gemini (Agentic Video Understanding) se habilitada
+  if (opts.enableVisualAnalysis !== false && existsSync(sourcePath) && process.env.GEMINI_API_KEY) {
+    try {
+      await hooks?.checkCanceled?.();
+      await hooks?.onLog?.("Iniciando análise visual com Gemini (Agentic Video Understanding)...");
+      const highlights = await analyzeVideoVisuals({
+        videoPath: sourcePath,
+        workDir,
+        language: opts.language,
+        signal: hooks?.signal,
+        onLog: hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined,
+      });
+
+      if (highlights.length > 0) {
+        opts.visualHighlights = highlights;
+        await hooks?.onLog?.(
+          `[GEMINI VISION] ${highlights.length} momentos visuais de alto impacto detectados e sincronizados com a fala.`
+        );
+      }
+    } catch (err: any) {
+      console.error("Falha na análise visual do Gemini:", err);
+      await hooks?.onLog?.(
+        `[AVISO] Análise visual ignorada (${err?.message || "erro"}). Prosseguindo com curadoria editorial pela transcrição.`
+      );
+    }
+  }
+
+  const thinkingNotice = opts.enableExtendedThinking !== false ? " com Extended Thinking" : "";
+  await hooks?.onLog?.(`Enviando dados para IA (Claude Sonnet${thinkingNotice}) analisar melhores ganchos e retenção viral...`);
   console.log("Claude analisando a transcrição…");
   
   await hooks?.checkCanceled?.();
-  const candidates = await findCandidates(blocks, opts);
+  const candidates = await findCandidates(
+    blocks,
+    opts,
+    hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined
+  );
   await hooks?.checkCanceled?.();
 
   const clips = selectClips(candidates, blocks, opts);

@@ -73,6 +73,8 @@ export interface Job {
   custom_font_name?: string | null;
   enable_sfx?: boolean;
   enable_emojis?: boolean;
+  enable_visual_analysis?: boolean;
+  enable_extended_thinking?: boolean;
   status: JobStatus;
   progress: number;
   error: string | null;
@@ -116,6 +118,11 @@ export interface ManualAdjustments {
   camera?: {
     verticalMode?: "face_tracking" | "crop" | "blur" | "split" | "split_face";
     dynamicZoom?: boolean;
+  };
+  aiCuration?: {
+    enableVisualAnalysis?: boolean;
+    enableExtendedThinking?: boolean;
+    thinkingBudgetTokens?: number;
   };
 }
 
@@ -190,6 +197,7 @@ export interface Clip {
   hook: string | null;
   reason: string | null;
   score: number | null;
+  visual_context?: string | null;
   start_seconds: number;
   end_seconds: number;
   file_path: string | null;

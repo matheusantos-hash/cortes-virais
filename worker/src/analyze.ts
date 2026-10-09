@@ -85,8 +85,21 @@ IMPORTANTE: Priorize selecionar trechos, ganchos e momentos que correspondam est
     }
   }
 
+  let visualGuidance = "";
+  if (opts.visualHighlights && opts.visualHighlights.length > 0) {
+    const lines = opts.visualHighlights.slice(0, 15).map(
+      (v) => `- [${fmt(v.startSec)} - ${fmt(v.endSec)}] (${v.type.toUpperCase()}, intensidade ${v.intensityScore}/10): ${v.description}`
+    );
+    visualGuidance = `\n---
+MARCOS VISUAIS IDENTIFICADOS NO VÍDEO (GEMINI AGENTIC VIDEO UNDERSTANDING):
+${lines.join("\n")}
+DIRETRIZ VISUAL: Priorize trechos e ganchos onde haja alta intensidade visual nos primeiros segundos ou momentos marcantes na tela. Preencha o campo opcional "visualContext" explicando como a imagem reforça a fala.
+---\n`;
+  }
+
   return `Abaixo está a transcrição dividida em blocos numerados. Cada linha tem o número do bloco (#), o horário de início e o texto.
 ${referenceGuidelines}
+${visualGuidance}
 Encontre até ${candidateCount} trechos candidatos. Regras:
 - Duração de cada trecho: entre ${opts.minSeconds} e ${opts.maxSeconds} segundos (estime pelos horários de início dos blocos).
 - Um trecho vai do bloco "startIndex" até o bloco "endIndex", inclusive. Use apenas números de blocos que existem.
@@ -100,7 +113,8 @@ Formato de cada item do array:
   "title": título curto e chamativo (até 60 caracteres),
   "hook": a frase de abertura ou o motivo de prender a atenção,
   "score": nota de 0 a 100 para o potencial viral,
-  "reason": uma frase explicando por que esse trecho funciona${opts.useBroll ? ',\n  "brolls": [\n    { "offsetSec": 4.0, "durationSec": 3.0, "keyword": "money investment" }\n  ]' : ""}
+  "reason": uma frase explicando por que esse trecho funciona,
+  "visualContext": "breve nota de como o momento visual reforça o corte (ou null)"${opts.useBroll ? ',\n  "brolls": [\n    { "offsetSec": 4.0, "durationSec": 3.0, "keyword": "money investment" }\n  ]' : ""}
 }
 
 TRANSCRIÇÃO:
@@ -157,17 +171,25 @@ function parseCandidates(text: string): ClipCandidate[] {
   return [];
 }
 
-/** Pede ao Claude os trechos candidatos com Prompt Caching da Anthropic para economizar tokens. */
-export async function findCandidates(blocks: Block[], opts: Options): Promise<ClipCandidate[]> {
+/** Pede ao Claude os trechos candidatos com Extended Thinking e Prompt Caching da Anthropic. */
+export async function findCandidates(
+  blocks: Block[],
+  opts: Options,
+  onLog?: (msg: string) => void
+): Promise<ClipCandidate[]> {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY no .env");
 
   const client = new Anthropic();
   const candidateCount = Math.ceil(opts.clips * 1.5); // pede a mais; alguns serão descartados
-  const model = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
-  // Aumenta margem de tokens para 4096 para garantir que todas as análises caibam sem truncar
-  const dynamicMaxTokens = Math.min(6000, Math.max(3000, candidateCount * 450));
+  const useThinking = opts.enableExtendedThinking !== false;
+  const budgetTokens = useThinking ? Math.max(1024, Math.min(4096, opts.thinkingBudgetTokens ?? 2048)) : 0;
+  const outputTokensReserve = Math.min(6000, Math.max(3000, candidateCount * 450));
+  // max_tokens deve cobrir obrigatoriamente budgetTokens + outputTokensReserve para evitar truncamento silencioso
+  const dynamicMaxTokens = budgetTokens + outputTokensReserve;
 
-  const res = await client.messages.create({
+  const model = process.env.CLAUDE_MODEL ?? (useThinking ? "claude-3-7-sonnet-20250219" : "claude-sonnet-5-5");
+
+  const createParams: any = {
     model,
     max_tokens: dynamicMaxTokens,
     system: [
@@ -179,9 +201,35 @@ export async function findCandidates(blocks: Block[], opts: Options): Promise<Cl
       },
     ],
     messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
-  });
+  };
 
-  const text = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+  if (useThinking) {
+    createParams.thinking = {
+      type: "enabled",
+      budget_tokens: budgetTokens,
+    };
+    // CRÍTICO: Não definir temperature diferente de 1.0 quando thinking está ativo!
+  }
+
+  const res = await client.messages.create(createParams);
+
+  let text = "";
+  let thinkingSummary = "";
+
+  for (const b of res.content) {
+    if (b.type === "thinking") {
+      thinkingSummary += (b as any).thinking + "\n";
+    } else if (b.type === "text") {
+      text += b.text;
+    }
+  }
+
+  if (thinkingSummary.trim() && onLog) {
+    const cleanThought = thinkingSummary.trim().replace(/\s+/g, " ");
+    const preview = cleanThought.length > 250 ? cleanThought.slice(0, 250) + "..." : cleanThought;
+    onLog(`[CLAUDE THINKING] Raciocínio editorial concluído (${budgetTokens} tokens). Análise: "${preview}"`);
+  }
+
   const candidates = parseCandidates(text);
 
   // Se o Claude retornou vazio mas temos blocos na transcrição (ex: vídeo curto de 10-20s):
@@ -220,6 +268,7 @@ export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: 
       hook: c.hook,
       score: c.score,
       reason: c.reason,
+      visualContext: c.visualContext,
       start: a.start,
       end: b.end,
       brolls: c.brolls?.map((br) => ({
@@ -243,6 +292,7 @@ export function selectClips(candidates: ClipCandidate[], blocks: Block[], opts: 
           hook: c.hook,
           score: c.score,
           reason: c.reason,
+          visualContext: c.visualContext,
           start: a.start,
           end: Math.max(a.start + Math.min(5, opts.minSeconds), clampedEnd),
         });
