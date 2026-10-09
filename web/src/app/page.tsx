@@ -21,7 +21,7 @@ export default async function HomePage() {
       .limit(30),
     supabase
       .from("projects")
-      .select("*, jobs:jobs(id, clips:clips(id, file_path))")
+      .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path))")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false }),
   ]);

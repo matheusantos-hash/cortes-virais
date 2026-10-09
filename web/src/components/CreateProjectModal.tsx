@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createProjectAction } from "@/app/actions";
 import { FolderPlus, X, Sparkles, Check, Palette } from "./Icons";
 
@@ -25,6 +26,7 @@ export default function CreateProjectModal({
   onClose,
   onCreated,
 }: CreateProjectModalProps) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [colorTag, setColorTag] = useState("#8B5CF6");
@@ -55,6 +57,7 @@ export default function CreateProjectModal({
       setName("");
       setDescription("");
       onClose();
+      router.push(`/projetos/${res.project.id}`);
     } catch (err: any) {
       setError(err?.message || "Erro inesperado ao criar projeto.");
     } finally {
