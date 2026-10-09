@@ -106,7 +106,7 @@ async function main() {
     console.log("Usando o arquivo local.");
   }
 
-  await processVideo({ sourcePath, workDir, opts, remoteSourceUrl });
+  await processVideo({ sourcePath, workDir, opts, remoteSourceUrl, originalSourceUrl: isUrl ? input : null });
   if (!opts.dryRun) console.log(`\nPronto! Clipes em: ${workDir}`);
 }
 

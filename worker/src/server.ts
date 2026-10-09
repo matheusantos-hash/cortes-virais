@@ -567,6 +567,7 @@ async function processJob(job: Job) {
       workDir,
       opts,
       remoteSourceUrl: remoteStreamUrl,
+      originalSourceUrl: job.source_url,
       hooks: {
         onStage: async (status, progress) => {
           await updateJob(job.id, { status, progress });
@@ -590,10 +591,20 @@ async function processJob(job: Job) {
     for (const [i, clip] of clips.entries()) {
       await checkCanceled();
       const storagePath = `${job.user_id}/${job.id}/clip-${String(i + 1).padStart(2, "0")}.mp4`;
-      const { error } = await supabase.storage
-        .from("clips")
-        .upload(storagePath, await readFile(files[i]), { contentType: "video/mp4", upsert: true });
-      if (error) throw new Error(`upload do clipe ${i + 1} falhou: ${error.message}`);
+      let uploadError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { error } = await supabase.storage
+          .from("clips")
+          .upload(storagePath, await readFile(files[i]), { contentType: "video/mp4", upsert: true });
+        if (!error) {
+          uploadError = null;
+          break;
+        }
+        uploadError = error;
+        await pushLog(`[AVISO] Tentativa ${attempt}/3 de upload do clipe ${i + 1} falhou (${error.message}). Retentando...`);
+        await new Promise((r) => setTimeout(r, 1200 * attempt));
+      }
+      if (uploadError) throw new Error(`upload do clipe ${i + 1} falhou: ${uploadError.message}`);
 
       // Se houver b-rolls locais no clipe, faz upload opcional para bucket de clips para uso no NLE
       const clipDecision = editDecisions[i];

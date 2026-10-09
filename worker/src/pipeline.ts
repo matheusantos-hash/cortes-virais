@@ -4,7 +4,7 @@ import path from "node:path";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
 import { analyzeVideoVisuals } from "./gemini_video.js";
 import { fetchHiggsfieldBroll } from "./higgsfield.js";
-import { type ActiveBroll, CanceledError, cutClip, downloadVideoSegment, extractAudio } from "./media.js";
+import { type ActiveBroll, CanceledError, cutClip, downloadVideoSegment, extractAudio, isBoxUrl, resolveBoxDirectUrl } from "./media.js";
 import { fetchStockBroll } from "./stock.js";
 import { extractReferenceStyle } from "./ref_analyzer.js";
 import { generateViralAssSubtitles } from "./subtitles.js";
@@ -50,17 +50,19 @@ export async function processVideo(args: {
   opts: Options;
   hooks?: Hooks;
   remoteSourceUrl?: string | null;
+  originalSourceUrl?: string | null;
 }): Promise<{ clips: Clip[]; files: string[]; editDecisions: import("./types.js").ClipEditDecisions[] }> {
-  const { sourcePath, workDir, opts, hooks, remoteSourceUrl } = args;
+  const { sourcePath, workDir, opts, hooks, originalSourceUrl } = args;
+  let currentRemoteUrl = args.remoteSourceUrl;
 
   await hooks?.checkCanceled?.();
 
   // Áudio
   const audioPath = path.join(workDir, "audio.mp3");
   if (opts.force || !existsSync(audioPath)) {
-    const inputForAudio = (sourcePath && existsSync(sourcePath)) ? sourcePath : (remoteSourceUrl || sourcePath);
+    const inputForAudio = (sourcePath && existsSync(sourcePath)) ? sourcePath : (currentRemoteUrl || sourcePath);
     await hooks?.onLog?.(
-      remoteSourceUrl
+      currentRemoteUrl
         ? "Extraindo áudio diretamente da nuvem com FFmpeg (sem baixar o vídeo completo)..."
         : "Extraindo áudio do vídeo para transcrição (FFmpeg)..."
     );
@@ -336,19 +338,38 @@ export async function processVideo(args: {
     let clipEnd = c.end;
     let rawSegmentPath: string | null = null;
 
-    if (remoteSourceUrl) {
+    if (currentRemoteUrl) {
       rawSegmentPath = path.join(workDir, `raw-clip-${i + 1}.mp4`);
       await hooks?.onLog?.(
         `[BOX ON-DEMAND] Baixando trecho bruto do corte ${i + 1} (${fmt(c.start)} - ${fmt(c.end)}) diretamente da nuvem...`
       );
-      await downloadVideoSegment(
-        remoteSourceUrl,
-        c.start,
-        clipDuration,
-        rawSegmentPath,
-        hooks?.signal,
-        hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined
-      );
+      try {
+        await downloadVideoSegment(
+          currentRemoteUrl,
+          c.start,
+          clipDuration,
+          rawSegmentPath,
+          hooks?.signal,
+          hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined
+        );
+      } catch (dlErr: any) {
+        if (originalSourceUrl && isBoxUrl(originalSourceUrl)) {
+          await hooks?.onLog?.(
+            `[BOX ON-DEMAND] Link de streaming do Box.com oscilou ou expirou. Renovando credenciais de acesso...`
+          );
+          currentRemoteUrl = await resolveBoxDirectUrl(originalSourceUrl, hooks?.signal);
+          await downloadVideoSegment(
+            currentRemoteUrl,
+            c.start,
+            clipDuration,
+            rawSegmentPath,
+            hooks?.signal,
+            hooks?.onLog ? (msg) => hooks.onLog?.(msg) : undefined
+          );
+        } else {
+          throw dlErr;
+        }
+      }
       clipInput = rawSegmentPath;
       clipStart = 0;
       clipEnd = clipDuration;
