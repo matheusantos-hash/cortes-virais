@@ -1,5 +1,5 @@
 # Worker de cortes virais — imagem para o Railway
-FROM node:22-bookworm-slim
+FROM mirror.gcr.io/library/node:22-bookworm-slim
 
 # ffmpeg (cortes) + python3 (o yt-dlp precisa) + curl/certificados + fontes para legendas (libass)
 RUN apt-get update \
