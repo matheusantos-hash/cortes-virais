@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import type { Project, Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
-import { Film, Sparkles, Trash2, ArrowRight, Video, Scissors } from "./Icons";
+import { Film, Sparkles, Trash2, ArrowRight, Video, Scissors, Play } from "./Icons";
 
 interface ProjectCardProps {
   project: Project;
@@ -22,10 +22,67 @@ export default function ProjectCard({
   onDelete,
 }: ProjectCardProps) {
   const [mediaError, setMediaError] = useState(false);
+  const [isFrameReady, setIsFrameReady] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const isVideo = Boolean(
     thumbnailUrl &&
     (thumbnailUrl.includes(".mp4") || thumbnailUrl.includes("/clips/") || thumbnailUrl.includes("video"))
   );
+
+  // Manipulador quando metadados do vídeo carregam: busca o segundo 1.0 para exibir frame nítido com imagem
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const vid = e.currentTarget;
+    try {
+      const seekTime = vid.duration > 2 ? 1.0 : Math.max(0.2, (vid.duration || 1) / 2);
+      vid.currentTime = seekTime;
+    } catch {
+      setIsFrameReady(true);
+    }
+  };
+
+  // Quando o seek é concluído, o navegador decodificou o frame
+  const handleSeeked = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    setIsFrameReady(true);
+    const vid = e.currentTarget;
+    try {
+      if (vid.videoWidth && vid.videoHeight && !posterUrl) {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.min(vid.videoWidth, 480);
+        canvas.height = Math.round((canvas.width * vid.videoHeight) / vid.videoWidth);
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+          const data = canvas.toDataURL("image/jpeg", 0.85);
+          if (data && data.startsWith("data:image")) {
+            setPosterUrl(data);
+          }
+        }
+      }
+    } catch {
+      // Ignora se bloqueado por CORS, a tag video renderiza normalmente o frame seekado
+    }
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current && isVideo) {
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current && isVideo) {
+      videoRef.current.pause();
+      try {
+        const vid = videoRef.current;
+        vid.currentTime = vid.duration > 2 ? 1.0 : Math.max(0.2, (vid.duration || 1) / 2);
+      } catch {}
+    }
+  };
 
   return (
     <div
@@ -41,28 +98,89 @@ export default function ProjectCard({
         boxShadow: "var(--card-shadow)",
       }}
     >
-      {/* Capa do Projeto (Thumbnail ou Gradiente Elegante) */}
+      {/* Capa do Projeto (Thumbnail ou Gradiente Elegante com Prévia de Vídeo) */}
       <Link
         href={`/projetos/${project.id}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         style={{
           display: "block",
           position: "relative",
           width: "100%",
           paddingTop: "56.25%", // 16:9 aspecto
           background: project.color_tag
-            ? `linear-gradient(135deg, ${project.color_tag}22 0%, #0B0E17 100%)`
+            ? `linear-gradient(135deg, ${project.color_tag}33 0%, #0F172A 100%)`
             : "linear-gradient(135deg, #1E1B4B 0%, #0F172A 100%)",
           overflow: "hidden",
           textDecoration: "none",
         }}
       >
-        {thumbnailUrl && !mediaError ? (
+        {/* Camada 1: Poster Estilizado ou Imagem Extraída via Canvas */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            background: project.color_tag
+              ? `radial-gradient(circle at 50% 40%, ${project.color_tag}28 0%, #0B0E17 100%)`
+              : "radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.25) 0%, #0B0E17 100%)",
+            zIndex: 0,
+          }}
+        >
+          {posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={posterUrl}
+              alt=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <>
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "14px",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: project.color_tag || "var(--primary)",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                }}
+              >
+                <Film size={24} />
+              </div>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                {project.name}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Camada 2: Vídeo ou Imagem real */}
+        {thumbnailUrl && !mediaError && (
           isVideo ? (
             <video
-              src={thumbnailUrl.includes("#t=") ? thumbnailUrl : `${thumbnailUrl}#t=0.1`}
-              preload="metadata"
+              ref={videoRef}
+              src={thumbnailUrl}
+              preload="auto"
               muted
               playsInline
+              loop
+              onLoadedMetadata={handleLoadedMetadata}
+              onSeeked={handleSeeked}
               onError={() => setMediaError(true)}
               style={{
                 position: "absolute",
@@ -72,6 +190,9 @@ export default function ProjectCard({
                 height: "100%",
                 objectFit: "cover",
                 pointerEvents: "none",
+                opacity: isFrameReady || isHovered ? 1 : 0,
+                transition: "opacity 0.35s ease",
+                zIndex: 1,
               }}
             />
           ) : (
@@ -87,39 +208,35 @@ export default function ProjectCard({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                zIndex: 1,
               }}
             />
           )
-        ) : (
+        )}
+
+        {/* Badge Flutuante de Prévia em Execução (Hover) */}
+        {isHovered && isVideo && isFrameReady && (
           <div
             style={{
               position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
+              top: "8px",
+              right: "8px",
+              background: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(4px)",
+              borderRadius: "6px",
+              padding: "2px 7px",
+              fontSize: "0.68rem",
+              fontWeight: 700,
+              color: "#4ADE80",
+              display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
+              gap: "4px",
+              zIndex: 3,
+              border: "1px solid rgba(74, 222, 128, 0.3)",
             }}
           >
-            <div
-              style={{
-                width: "44px",
-                height: "44px",
-                borderRadius: "12px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: project.color_tag || "var(--primary)",
-              }}
-            >
-              <Film size={22} />
-            </div>
-            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>
-              CapCut Workspace
-            </span>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#4ADE80" }} />
+            <span>Prévia</span>
           </div>
         )}
 

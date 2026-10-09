@@ -101,10 +101,25 @@ export default function Dashboard({
     const allPaths: string[] = [];
     jobs.forEach((j) => {
       j.clips?.forEach((c) => {
-        if (c.file_path && !urls[c.file_path]) {
+        if (c.file_path && !urls[c.file_path] && !allPaths.includes(c.file_path)) {
           allPaths.push(c.file_path);
         }
       });
+    });
+
+    // Também assina miniaturas dos clipes de projetos para a grade de projetos
+    projects.forEach((proj: any) => {
+      if (proj.thumbnail_url) return;
+      const projJobs = proj.jobs || [];
+      for (const j of projJobs) {
+        if (j.clips && j.clips.length > 0) {
+          const found = j.clips.find((c: any) => Boolean(c.file_path));
+          if (found?.file_path && !urls[found.file_path] && !allPaths.includes(found.file_path)) {
+            allPaths.push(found.file_path);
+            break;
+          }
+        }
+      }
     });
 
     if (allPaths.length === 0) return;
@@ -122,7 +137,7 @@ export default function Dashboard({
           return next;
         });
       });
-  }, [jobs, supabase, urls]);
+  }, [jobs, projects, supabase, urls]);
 
   async function handleCancel(jobId: string) {
     if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;
@@ -416,22 +431,28 @@ export default function Dashboard({
               let totalClips = 0;
               let firstClipPath: string | null = null;
               projJobs.forEach((pj) => {
-                if (pj.clips) {
+                if (pj.clips && pj.clips.length > 0) {
                   totalClips += pj.clips.length;
-                  if (!firstClipPath && pj.clips[0]?.file_path) {
-                    firstClipPath = pj.clips[0].file_path;
+                  if (!firstClipPath) {
+                    const found = pj.clips.find((c: any) => Boolean(c.file_path));
+                    if (found?.file_path) {
+                      firstClipPath = found.file_path;
+                    }
                   }
                 }
               });
 
               const projActiveJob = jobs.find((j) => j.project_id === proj.id && !isFinal(j.status));
+              const effectiveThumbnail =
+                proj.thumbnail_url ||
+                (firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null);
 
               return (
                 <ProjectCard
                   key={proj.id}
                   project={proj}
                   clipsCount={totalClips}
-                  thumbnailUrl={firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null}
+                  thumbnailUrl={effectiveThumbnail}
                   activeJob={projActiveJob}
                   onDelete={handleDeleteProject}
                 />

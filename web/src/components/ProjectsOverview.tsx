@@ -38,12 +38,19 @@ export default function ProjectsOverview({
   useEffect(() => {
     const pathsToSign: string[] = [];
     projects.forEach((proj: any) => {
+      // Se o projeto já tiver thumbnail_url personalizada externa ou pública, não precisa assinar
+      if (proj.thumbnail_url) return;
+
       const projJobs = proj.jobs || [];
-      projJobs.forEach((j: any) => {
-        if (j.clips && j.clips[0]?.file_path && !urls[j.clips[0].file_path]) {
-          pathsToSign.push(j.clips[0].file_path);
+      for (const j of projJobs) {
+        if (j.clips && j.clips.length > 0) {
+          const found = j.clips.find((c: any) => Boolean(c.file_path));
+          if (found?.file_path && !urls[found.file_path] && !pathsToSign.includes(found.file_path)) {
+            pathsToSign.push(found.file_path);
+            break;
+          }
         }
-      });
+      }
     });
 
     if (pathsToSign.length === 0) return;
@@ -67,7 +74,7 @@ export default function ProjectsOverview({
     const [{ data: pData }, { data: jData }] = await Promise.all([
       supabase
         .from("projects")
-        .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path))")
+        .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path, thumbnail_url))")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false }),
       supabase
@@ -307,22 +314,28 @@ export default function ProjectsOverview({
           let totalClips = 0;
           let firstClipPath: string | null = null;
           projJobs.forEach((pj) => {
-            if (pj.clips) {
+            if (pj.clips && pj.clips.length > 0) {
               totalClips += pj.clips.length;
-              if (!firstClipPath && pj.clips[0]?.file_path) {
-                firstClipPath = pj.clips[0].file_path;
+              if (!firstClipPath) {
+                const found = pj.clips.find((c: any) => Boolean(c.file_path));
+                if (found?.file_path) {
+                  firstClipPath = found.file_path;
+                }
               }
             }
           });
 
           const projActiveJob = jobs.find((j) => j.project_id === proj.id && !isFinal(j.status));
+          const effectiveThumbnail =
+            proj.thumbnail_url ||
+            (firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null);
 
           return (
             <ProjectCard
               key={proj.id}
               project={proj}
               clipsCount={totalClips}
-              thumbnailUrl={firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null}
+              thumbnailUrl={effectiveThumbnail}
               activeJob={projActiveJob}
               onDelete={handleDeleteProject}
             />

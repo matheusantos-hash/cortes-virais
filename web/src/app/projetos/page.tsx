@@ -17,7 +17,7 @@ export default async function ProjectsPage() {
 
   const { data: projects } = await supabase
     .from("projects")
-    .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path))")
+    .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path, thumbnail_url))")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
