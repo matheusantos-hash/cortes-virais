@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import type { Clip, CanvasBroll, CanvasBrollTemplate, Job, SubtitleStyle } from "@/lib/types";
+import type { Clip, CanvasBroll, CanvasBrollTemplate } from "@/lib/types";
 import CanvasBrollOverlay from "./CanvasBrollOverlay";
-import PowerShellTerminal from "./PowerShellTerminal";
-import { createClient } from "@/lib/supabase/client";
-import { cancelJob } from "@/app/actions";
-import { isFinal } from "@/lib/format";
-import { getStageDescription } from "./JobProgressCard";
 import { detectBrollTriggers, type BrollTriggerSuggestion } from "@/lib/detectBrollTriggers";
+import CloneStudioModal from "./CloneStudioModal";
 import {
   DownloadIcon,
   SparklesIcon,
@@ -265,181 +261,8 @@ export default function ClipEditorModal({
     }
   };
 
-  // Aba da coluna direita: 'inspector' (padrão) ou 'clone' (estúdio de clonagem)
-  const [rightTab, setRightTab] = useState<"inspector" | "clone">("inspector");
-
-  // Estados de Configuração da Clonagem de Estilo
-  const [clonePreset, setClonePreset] = useState<string>("hormozi");
-  const [cloneSubtitles, setCloneSubtitles] = useState<SubtitleStyle>("hormozi");
-  const [clonePacing, setClonePacing] = useState<"ultra_fast" | "fast" | "natural">("ultra_fast");
-  const [customRefUrl, setCustomRefUrl] = useState("");
-  const [cloneUseBroll, setCloneUseBroll] = useState(true);
-  const [cloneEnableSfx, setCloneEnableSfx] = useState(true);
-
-  // Estados de Execução da Clonagem
-  const [isStartingClone, setIsStartingClone] = useState(false);
-  const [cloneJobId, setCloneJobId] = useState<string | null>(null);
-  const [cloneJob, setCloneJob] = useState<Job | null>(null);
-  const [isCancelingClone, setIsCancelingClone] = useState(false);
-
-  const supabase = useMemo(() => createClient(), []);
-
-  // Sincronização em tempo real e polling do cloneJob ativo
-  useEffect(() => {
-    if (!cloneJobId) return;
-
-    // Busca inicial
-    const fetchJob = async () => {
-      const { data } = await supabase.from("jobs").select("*").eq("id", cloneJobId).single();
-      if (data) {
-        setCloneJob(data as Job);
-      }
-    };
-    fetchJob();
-
-    // Inscrição em tempo real no canal postgres_changes
-    const channel = supabase
-      .channel(`clone-job-${cloneJobId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "jobs",
-          filter: `id=eq.${cloneJobId}`,
-        },
-        (payload) => {
-          if (payload.new) {
-            setCloneJob(payload.new as Job);
-          }
-        }
-      )
-      .subscribe();
-
-    // Polling de segurança a cada 2.5s enquanto o job não for final
-    const interval = setInterval(async () => {
-      const { data } = await supabase.from("jobs").select("*").eq("id", cloneJobId).single();
-      if (data) {
-        const j = data as Job;
-        setCloneJob(j);
-        if (isFinal(j.status)) {
-          clearInterval(interval);
-        }
-      }
-    }, 2500);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
-  }, [cloneJobId, supabase]);
-
-  // Abertura / Alternância do Painel Lateral do Clonador de Estilo
-  const handleOpenCloneDrawer = () => {
-    setRightTab("clone");
-  };
-
-  // Iniciar Clonagem com IA
-  const handleStartClone = async () => {
-    if (!clip.file_path) {
-      alert("Aguarde a finalização do processamento do corte para clonar o estilo.");
-      return;
-    }
-
-    try {
-      setIsStartingClone(true);
-
-      // Resgata o usuário logado caso não venha nas props
-      let effectiveUserId = userId;
-      if (!effectiveUserId) {
-        const { data: authData } = await supabase.auth.getUser();
-        effectiveUserId = authData?.user?.id;
-      }
-
-      if (!effectiveUserId) {
-        alert("Sessão não identificada. Por favor, faça login novamente.");
-        return;
-      }
-
-      const isHorizontal = videoRef.current ? videoRef.current.videoWidth > videoRef.current.videoHeight : false;
-      const refStyleName =
-        clonePreset === "hormozi"
-          ? "Alex Hormozi (Alta Retenção & Letras Amarelas)"
-          : clonePreset === "mrbeast"
-          ? "MrBeast (Cortes Rápidos & SFX de Impacto)"
-          : clonePreset === "minimalist"
-          ? "Minimalista Elegante (Preto, Branco & Transições Limpas)"
-          : clonePreset === "documentary"
-          ? "Documentário / Cinema (Ritmo Narrativo & B-rolls)"
-          : "Estilo Personalizado";
-
-      const payload: Record<string, any> = {
-        user_id: effectiveUserId,
-        ...(projectId ? { project_id: projectId } : {}),
-        source_type: "upload",
-        source_path: clip.file_path,
-        file_name: `corte-${clip.position || 1}-${clip.title || "clip"}.mp4`,
-        orientation: isHorizontal ? "horizontal" : "vertical",
-        vertical_mode: "face_tracking",
-        crop_x: 0.5,
-        clip_count: 1,
-        min_seconds: Math.max(10, Math.floor(duration * 0.8)),
-        max_seconds: Math.ceil(duration),
-        language: "pt-BR",
-        reference_type: customRefUrl.trim() ? "link" : "preset",
-        reference_url: customRefUrl.trim() || null,
-        reference_style: refStyleName,
-        subtitle_style: cloneSubtitles,
-        design_instructions: `Clonagem de ritmo ${clonePacing}, estilo ${refStyleName}, legendas ${cloneSubtitles}. Gancho original: ${clip.hook || clip.title}`,
-        use_broll: cloneUseBroll,
-        enable_sfx: cloneEnableSfx,
-        enable_emojis: clonePreset === "hormozi" || clonePreset === "mrbeast",
-        status: "queued",
-      };
-
-      const { data, error } = await supabase.from("jobs").insert(payload).select().single();
-
-      if (error) {
-        console.warn("Erro ao inserir job de clonagem, tentando payload simplificado:", error.message);
-        // Fallback removendo campos opcionais que possam não estar presentes
-        delete payload.enable_sfx;
-        delete payload.enable_emojis;
-        const retry = await supabase.from("jobs").insert(payload).select().single();
-        if (retry.error) {
-          throw new Error(retry.error.message);
-        }
-        if (retry.data) {
-          setCloneJobId(retry.data.id);
-          setCloneJob(retry.data as Job);
-        }
-      } else if (data) {
-        setCloneJobId(data.id);
-        setCloneJob(data as Job);
-      }
-    } catch (err: any) {
-      console.error("Falha ao iniciar clonagem:", err);
-      alert(`Falha ao iniciar clonagem: ${err?.message || "Erro desconhecido"}`);
-    } finally {
-      setIsStartingClone(false);
-    }
-  };
-
-  const handleCancelClone = async () => {
-    if (!cloneJobId) return;
-    try {
-      setIsCancelingClone(true);
-      const res = await cancelJob(cloneJobId);
-      if (!res.success) {
-        alert(res.error || "Não foi possível cancelar.");
-      } else {
-        setCloneJob((prev) => (prev ? { ...prev, status: "canceled" } : prev));
-      }
-    } catch (err: any) {
-      alert(`Erro ao cancelar: ${err?.message || "Tente novamente."}`);
-    } finally {
-      setIsCancelingClone(false);
-    }
-  };
+  // Estado do Modal de Clonagem de Estilo (Clone Studio completo com DNA de edição)
+  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
 
   // Captura um frame do vídeo para criar a thumbnail estilizada
   const captureFrame = () => {
@@ -694,10 +517,10 @@ export default function ClipEditorModal({
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <button
             type="button"
-            onClick={() => setRightTab(rightTab === "clone" ? "inspector" : "clone")}
+            onClick={() => setIsCloneModalOpen(true)}
             style={{
-              background: rightTab === "clone" ? "rgba(168, 85, 247, 0.25)" : "rgba(168, 85, 247, 0.12)",
-              border: `1px solid ${rightTab === "clone" ? "#C084FC" : "rgba(168, 85, 247, 0.4)"}`,
+              background: "rgba(168, 85, 247, 0.18)",
+              border: "1px solid #C084FC",
               color: "#C084FC",
               padding: "0.4rem 0.85rem",
               borderRadius: "8px",
@@ -708,11 +531,11 @@ export default function ClipEditorModal({
               alignItems: "center",
               gap: "0.4rem",
               transition: "all 0.15s ease",
-              boxShadow: rightTab === "clone" ? "0 0 14px rgba(168, 85, 247, 0.35)" : "none",
+              boxShadow: "0 0 14px rgba(168, 85, 247, 0.25)",
             }}
-            title="Abrir estúdio de clonagem de estilo na aba lateral"
+            title="Abrir estúdio de clonagem de edição com IA para este corte"
           >
-            <SparklesIcon size={14} /> Clonar Estilo {rightTab === "clone" ? "●" : ""}
+            <SparklesIcon size={14} /> Clonar Estilo
           </button>
 
           <button
@@ -782,10 +605,9 @@ export default function ClipEditorModal({
         style={{
           flex: 1,
           display: "grid",
-          gridTemplateColumns: rightTab === "clone" ? "280px 1fr 370px" : "300px 1fr 280px",
+          gridTemplateColumns: "300px 1fr 280px",
           overflow: "hidden",
           backgroundColor: "#0D0F16",
-          transition: "grid-template-columns 0.2s ease",
         }}
       >
         {/* COLUNA ESQUERDA: BIBLIOTECA DE RECURSOS E ABAS */}
@@ -1629,78 +1451,47 @@ export default function ClipEditorModal({
             overflowY: "auto",
           }}
         >
-          {/* Seletor de Aba Superior da Coluna Direita */}
+          {/* Cabeçalho do Inspetor de Elementos */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              background: "#0C0E14",
-              padding: "3px",
-              borderRadius: "8px",
-              border: "1px solid #232733",
-              gap: "4px",
+              justifyContent: "space-between",
+              borderBottom: "1px solid #212634",
+              paddingBottom: "0.45rem",
             }}
           >
-            <button
-              type="button"
-              onClick={() => setRightTab("inspector")}
-              style={{
-                flex: 1,
-                padding: "0.35rem 0.5rem",
-                borderRadius: "6px",
-                border: "none",
-                background: rightTab === "inspector" ? "#1E2230" : "transparent",
-                color: rightTab === "inspector" ? "#00F0FF" : "#94A3B8",
-                fontSize: "0.74rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <SlidersHorizontal size={13} />
-              Propriedades
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <SlidersHorizontal size={14} style={{ color: "#00F0FF" }} />
+              <h4 style={{ margin: 0, fontSize: "0.84rem", color: "#FFF", fontWeight: 700 }}>
+                Inspetor de Elementos
+              </h4>
+            </div>
 
             <button
               type="button"
-              onClick={() => setRightTab("clone")}
+              onClick={() => setIsCloneModalOpen(true)}
               style={{
-                flex: 1,
-                padding: "0.35rem 0.5rem",
-                borderRadius: "6px",
-                border: "none",
-                background: rightTab === "clone" ? "rgba(168, 85, 247, 0.25)" : "transparent",
-                color: rightTab === "clone" ? "#C084FC" : "#94A3B8",
-                fontSize: "0.74rem",
+                background: "rgba(168, 85, 247, 0.15)",
+                border: "1px solid rgba(168, 85, 247, 0.4)",
+                color: "#C084FC",
+                fontSize: "0.72rem",
                 fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: "6px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
+                gap: "4px",
                 transition: "all 0.15s ease",
               }}
+              title="Abrir estúdio de clonagem de edição IA"
             >
-              <SparklesIcon size={13} />
-              Clonar Estilo
+              <SparklesIcon size={11} /> Clonar Estilo
             </button>
           </div>
 
-          {/* ========================================================
-              ABA 1: INSPETOR DE PROPRIEDADES DOS B-ROLLS / OVERLAYS
-          ======================================================== */}
-          {rightTab === "inspector" && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", borderBottom: "1px solid #212634", paddingBottom: "0.4rem" }}>
-                <SlidersHorizontal size={14} style={{ color: "#00F0FF" }} />
-                <h4 style={{ margin: 0, fontSize: "0.84rem", color: "#FFF" }}>Inspetor de Elementos</h4>
-              </div>
-
-              {selectedBroll ? (
+          {selectedBroll ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.74rem", color: "#00F0FF", fontWeight: 700 }}>
@@ -1874,331 +1665,34 @@ export default function ClipEditorModal({
                 <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "#94A3B8", fontStyle: "italic" }}>
                   &quot;{clip.hook || clip.title}&quot;
                 </p>
-              </div>
-            </>
-          )}
 
-          {/* ========================================================
-              ABA 2: CLONADOR DE ESTILO COM MINI TERMINAL AO VIVO
-          ======================================================== */}
-          {rightTab === "clone" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {/* Cabeçalho do Clonador */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #212634", paddingBottom: "0.45rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <SparklesIcon size={15} style={{ color: "#C084FC" }} />
-                  <h4 style={{ margin: 0, fontSize: "0.86rem", color: "#FFF", fontWeight: 700 }}>Clonador de Estilo IA</h4>
-                </div>
-                <span style={{ fontSize: "0.68rem", color: "#A855F7", background: "rgba(168, 85, 247, 0.15)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
-                  Corte #{clip.position}
-                </span>
-              </div>
-
-              {/* Informações do Vídeo Cortado Selecionado */}
-              <div
-                style={{
-                  background: "#161924",
-                  border: "1px solid #272C3D",
-                  borderRadius: "8px",
-                  padding: "0.6rem 0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                }}
-              >
-                <div
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "6px",
-                    background: "linear-gradient(135deg, #4F46E5, #9333EA)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    color: "#FFF",
-                  }}
-                >
-                  <Film size={18} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#FFF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {clip.title}
-                  </div>
-                  <div style={{ fontSize: "0.7rem", color: "#94A3B8", display: "flex", gap: "0.5rem" }}>
-                    <span>Duração: <strong>{duration}s</strong></span>
-                    <span>•</span>
-                    <span style={{ color: "#00F0FF" }}>{clip.score ? `${clip.score}% Viral` : "Original"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SEÇÃO 1: PRESET DE ESTILO VIRAL */}
-              <div>
-                <label style={{ fontSize: "0.74rem", color: "#C084FC", fontWeight: 700, display: "block", marginBottom: "0.35rem" }}>
-                  Estilo de Referência:
-                </label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
-                  {[
-                    { id: "hormozi", name: "Alex Hormozi", desc: "Letras amarelas neon, cortes a 2s" },
-                    { id: "mrbeast", name: "MrBeast", desc: "SFX intensos, ritmo acelerado" },
-                    { id: "minimalist", name: "Minimalista", desc: "Preto/branco, visual limpo" },
-                    { id: "documentary", name: "Cinema Doc", desc: "B-rolls atmosféricos e voz" },
-                  ].map((p) => {
-                    const isSelected = clonePreset === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => {
-                          setClonePreset(p.id);
-                          if (p.id === "hormozi") setCloneSubtitles("hormozi");
-                          if (p.id === "mrbeast") setCloneSubtitles("beast");
-                          if (p.id === "minimalist") setCloneSubtitles("minimal");
-                          if (p.id === "documentary") setCloneSubtitles("apple");
-                        }}
-                        style={{
-                          background: isSelected ? "rgba(168, 85, 247, 0.18)" : "#161924",
-                          border: `1px solid ${isSelected ? "#A855F7" : "#262B3A"}`,
-                          borderRadius: "6px",
-                          padding: "0.45rem",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: isSelected ? "#E9D5FF" : "#F3F4F6" }}>
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: "0.65rem", color: isSelected ? "#C084FC" : "#64748B", marginTop: "2px", lineHeight: 1.2 }}>
-                          {p.desc}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SEÇÃO 2: LINK OU REFERÊNCIA PERSONALIZADA (OPCIONAL) */}
-              <div>
-                <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.25rem" }}>
-                  Ou Link de Vídeo Referência (TikTok, Reels, YT):
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://tiktok.com/@exemplo/video/..."
-                  value={customRefUrl}
-                  onChange={(e) => setCustomRefUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    background: "#181B26",
-                    border: "1px solid #2A3042",
-                    color: "#FFF",
-                    padding: "0.35rem 0.5rem",
-                    borderRadius: "6px",
-                    fontSize: "0.74rem",
-                  }}
-                />
-              </div>
-
-              {/* SEÇÃO 3: RITMO & LEGENDAS */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
-                <div>
-                  <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                    Ritmo dos Cortes:
-                  </label>
-                  <select
-                    value={clonePacing}
-                    onChange={(e) => setClonePacing(e.target.value as any)}
-                    style={{
-                      width: "100%",
-                      background: "#181B26",
-                      border: "1px solid #2A3042",
-                      color: "#FFF",
-                      padding: "0.35rem",
-                      borderRadius: "6px",
-                      fontSize: "0.74rem",
-                    }}
-                  >
-                    <option value="ultra_fast">Ultra Rápido (1.5-2s)</option>
-                    <option value="fast">Dinâmico (3-4s)</option>
-                    <option value="natural">Natural (fala)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                    Estilo de Legendas:
-                  </label>
-                  <select
-                    value={cloneSubtitles}
-                    onChange={(e) => setCloneSubtitles(e.target.value as SubtitleStyle)}
-                    style={{
-                      width: "100%",
-                      background: "#181B26",
-                      border: "1px solid #2A3042",
-                      color: "#FFF",
-                      padding: "0.35rem",
-                      borderRadius: "6px",
-                      fontSize: "0.74rem",
-                    }}
-                  >
-                    <option value="hormozi">Hormozi (Amarelo)</option>
-                    <option value="beast">MrBeast (Destaques)</option>
-                    <option value="apple">Apple (Elegante)</option>
-                    <option value="minimal">Minimalista</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* OPÇÕES ADICIONAIS DE PRODUÇÃO */}
-              <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", fontSize: "0.72rem", color: "#CBD5E1" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={cloneUseBroll}
-                    onChange={(e) => setCloneUseBroll(e.target.checked)}
-                    style={{ accentColor: "#A855F7" }}
-                  />
-                  Inserir B-rolls
-                </label>
-
-                <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={cloneEnableSfx}
-                    onChange={(e) => setCloneEnableSfx(e.target.checked)}
-                    style={{ accentColor: "#A855F7" }}
-                  />
-                  Sound Effects (Whoosh & Ding)
-                </label>
-              </div>
-
-              {/* BOTÃO DE INICIAR CLONAGEM (SE NENHUM JOB ESTIVER RODANDO) */}
-              {(!cloneJob || isFinal(cloneJob.status)) && (
                 <button
                   type="button"
-                  onClick={handleStartClone}
-                  disabled={isStartingClone}
+                  onClick={() => setIsCloneModalOpen(true)}
                   style={{
-                    background: "linear-gradient(135deg, #7C3AED, #A855F7)",
-                    border: "none",
-                    color: "#FFF",
-                    padding: "0.55rem 0.85rem",
+                    width: "100%",
+                    marginTop: "0.75rem",
+                    background: "linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(168, 85, 247, 0.15))",
+                    border: "1px solid rgba(168, 85, 247, 0.45)",
                     borderRadius: "8px",
-                    cursor: isStartingClone ? "not-allowed" : "pointer",
-                    fontSize: "0.82rem",
-                    fontWeight: 700,
+                    padding: "0.55rem 0.75rem",
+                    color: "#E9D5FF",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.4rem",
-                    boxShadow: "0 4px 14px rgba(168, 85, 247, 0.4)",
-                    transition: "transform 0.1s ease",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    boxShadow: "0 2px 10px rgba(168, 85, 247, 0.2)",
+                    transition: "all 0.15s ease",
                   }}
+                  title="Abrir o estúdio completo de clonagem de edição com IA"
                 >
-                  <SparklesIcon size={15} />
-                  {isStartingClone ? "Enviando para IA..." : "Iniciar Clonagem com IA"}
+                  <SparklesIcon size={14} style={{ color: "#C084FC" }} />
+                  Clonar Estilo de Edição (IA)
                 </button>
-              )}
-
-              {/* ========================================================
-                  MINI TERMINAL & STATUS DO PROGRESSO DA CLONAGEM
-              ======================================================== */}
-              {cloneJob && (
-                <div
-                  style={{
-                    background: "#0A0C12",
-                    border: "1px solid #1E2332",
-                    borderRadius: "8px",
-                    padding: "0.65rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.5rem",
-                  }}
-                >
-                  {/* Cabeçalho do Status */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                      <ActivityIcon size={14} style={{ color: "#C084FC" }} />
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#FFF" }}>
-                        Progresso da Clonagem
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                      <span
-                        style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 700,
-                          color: cloneJob.status === "done" ? "#4ADE80" : cloneJob.status === "failed" ? "#EF4444" : "#00F0FF",
-                        }}
-                      >
-                        {cloneJob.progress ?? (cloneJob.status === "done" ? 100 : 10)}%
-                      </span>
-
-                      {!isFinal(cloneJob.status) && (
-                        <button
-                          type="button"
-                          onClick={handleCancelClone}
-                          disabled={isCancelingClone}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#EF4444",
-                            cursor: "pointer",
-                            padding: "2px",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                          title="Cancelar clonagem"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Barra de Progresso Neon */}
-                  <div
-                    style={{
-                      height: "5px",
-                      background: "#161A26",
-                      borderRadius: "3px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.max(5, cloneJob.progress ?? (cloneJob.status === "done" ? 100 : 15))}%`,
-                        background:
-                          cloneJob.status === "done"
-                            ? "#10B981"
-                            : cloneJob.status === "failed"
-                            ? "#EF4444"
-                            : "linear-gradient(90deg, #8B5CF6, #00F0FF)",
-                        borderRadius: "3px",
-                        transition: "width 0.4s ease",
-                      }}
-                    />
-                  </div>
-
-                  {/* Descrição do Estágio Atual */}
-                  <div style={{ fontSize: "0.7rem", color: "#94A3B8", fontStyle: "italic" }}>
-                    {getStageDescription(cloneJob.status, true)}
-                  </div>
-
-                  {/* Mini Terminal PowerShell Integrado */}
-                  <div style={{ marginTop: "0.2rem" }}>
-                    <PowerShellTerminal
-                      logs={cloneJob.logs || []}
-                      status={cloneJob.status}
-                      jobId={cloneJob.id}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
         </aside>
       </div>
 
@@ -2628,6 +2122,26 @@ export default function ClipEditorModal({
           </div>
         </div>
       </footer>
+
+      {/* Modal Completo de Clonagem de Edição (DNA de estilo e IA) */}
+      {isCloneModalOpen && (
+        <CloneStudioModal
+          isOpen={isCloneModalOpen}
+          onClose={() => setIsCloneModalOpen(false)}
+          userId={userId}
+          projectId={projectId}
+          initialClip={{
+            id: clip.id,
+            title: clip.title,
+            path: clip.file_path || "",
+            url: videoSrc,
+            position: clip.position,
+          }}
+          onCreated={() => {
+            setIsCloneModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ export default function SavedReferencesModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 100,
+        zIndex: 10100,
         background: "rgba(15, 23, 42, 0.65)",
         backdropFilter: "blur(6px)",
         display: "flex",

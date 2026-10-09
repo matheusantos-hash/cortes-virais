@@ -35,7 +35,7 @@ export default function FontSpecimenModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 200,
+        zIndex: 10120,
         background: "rgba(10, 15, 29, 0.75)",
         backdropFilter: "blur(8px)",
         display: "flex",

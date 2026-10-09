@@ -199,13 +199,40 @@ const PRESET_REFERENCES: SavedReference[] = [
 export default function CopyStyleStudio({
   userId,
   projectId,
+  initialClip,
   onCreated,
+  onClose,
+  isModal,
 }: {
-  userId: string;
+  userId?: string;
   projectId?: string;
+  initialClip?: {
+    id: string;
+    title: string;
+    path?: string | null;
+    url?: string;
+    position?: number;
+    orientation?: string;
+    verticalMode?: string;
+  } | null;
   onCreated: () => void;
+  onClose?: () => void;
+  isModal?: boolean;
 }) {
   const supabase = createClient();
+  const [effectiveUserId, setEffectiveUserId] = useState<string>(userId || "");
+
+  useEffect(() => {
+    if (userId) {
+      setEffectiveUserId(userId);
+    } else {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data?.user?.id) setEffectiveUserId(data.user.id);
+      });
+    }
+  }, [userId, supabase]);
+
+  const activeUserId = effectiveUserId || userId || "";
 
   // 1. VÍDEO DE REFERÊNCIA OU ESTILO SALVO
   const [styleSourceType, setStyleSourceType] = useState<"saved" | "custom_video">("saved");
@@ -229,19 +256,32 @@ export default function CopyStyleStudio({
   const [sourceClip, setSourceClip] = useState<{
     id: string;
     title: string;
-    path: string;
+    path?: string | null;
     url?: string;
     position?: number;
-  } | null>(null);
-  const [sourceMode, setSourceMode] = useState<"upload" | "link">("link");
+  } | null>(initialClip || null);
+  const [sourceMode, setSourceMode] = useState<"upload" | "link">(initialClip ? "upload" : "link");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourceDragOver, setSourceDragOver] = useState(false);
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const refFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Carrega corte pré-selecionado vindo do Editor de Cortes
+  // Carrega corte pré-selecionado vindo do Editor de Cortes ou props
   useEffect(() => {
+    if (initialClip) {
+      setSourceClip(initialClip);
+      setSourceMode("upload");
+      if (initialClip.orientation === "horizontal" || (initialClip as any).resolution === "1920x1080") {
+        setResolution("1920x1080");
+      } else if ((initialClip as any).resolution) {
+        setResolution((initialClip as any).resolution);
+      }
+      if (initialClip.verticalMode) {
+        setVerticalMode(initialClip.verticalMode as any);
+      }
+      return;
+    }
     try {
       const stored = sessionStorage.getItem("clone_source_clip");
       if (stored) {
@@ -260,7 +300,7 @@ export default function CopyStyleStudio({
         }
       }
     } catch {}
-  }, []);
+  }, [initialClip]);
 
   const handleClearSourceClip = () => {
     setSourceClip(null);
@@ -366,7 +406,7 @@ export default function CopyStyleStudio({
   const loadSavedReferences = useCallback(async () => {
     try {
       // 1. LocalStorage
-      const local = localStorage.getItem(`saved_references_${userId}`);
+      const local = activeUserId ? localStorage.getItem(`saved_references_${activeUserId}`) : null;
       let userList: SavedReference[] = [];
       if (local) {
         try {
@@ -375,11 +415,15 @@ export default function CopyStyleStudio({
       }
 
       // 2. Supabase
-      const { data } = await supabase
-        .from("saved_references")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      let data: any[] | null = null;
+      if (activeUserId) {
+        const res = await supabase
+          .from("saved_references")
+          .select("*")
+          .eq("user_id", activeUserId)
+          .order("created_at", { ascending: false });
+        data = res.data;
+      }
 
       let fullList: SavedReference[] = PRESET_REFERENCES;
       if (data && data.length > 0) {
@@ -404,7 +448,7 @@ export default function CopyStyleStudio({
         applyReference(initialPreset);
       }
     }
-  }, [supabase, userId, referenceName, selectedRefId, appliedRef]);
+  }, [supabase, activeUserId, referenceName, selectedRefId, appliedRef]);
 
   useEffect(() => {
     loadSavedReferences();
@@ -529,11 +573,11 @@ export default function CopyStyleStudio({
       await supabase.from("saved_references").delete().eq("id", id);
     } catch {}
 
-    const local = localStorage.getItem(`saved_references_${userId}`);
+    const local = localStorage.getItem(`saved_references_${activeUserId}`);
     if (local) {
       try {
         const list = JSON.parse(local).filter((r: SavedReference) => r.id !== id);
-        localStorage.setItem(`saved_references_${userId}`, JSON.stringify(list));
+        localStorage.setItem(`saved_references_${activeUserId}`, JSON.stringify(list));
       } catch {}
     }
 
@@ -557,7 +601,7 @@ export default function CopyStyleStudio({
         finalRef = {
           ...updatedRef,
           id: newId,
-          user_id: userId,
+          user_id: activeUserId,
           reference_type: "upload",
           style_category: updatedRef.style_category || "Personalizado",
           created_at: new Date().toISOString(),
@@ -565,7 +609,7 @@ export default function CopyStyleStudio({
 
         const { error: insErr } = await supabase.from("saved_references").insert({
           id: newId,
-          user_id: userId,
+          user_id: activeUserId,
           name: finalRef.name,
           reference_type: finalRef.reference_type,
           reference_path: finalRef.reference_path,
@@ -606,7 +650,7 @@ export default function CopyStyleStudio({
     }
 
     // 2. Atualiza LocalStorage
-    const local = localStorage.getItem(`saved_references_${userId}`);
+    const local = activeUserId ? localStorage.getItem(`saved_references_${activeUserId}`) : null;
     let list: SavedReference[] = [];
     if (local) {
       try {
@@ -614,7 +658,9 @@ export default function CopyStyleStudio({
       } catch {}
     }
     const filtered = list.filter((r) => r.id !== finalRef.id);
-    localStorage.setItem(`saved_references_${userId}`, JSON.stringify([finalRef, ...filtered]));
+    if (activeUserId) {
+      localStorage.setItem(`saved_references_${activeUserId}`, JSON.stringify([finalRef, ...filtered]));
+    }
 
     // 3. Atualiza estado React
     setSavedRefs((prev) => {
@@ -700,8 +746,9 @@ export default function CopyStyleStudio({
         } = await supabase.auth.getSession();
         if (!session) throw new Error("Sessão expirada. Faça login novamente para treinar.");
 
+        const effectiveOwnerId = activeUserId || session.user.id;
         const primaryVideo = newVideoFiles[0];
-        const storagePath = `${userId}/references/ref-${crypto.randomUUID()}-${safeName(primaryVideo.name)}`;
+        const storagePath = `${effectiveOwnerId}/references/ref-${crypto.randomUUID()}-${safeName(primaryVideo.name)}`;
 
         if (primaryVideo.size > RESUMABLE_FROM_BYTES) {
           setTrainingStatusText(
@@ -731,6 +778,9 @@ export default function CopyStyleStudio({
         uploadedRefPath = storagePath;
         setTrainingProgress(75);
       }
+
+      const { data: authSessionData } = await supabase.auth.getSession();
+      const effectiveOwnerId = activeUserId || authSessionData?.session?.user?.id || "user";
 
       await new Promise((r) => setTimeout(r, 500));
       setTrainingProgress(80);
@@ -763,7 +813,7 @@ export default function CopyStyleStudio({
       const newRefId = crypto.randomUUID();
       const newSavedRef: SavedReference = {
         id: newRefId,
-        user_id: userId,
+        user_id: effectiveOwnerId,
         name: newStyleName.trim(),
         reference_type: uploadedRefPath ? "upload" : "preset",
         reference_path: uploadedRefPath,
@@ -836,7 +886,7 @@ export default function CopyStyleStudio({
       // 1. Salvar no Supabase
       const { error: insertErr } = await supabase.from("saved_references").insert({
         id: newRefId,
-        user_id: userId,
+        user_id: effectiveOwnerId,
         name: newSavedRef.name,
         reference_type: newSavedRef.reference_type,
         reference_path: newSavedRef.reference_path,
@@ -858,14 +908,14 @@ export default function CopyStyleStudio({
       }
 
       // 2. Salvar no LocalStorage (como cache)
-      const local = localStorage.getItem(`saved_references_${userId}`);
+      const local = localStorage.getItem(`saved_references_${effectiveOwnerId}`);
       let list: SavedReference[] = [];
       if (local) {
         try {
           list = JSON.parse(local);
         } catch {}
       }
-      localStorage.setItem(`saved_references_${userId}`, JSON.stringify([newSavedRef, ...list]));
+      localStorage.setItem(`saved_references_${effectiveOwnerId}`, JSON.stringify([newSavedRef, ...list]));
 
       setSavedRefs((prev) => [newSavedRef, ...prev.filter((r) => r.id !== newSavedRef.id)]);
       setTrainingSuccess(
@@ -918,10 +968,16 @@ export default function CopyStyleStudio({
     setBusy(true);
 
     try {
+      const finalUserId = activeUserId || (await supabase.auth.getUser()).data?.user?.id;
+      if (!finalUserId) {
+        setBusy(false);
+        return setError("Sessão não identificada. Por favor, faça login novamente.");
+      }
+
       // 1. Upload do vídeo de referência (somente se for modo vídeo avulso com arquivo novo)
       let refPath: string | null = null;
       if (styleSourceType === "custom_video" && refMode === "upload" && refFile) {
-        const path = `${userId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
+        const path = `${finalUserId}/ref-${crypto.randomUUID()}-${safeName(refFile.name)}`;
         if (refFile.size > RESUMABLE_FROM_BYTES) {
           const {
             data: { session },
@@ -950,7 +1006,7 @@ export default function CopyStyleStudio({
       // 1.1 Upload do arquivo de fonte customizada (se selecionado)
       let finalFontPath = customFontPath;
       if (customFontFile) {
-        const fontKey = `${userId}/fonts/${crypto.randomUUID()}-${safeName(customFontFile.name)}`;
+        const fontKey = `${finalUserId}/fonts/${crypto.randomUUID()}-${safeName(customFontFile.name)}`;
         const { error: fontUpErr } = await supabase.storage.from("sources").upload(fontKey, customFontFile, {
           contentType: customFontFile.type || "font/ttf",
         });
@@ -1009,7 +1065,7 @@ export default function CopyStyleStudio({
         const finalRefName = referenceName.trim() || `Estilo Clonado ${new Date().toLocaleDateString("pt-BR")}`;
         const newSavedRef: SavedReference = {
           id: crypto.randomUUID(),
-          user_id: userId,
+          user_id: finalUserId,
           name: finalRefName,
           reference_type: refMode,
           reference_url: refMode === "link" ? refUrl : null,
@@ -1028,7 +1084,7 @@ export default function CopyStyleStudio({
         try {
           const { error: saveErr } = await supabase.from("saved_references").insert({
             id: newSavedRef.id,
-            user_id: userId,
+            user_id: finalUserId,
             name: finalRefName,
             reference_type: refPath ? "upload" : refMode,
             reference_url: refMode === "link" ? refUrl : null,
@@ -1054,9 +1110,9 @@ export default function CopyStyleStudio({
 
         // Salva também no LocalStorage
         try {
-          const local = localStorage.getItem(`saved_references_${userId}`);
+          const local = localStorage.getItem(`saved_references_${finalUserId}`);
           const list = local ? JSON.parse(local) : [];
-          localStorage.setItem(`saved_references_${userId}`, JSON.stringify([newSavedRef, ...list]));
+          localStorage.setItem(`saved_references_${finalUserId}`, JSON.stringify([newSavedRef, ...list]));
           setSavedRefs((prev) => [newSavedRef, ...prev]);
         } catch {}
       }
@@ -1079,7 +1135,7 @@ export default function CopyStyleStudio({
         sourcePayload = { source_type: "link", source_url: parsed.toString() };
       } else {
         if (!sourceFile) throw new Error("Selecione o vídeo principal.");
-        const mainPath = `${userId}/${crypto.randomUUID()}-${safeName(sourceFile.name)}`;
+        const mainPath = `${finalUserId}/${crypto.randomUUID()}-${safeName(sourceFile.name)}`;
 
         if (sourceFile.size > RESUMABLE_FROM_BYTES) {
           const {
@@ -1106,7 +1162,7 @@ export default function CopyStyleStudio({
 
       // 4. Criação do Job no Banco com todos os metadados de clonagem
       const jobPayload: Record<string, any> = {
-        user_id: userId,
+        user_id: finalUserId,
         ...(projectId ? { project_id: projectId } : {}),
         ...sourcePayload,
         orientation: resolution.includes("1920x1080") ? "horizontal" : "vertical",
@@ -1192,7 +1248,19 @@ export default function CopyStyleStudio({
   }
 
   return (
-    <div className="card studio-card">
+    <div
+      className={isModal ? "studio-modal-content" : "card studio-card"}
+      style={
+        isModal
+          ? {
+              padding: "0.25rem 0.25rem 1.5rem",
+              background: "transparent",
+              border: "none",
+              boxShadow: "none",
+            }
+          : undefined
+      }
+    >
       <div className="studio-header">
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div className="studio-header-icon">
@@ -1209,15 +1277,28 @@ export default function CopyStyleStudio({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="btn btn-secondary btn-small"
-          onClick={() => setIsLibraryOpen(true)}
-          title="Ver referências salvas e presets de sucesso"
-        >
-          <Bookmark size={15} style={{ marginRight: "4px" }} />
-          Biblioteca de Referências ({savedRefs.length})
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={() => setIsLibraryOpen(true)}
+            title="Ver referências salvas e presets de sucesso"
+          >
+            <Bookmark size={15} style={{ marginRight: "4px" }} />
+            Biblioteca de Referências ({savedRefs.length})
+          </button>
+          {onClose && isModal && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-small"
+              onClick={onClose}
+              title="Fechar Janela de Clonagem"
+              style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+            >
+              <X size={15} /> Fechar
+            </button>
+          )}
+        </div>
       </div>
 
       {successMsg && (
@@ -2922,7 +3003,7 @@ export default function CopyStyleStudio({
         }}
         reference={editingReference}
         onSave={handleUpdateSavedRef}
-        userId={userId}
+        userId={activeUserId}
       />
     </div>
   );

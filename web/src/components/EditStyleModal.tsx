@@ -248,7 +248,7 @@ export default function EditStyleModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 110,
+        zIndex: 10110,
         background: "rgba(15, 23, 42, 0.75)",
         backdropFilter: "blur(8px)",
         display: "flex",
