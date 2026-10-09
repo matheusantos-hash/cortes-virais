@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import type { Project } from "@/lib/types";
+import type { Project, Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
 import { Film, Sparkles, Trash2, ArrowRight, Video, Scissors } from "./Icons";
 
@@ -10,6 +10,7 @@ interface ProjectCardProps {
   project: Project;
   clipsCount: number;
   thumbnailUrl?: string | null;
+  activeJob?: Job;
   onDelete?: (id: string) => void;
 }
 
@@ -17,6 +18,7 @@ export default function ProjectCard({
   project,
   clipsCount,
   thumbnailUrl,
+  activeJob,
   onDelete,
 }: ProjectCardProps) {
   return (
@@ -118,6 +120,32 @@ export default function ProjectCard({
           <span>{clipsCount} corte{clipsCount === 1 ? "" : "s"}</span>
         </div>
 
+        {/* Badge de Processamento Ativo */}
+        {activeJob && (
+          <div
+            style={{
+              position: "absolute",
+              top: "8px",
+              left: project.color_tag ? "24px" : "8px",
+              background: "rgba(124, 58, 237, 0.9)",
+              backdropFilter: "blur(4px)",
+              borderRadius: "6px",
+              padding: "2px 7px",
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              color: "#FFFFFF",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              border: "1px solid rgba(167, 139, 250, 0.4)",
+              zIndex: 2,
+            }}
+          >
+            <span style={{ display: "inline-block", width: "6px", height: "6px", borderRadius: "50%", background: "#4ADE80" }} />
+            <span>{activeJob.progress}%</span>
+          </div>
+        )}
+
         {/* Tag de Cor Superior */}
         {project.color_tag && (
           <div
@@ -187,6 +215,24 @@ export default function ProjectCard({
           >
             {project.description}
           </p>
+        )}
+
+        {/* Barra de progresso ao vivo se este projeto estiver com corte/clonagem em andamento */}
+        {activeJob && (
+          <div style={{ margin: "0.2rem 0" }}>
+            <div className="bar" style={{ height: "4px", margin: 0, background: "rgba(255, 255, 255, 0.1)" }}>
+              <div
+                className="bar-fill"
+                style={{
+                  width: `${Math.max(activeJob.progress, 5)}%`,
+                  background: "linear-gradient(90deg, #8B5CF6, #EC4899)",
+                }}
+              />
+            </div>
+            <span style={{ fontSize: "0.68rem", color: "#c084fc", fontWeight: 600, display: "block", marginTop: "2px" }}>
+              ● Processando corte/clonagem ({activeJob.progress}%)
+            </span>
+          </div>
         )}
 
         <div style={{ marginTop: "auto", paddingTop: "0.6rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

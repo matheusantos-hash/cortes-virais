@@ -9,10 +9,10 @@ import type { Clip, Job, JobStatus, Project } from "@/lib/types";
 import NewJobForm from "./NewJobForm";
 import CopyStyleStudio from "./CopyStyleStudio";
 import ModeSelectorCards, { DashboardMode } from "./ModeSelectorCards";
-import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
+import JobProgressCard, { getStageDescription } from "./JobProgressCard";
 import {
   DownloadIcon,
   TrashIcon,
@@ -37,29 +37,6 @@ import {
   FolderKanban,
 } from "./Icons";
 
-function getStageDescription(status: JobStatus): string {
-  switch (status) {
-    case "queued":
-      return "Aguardando na fila de processamento do servidor…";
-    case "downloading":
-      return "Baixando vídeo fonte em alta qualidade com yt-dlp…";
-    case "transcribing":
-      return "Transcrevendo áudio e sincronizando falas com Deepgram AI…";
-    case "analyzing":
-      return "Claude Sonnet analisando ganchos virais e roteiro…";
-    case "cutting":
-      return "Renderizando cortes e sobrepondo B-rolls com FFmpeg…";
-    case "done":
-      return "Processamento concluído com sucesso!";
-    case "failed":
-      return "Falha durante o processamento.";
-    case "canceled":
-      return "Processamento cancelado pelo usuário.";
-    default:
-      return "Processando…";
-  }
-}
-
 export default function Dashboard({
   userId,
   initialJobs,
@@ -79,7 +56,6 @@ export default function Dashboard({
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
-  const [showTerminal, setShowTerminal] = useState(true);
 
   // Ativa automaticamente o modo Copiar Estilo se vier da URL ou do Editor de Cortes
   useEffect(() => {
@@ -282,8 +258,8 @@ export default function Dashboard({
     return () => clearInterval(t);
   }, [hasActive, refresh]);
 
-  // Primeiro job em andamento (para o painel de monitoramento ativo)
-  const activeJob = jobs.find((j) => !isFinal(j.status));
+  // Jobs em andamento (cortes e clonagens ativos)
+  const activeJobs = jobs.filter((j) => !isFinal(j.status));
 
   return (
     <div className="stack-lg">
@@ -312,82 +288,6 @@ export default function Dashboard({
 
         {/* COLUNA DIREITA (1fr): Monitor Ativo & Galeria de Clipes */}
         <section className="stack-lg" id="galeria-monitor">
-        {/* CARD DE PROGRESSO ATIVO (Aparece dinamicamente ao iniciar um corte) */}
-        {activeJob && (
-          <div className="card progress-card-active stack">
-            <div className="progress-header">
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="row" style={{ justifyContent: "flex-start", gap: "0.5rem", marginBottom: "0.3rem" }}>
-                  <span className="badge badge-queued" style={{ animation: "pulse-dot 2s infinite" }}>
-                    ● EM ANDAMENTO
-                  </span>
-                  <StatusBadge status={activeJob.status} />
-                </div>
-                <h3 className="ellipsis" style={{ fontSize: "1.2rem", margin: 0 }}>
-                  {jobTitle(activeJob)}
-                </h3>
-              </div>
-              <div className="progress-pct-huge">
-                {activeJob.progress}%
-              </div>
-            </div>
-
-            {/* Barra de Progresso Animada Neon */}
-            <div className="bar" style={{ height: "11px" }}>
-              <div className="bar-fill" style={{ width: `${Math.max(activeJob.progress, 5)}%` }} />
-            </div>
-
-            {/* Mensagem da Etapa Atual */}
-            <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-              <span className="stage-pill" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                <ActivityIcon size={14} style={{ color: "var(--primary)" }} /> {getStageDescription(activeJob.status)}
-              </span>
-
-              <div className="row" style={{ gap: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="btn btn-small btn-secondary"
-                  onClick={() => setShowTerminal(!showTerminal)}
-                  title="Exibir ou recolher saída do terminal PowerShell"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-                >
-                  {showTerminal ? (
-                    <>
-                      <ChevronUp size={14} /> Recolher Terminal
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown size={14} /> Mostrar Terminal
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-small btn-danger-outline"
-                  onClick={() => handleCancel(activeJob.id)}
-                  disabled={cancelingId === activeJob.id}
-                  title="Interromper processamento"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-                >
-                  <X size={14} />
-                  <span>{cancelingId === activeJob.id ? "Cancelando…" : "Cancelar Processo"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Console de Logs Estilo Terminal */}
-            {showTerminal && (
-              <div style={{ marginTop: "0.4rem" }}>
-                <PowerShellTerminal
-                  logs={activeJob.logs ?? []}
-                  status={activeJob.status}
-                  jobId={activeJob.id}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
         {/* SEÇÃO ESTILO CAPCUT: MEUS PROJETOS */}
         <section className="stack" id="meus-projetos">
           <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
@@ -438,6 +338,20 @@ export default function Dashboard({
               </button>
             </div>
           </div>
+
+          {/* STATUS DO CORTE E DA CLONAGEM (DENTRO DE MEUS PROJETOS) */}
+          {activeJobs.map((job) => {
+            const relatedProject = projects.find((p) => p.id === job.project_id);
+            return (
+              <JobProgressCard
+                key={job.id}
+                job={job}
+                onCancel={handleCancel}
+                canceling={cancelingId === job.id}
+                projectName={relatedProject?.name}
+              />
+            );
+          })}
 
           <div
             style={{
@@ -510,12 +424,15 @@ export default function Dashboard({
                 }
               });
 
+              const projActiveJob = jobs.find((j) => j.project_id === proj.id && !isFinal(j.status));
+
               return (
                 <ProjectCard
                   key={proj.id}
                   project={proj}
                   clipsCount={totalClips}
                   thumbnailUrl={firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null}
+                  activeJob={projActiveJob}
                   onDelete={handleDeleteProject}
                 />
               );

@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { deleteProjectAction } from "@/app/actions";
-import type { Project } from "@/lib/types";
+import { deleteProjectAction, cancelJob } from "@/app/actions";
+import type { Project, Job } from "@/lib/types";
+import { isFinal } from "@/lib/format";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
+import JobProgressCard from "./JobProgressCard";
 import {
   FolderKanban,
   Plus,
@@ -26,6 +28,8 @@ export default function ProjectsOverview({
 }: ProjectsOverviewProps) {
   const supabase = useMemo(() => createClient(), []);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -59,14 +63,54 @@ export default function ProjectsOverview({
       });
   }, [projects, supabase, urls]);
 
-  const refreshProjects = async () => {
-    const { data } = await supabase
-      .from("projects")
-      .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path))")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
-    if (data) setProjects(data as any);
-  };
+  const refreshData = useCallback(async () => {
+    const [{ data: pData }, { data: jData }] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("*, jobs:jobs(id, clips:clips!clips_job_id_fkey(id, file_path))")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("jobs")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+    if (pData) setProjects(pData as any);
+    if (jData) setJobs(jData as Job[]);
+  }, [supabase, userId]);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  // Polling auxiliar enquanto houver jobs ativos
+  const hasActive = jobs.some((j) => !isFinal(j.status));
+  useEffect(() => {
+    const intervalMs = hasActive ? 3000 : 15000;
+    const t = setInterval(refreshData, intervalMs);
+    return () => clearInterval(t);
+  }, [hasActive, refreshData]);
+
+  async function handleCancel(jobId: string) {
+    if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;
+    setCancelingId(jobId);
+    try {
+      const res = await cancelJob(jobId);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível cancelar: ${res.error}`);
+        return;
+      }
+      await refreshData();
+    } catch (err: any) {
+      alert(`Erro inesperado ao cancelar: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setCancelingId(null);
+    }
+  }
+
+  const activeJobs = jobs.filter((j) => !isFinal(j.status));
 
   async function handleDeleteProject(projectId: string) {
     if (!confirm("Deseja realmente excluir este projeto? Os vídeos associados ficarão desvinculados.")) return;
@@ -148,6 +192,20 @@ export default function ProjectsOverview({
           </button>
         </div>
       </div>
+
+      {/* STATUS DO CORTE E DA CLONAGEM (DENTRO DE MEUS PROJETOS) */}
+      {activeJobs.map((job) => {
+        const relatedProject = projects.find((p) => p.id === job.project_id);
+        return (
+          <JobProgressCard
+            key={job.id}
+            job={job}
+            onCancel={handleCancel}
+            canceling={cancelingId === job.id}
+            projectName={relatedProject?.name}
+          />
+        );
+      })}
 
       {/* Barra de Busca e Filtro */}
       <div
@@ -257,12 +315,15 @@ export default function ProjectsOverview({
             }
           });
 
+          const projActiveJob = jobs.find((j) => j.project_id === proj.id && !isFinal(j.status));
+
           return (
             <ProjectCard
               key={proj.id}
               project={proj}
               clipsCount={totalClips}
               thumbnailUrl={firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null}
+              activeJob={projActiveJob}
               onDelete={handleDeleteProject}
             />
           );
@@ -294,7 +355,7 @@ export default function ProjectsOverview({
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
           setIsCreateOpen(false);
-          refreshProjects();
+          refreshData();
         }}
       />
     </div>

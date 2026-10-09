@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { updateProjectAction, deleteUserClip } from "@/app/actions";
+import { updateProjectAction, deleteUserClip, cancelJob } from "@/app/actions";
 import type { Project, Job, Clip } from "@/lib/types";
 import { fmtDate, isFinal, fmtClock } from "@/lib/format";
 import ClipEditorModal from "./ClipEditorModal";
 import StatusBadge from "./StatusBadge";
 import NewJobForm from "./NewJobForm";
 import CopyStyleStudio from "./CopyStyleStudio";
+import JobProgressCard from "./JobProgressCard";
 import {
   ArrowLeft,
   Film,
@@ -142,6 +143,35 @@ export default function ProjectWorkspace({
     setDeletingClipId(null);
   }
 
+  // Cancelamento de processamento
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  async function handleCancel(jobId: string) {
+    if (!confirm("Tem certeza que deseja cancelar o processamento deste vídeo?")) return;
+    setCancelingId(jobId);
+    try {
+      const res = await cancelJob(jobId);
+      if (res && !res.success && res.error) {
+        alert(`Não foi possível cancelar: ${res.error}`);
+        return;
+      }
+      await refreshProjectData();
+    } catch (err: any) {
+      alert(`Erro inesperado ao cancelar: ${err?.message || "Tente novamente."}`);
+    } finally {
+      setCancelingId(null);
+    }
+  }
+
+  // Polling auxiliar enquanto houver job ativo
+  const hasActive = jobs.some((j) => !isFinal(j.status));
+  useEffect(() => {
+    const intervalMs = hasActive ? 3000 : 15000;
+    const t = setInterval(refreshProjectData, intervalMs);
+    return () => clearInterval(t);
+  }, [hasActive, refreshProjectData]);
+
+  const activeJobs = jobs.filter((j) => !isFinal(j.status));
+
   return (
     <div className="stack-lg">
       {/* Barra de Navegação Superior do Projeto */}
@@ -197,6 +227,17 @@ export default function ProjectWorkspace({
           <span className="muted small">Criado em {fmtDate(project.created_at)}</span>
         </div>
       </div>
+
+      {/* STATUS DO CORTE E DA CLONAGEM (DENTRO DO PROJETO) */}
+      {activeJobs.map((job) => (
+        <JobProgressCard
+          key={job.id}
+          job={job}
+          onCancel={handleCancel}
+          canceling={cancelingId === job.id}
+          projectName={project.name}
+        />
+      ))}
 
       {/* Abas Internas de Trabalho do Projeto (CapCut Style) */}
       <div className="segmented-control" style={{ maxWidth: "560px" }}>
@@ -259,19 +300,30 @@ export default function ProjectWorkspace({
               >
                 <Scissors size={28} />
               </div>
-              <h3 style={{ margin: "0 0 0.4rem", fontSize: "1.2rem" }}>Nenhum corte gerado ainda neste projeto</h3>
-              <p className="muted small" style={{ maxWidth: "420px", margin: "0 auto 1.25rem" }}>
-                Envie um vídeo bruto ou cole um link na aba <strong>"+ Adicionar Vídeo"</strong> para a IA extrair automaticamente os melhores momentos aqui dentro.
-              </p>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setActiveTab("novo_video")}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px", margin: "0 auto" }}
-              >
-                <Plus size={16} />
-                <span>Adicionar Primeiro Vídeo do Projeto</span>
-              </button>
+              {activeJobs.length > 0 ? (
+                <>
+                  <h3 style={{ margin: "0 0 0.4rem", fontSize: "1.2rem" }}>Processando corte ou clonagem para este projeto…</h3>
+                  <p className="muted small" style={{ maxWidth: "420px", margin: "0 auto" }}>
+                    A inteligência artificial está renderizando seus clipes. Acompanhe a etapa e o terminal no monitor acima!
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 style={{ margin: "0 0 0.4rem", fontSize: "1.2rem" }}>Nenhum corte gerado ainda neste projeto</h3>
+                  <p className="muted small" style={{ maxWidth: "420px", margin: "0 auto 1.25rem" }}>
+                    Envie um vídeo bruto ou cole um link na aba <strong>"+ Adicionar Vídeo"</strong> para a IA extrair automaticamente os melhores momentos aqui dentro.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setActiveTab("novo_video")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", margin: "0 auto" }}
+                  >
+                    <Plus size={16} />
+                    <span>Adicionar Primeiro Vídeo do Projeto</span>
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid-clips" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "1.25rem" }}>
