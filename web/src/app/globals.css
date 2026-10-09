@@ -1624,11 +1624,11 @@ button:disabled, .button:disabled {
 
 .mode-selector-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .mode-selector-grid {
     grid-template-columns: 1fr;
   }
@@ -1699,6 +1699,12 @@ button:disabled, .button:disabled {
   background: linear-gradient(135deg, #8B5CF6, #EC4899);
   color: #FFFFFF;
   box-shadow: 0 8px 16px rgba(236, 72, 153, 0.25);
+}
+
+.mode-card-icon-wrap.projects {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+  color: #FFFFFF;
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
 }
 
 .mode-card-badge {

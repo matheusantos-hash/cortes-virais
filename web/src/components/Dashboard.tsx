@@ -389,7 +389,7 @@ export default function Dashboard({
         )}
 
         {/* SEÇÃO ESTILO CAPCUT: MEUS PROJETOS */}
-        <section className="stack">
+        <section className="stack" id="meus-projetos">
           <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <div
@@ -412,21 +412,31 @@ export default function Dashboard({
               </span>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-primary btn-small"
-              onClick={() => setIsCreateProjectOpen(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-                fontWeight: 600,
-                boxShadow: "0 2px 10px rgba(99, 102, 241, 0.25)",
-              }}
-            >
-              <Plus size={15} />
-              <span>Novo Projeto</span>
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Link
+                href="/projetos"
+                className="btn btn-secondary btn-small"
+                style={{ display: "inline-flex", alignItems: "center", gap: "5px", textDecoration: "none" }}
+              >
+                <span>Ver Todos</span>
+                <ArrowRight size={13} />
+              </Link>
+              <button
+                type="button"
+                className="btn btn-primary btn-small"
+                onClick={() => setIsCreateProjectOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  fontWeight: 600,
+                  boxShadow: "0 2px 10px rgba(99, 102, 241, 0.25)",
+                }}
+              >
+                <Plus size={15} />
+                <span>Novo Projeto</span>
+              </button>
+            </div>
           </div>
 
           <div

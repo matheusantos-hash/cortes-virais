@@ -4,7 +4,7 @@ import { signOut } from "./actions";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
-import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon, HelpCircleIcon } from "@/components/Icons";
+import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon, HelpCircleIcon, FolderKanban } from "@/components/Icons";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
@@ -116,6 +116,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       <CoinsIcon size={12} /> {credits.toFixed(1)}m
                     </span>
                   ) : null}
+                  <Link href="/projetos" className="navlink-help" title="Meus Projetos" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                    <FolderKanban size={14} /> Projetos
+                  </Link>
                   <Link href="/ajuda" className="navlink-help" title="Central de Ajuda" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                     <HelpCircleIcon size={14} /> Ajuda
                   </Link>

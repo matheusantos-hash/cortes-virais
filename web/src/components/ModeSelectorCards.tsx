@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Scissors, Copy, Sparkles, Wand2, SlidersHorizontal, Film, ArrowRight } from "./Icons";
+import Link from "next/link";
+import { Scissors, Copy, Sparkles, Wand2, SlidersHorizontal, Film, ArrowRight, FolderKanban, FolderPlus } from "./Icons";
 
 export type DashboardMode = "cortes" | "copiar_estilo";
 
@@ -97,6 +98,49 @@ export default function ModeSelectorCards({ currentMode, onSelectMode }: ModeSel
             </div>
           </div>
         </button>
+
+        {/* CARD 3: MEUS PROJETOS */}
+        <Link
+          href="/projetos"
+          className="mode-card"
+          style={{ textDecoration: "none" }}
+        >
+          <div className="mode-card-top">
+            <div className="mode-card-icon-wrap projects">
+              <FolderKanban size={26} />
+            </div>
+            <span
+              className="mode-card-badge"
+              style={{
+                background: "rgba(16, 185, 129, 0.15)",
+                color: "#10B981",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+              }}
+            >
+              <FolderPlus size={12} style={{ marginRight: "3px" }} />
+              CapCut Workspace
+            </span>
+          </div>
+
+          <div className="mode-card-body">
+            <h3 className="mode-card-title">Meus Projetos</h3>
+            <p className="mode-card-desc">
+              Organize seus cortes em pastas dedicadas, acesse seus workspaces salvos e gerencie sua linha do tempo com facilidade.
+            </p>
+          </div>
+
+          <div className="mode-card-footer">
+            <div className="mode-card-tags">
+              <span>Pastas</span>
+              <span>Linha do Tempo</span>
+              <span>Workspace</span>
+            </div>
+            <div className="mode-card-action">
+              <span>Acessar Projetos</span>
+              <ArrowRight size={16} />
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
   );
