@@ -134,7 +134,7 @@ export default function EditStyleModal({
           const storagePath = `${userId}/references/train-${crypto.randomUUID()}-${safeName(file.name)}`;
           
           try {
-            if (session && file.size > RESUMABLE_FROM_BYTES) {
+            if (session?.access_token && file.size > RESUMABLE_FROM_BYTES) {
               await uploadResumable({
                 accessToken: session.access_token,
                 bucket: "sources",
@@ -145,11 +145,14 @@ export default function EditStyleModal({
                   setSaveProgress(15 + Math.round(part * 0.45));
                 },
               });
-            } else if (session) {
-              await supabase.storage.from("sources").upload(storagePath, file, {
+            } else {
+              const { error: upErr } = await supabase.storage.from("sources").upload(storagePath, file, {
                 contentType: file.type || "video/mp4",
                 upsert: true,
               });
+              if (upErr) {
+                console.warn("Aviso no upload padrão do vídeo de treino:", upErr.message);
+              }
             }
           } catch (uploadErr) {
             console.warn("Aviso de upload do vídeo de treino (continuando com metadados locais):", uploadErr);

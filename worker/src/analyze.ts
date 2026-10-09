@@ -187,7 +187,10 @@ export async function findCandidates(
   // max_tokens deve cobrir obrigatoriamente budgetTokens + outputTokensReserve para evitar truncamento silencioso
   const dynamicMaxTokens = budgetTokens + outputTokensReserve;
 
-  const model = process.env.CLAUDE_MODEL ?? (useThinking ? "claude-3-7-sonnet-20250219" : "claude-sonnet-5-5");
+  const modelEnv = process.env.CLAUDE_MODEL?.trim();
+  const model = modelEnv && modelEnv !== "claude-sonnet-5-5"
+    ? modelEnv
+    : (useThinking ? "claude-3-7-sonnet-20250219" : "claude-3-5-sonnet-20241022");
 
   const createParams: any = {
     model,

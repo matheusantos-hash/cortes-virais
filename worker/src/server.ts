@@ -423,9 +423,15 @@ async function processJob(job: Job) {
       const originalFileName = job.file_name || (job.source_path ? path.basename(job.source_path) : (remoteStreamUrl ? "box_video.mp4" : "source.mp4"));
       sourceMeta = await probeSource(mediaToProbe, originalFileName);
       seconds = sourceMeta.durationSec;
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        throw new Error("Duração inválida do sourceMeta");
+      }
     } catch {
       try {
         seconds = await probeDuration(mediaToProbe);
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+          throw new Error("Duração inválida do probeDuration");
+        }
       } catch {
         throw new UserError("O arquivo de vídeo não parece ser válido ou acessível.");
       }
@@ -497,11 +503,14 @@ async function processJob(job: Job) {
 
     // Adaptação inteligente: se o vídeo for mais curto do que o mínimo configurado no preset
     if (seconds <= minSeconds) {
+      maxSeconds = Math.max(5, Math.ceil(seconds));
+      minSeconds = Math.max(3, Math.min(maxSeconds - 1, Math.floor(seconds * 0.5)));
+      if (minSeconds >= maxSeconds) {
+        minSeconds = Math.max(1, maxSeconds - 1);
+      }
       await pushLog(
-        `[ADAPTAÇÃO] A duração do vídeo (${seconds.toFixed(1)}s) é menor que o corte mínimo solicitado (${minSeconds}s). Ajustando duração automaticamente para 5s a ${Math.ceil(seconds)}s.`
+        `[ADAPTAÇÃO] A duração do vídeo (${seconds.toFixed(1)}s) é menor que o corte mínimo solicitado. Ajustando duração automaticamente para ${minSeconds}s a ${maxSeconds}s.`
       );
-      minSeconds = Math.max(5, Math.min(10, Math.floor(seconds * 0.5)));
-      maxSeconds = Math.ceil(seconds);
     } else if (seconds < maxSeconds) {
       maxSeconds = Math.ceil(seconds);
     }

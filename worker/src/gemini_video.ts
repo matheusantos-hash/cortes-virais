@@ -132,7 +132,8 @@ export async function analyzeVideoVisuals(args: {
   if (signal?.aborted) throw new Error("Análise cancelada pelo usuário");
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_VIDEO_MODEL || "gemini-3.7-flash";
+  const rawModel = process.env.GEMINI_VIDEO_MODEL?.trim();
+  const model = rawModel && rawModel !== "gemini-3.7-flash" ? rawModel : "gemini-2.5-flash";
 
   onLog?.(`[GEMINI VISION] Enviando preview otimizado para o Google AI Studio (${model})...`);
 

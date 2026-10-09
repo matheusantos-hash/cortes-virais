@@ -44,7 +44,8 @@ export async function transcribeWithGemini(
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const rawModel = process.env.GEMINI_MODEL?.trim();
+  const model = rawModel && rawModel !== "gemini-3.8-flash" ? rawModel : "gemini-2.5-flash";
 
   onLog?.(`[GEMINI PRO] Iniciando upload e preparação de áudio para o modelo ${model}...`);
 

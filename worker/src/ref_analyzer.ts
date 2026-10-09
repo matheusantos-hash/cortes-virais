@@ -228,7 +228,10 @@ Responda SOMENTE o JSON puro, sem markdown e sem explicações adicionais:
       { type: "text", text: prompt },
     ];
 
-    const modelName = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
+    const modelEnv = process.env.CLAUDE_MODEL?.trim();
+    const modelName = modelEnv && modelEnv !== "claude-sonnet-5-5"
+      ? modelEnv
+      : "claude-3-5-sonnet-20241022";
     const res = await anthropic.messages.create({
       model: modelName,
       max_tokens: 1500,

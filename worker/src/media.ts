@@ -249,16 +249,18 @@ export async function resolveBoxDirectUrl(rawUrl: string, signal?: AbortSignal):
     }
   }
 
-  // Fallback: se não conseguiu via endpoint acima, tenta fetch com follow de redirects para pegar a URL final
-  const res = await fetch(rawUrl, {
-    method: "HEAD",
-    redirect: "follow",
-    signal,
-    headers: { "User-Agent": "Mozilla/5.0" },
-  });
-  if (res.url && res.url !== rawUrl) {
-    return res.url;
-  }
+  // Fallback: se não conseguiu via endpoint acima, tenta pegar a URL final
+  try {
+    const res = await fetch(rawUrl, {
+      method: "HEAD",
+      redirect: "follow",
+      signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    });
+    if (res.url && res.url !== rawUrl) {
+      return res.url;
+    }
+  } catch {}
 
   throw new Error("Não foi possível resolver o link de streaming direto do Box.com.");
 }
@@ -274,6 +276,8 @@ export async function downloadVideoSegment(
   signal?: AbortSignal,
   onLog?: (line: string) => void
 ): Promise<void> {
+  const isHttp = /^https?:\/\//i.test(remoteUrl);
+  const userAgentArgs = isHttp ? ["-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"] : [];
   await run(
     "ffmpeg",
     [
@@ -281,6 +285,7 @@ export async function downloadVideoSegment(
       "-loglevel",
       "error",
       "-y",
+      ...userAgentArgs,
       "-ss",
       startSec.toFixed(3),
       "-i",
@@ -368,10 +373,13 @@ export async function downloadVideo(url: string, outPath: string, signal?: Abort
 
 /** Extrai só o áudio (mono, leve) para mandar à transcrição. */
 export async function extractAudio(videoPath: string, audioPath: string, signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
+  const isHttp = /^https?:\/\//i.test(videoPath);
+  const userAgentArgs = isHttp ? ["-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"] : [];
   await run(
     "ffmpeg",
     [
       "-hide_banner", "-loglevel", "error", "-y",
+      ...userAgentArgs,
       "-threads", "2",
       "-i", videoPath,
       "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k",
@@ -799,10 +807,12 @@ export async function cutClip(opts: {
 
 /** Duração do vídeo em segundos (usa o ffprobe, que vem junto com o ffmpeg). */
 export function probeDuration(file: string): Promise<number> {
+  const isHttp = /^https?:\/\//i.test(file);
+  const extraArgs = isHttp ? ["-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"] : [];
   return new Promise((resolve, reject) => {
     execFile(
       "ffprobe",
-      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
+      ["-v", "error", ...extraArgs, "-show_entries", "format=duration", "-of", "csv=p=0", file],
       (err, stdout) => {
         if (err) return reject(new Error(`ffprobe falhou: ${err.message}`));
         const n = parseFloat(stdout.trim());
@@ -841,10 +851,12 @@ function snapRate(fps: number): [number, number] {
  * Necessários para que a timeline exportada (XML/EDL) bata frame a frame e reconecte na mídia original.
  */
 export function probeSource(file: string, fileName: string): Promise<import("./types.js").SourceMeta> {
+  const isHttp = /^https?:\/\//i.test(file);
+  const extraArgs = isHttp ? ["-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"] : [];
   return new Promise((resolve, reject) => {
     execFile(
       "ffprobe",
-      ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", file],
+      ["-v", "error", ...extraArgs, "-print_format", "json", "-show_streams", "-show_format", file],
       { maxBuffer: 16 * 1024 * 1024 },
       (err, stdout) => {
         if (err) return reject(new Error(`ffprobe falhou: ${err.message}`));
