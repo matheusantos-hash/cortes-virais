@@ -1,9 +1,11 @@
 # Worker de cortes virais — imagem para o Railway
 FROM node:22-bookworm-slim
 
-# ffmpeg (cortes) + python3 (o yt-dlp precisa) + curl/certificados
+# ffmpeg (cortes) + python3 (o yt-dlp precisa) + curl/certificados + fontes para legendas (libass)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg python3 curl ca-certificates \
+ && apt-get install -y --no-install-recommends \
+    ffmpeg python3 curl ca-certificates \
+    fontconfig fonts-liberation fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
 # yt-dlp (versão mais recente na hora do build; reconstrua a imagem de vez em quando para atualizar)

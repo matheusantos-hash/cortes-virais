@@ -127,7 +127,7 @@ export async function generateViralAssSubtitles(params: {
   let primaryColor = hexToAssColor(opts.primaryColor, "&H00FFFFFF&"); // Branco
   let outlineColor = hexToAssColor(opts.outlineColor, "&H00000000&"); // Preto
   let backColor = "&H80000000&";
-  let fontName = opts.fontName ?? "DejaVu Sans, Liberation Sans, Arial";
+  let fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
   let maxWordsPerLine = opts.maxWordsPerLine ?? 3;
   let marginV = opts.marginV ?? 420;
   let outlineWidth = 6;
@@ -139,7 +139,7 @@ export async function generateViralAssSubtitles(params: {
   switch (styleType) {
     case "apple":
       fontSize = fontSize ?? 58;
-      fontName = "DejaVu Sans, Liberation Sans, Arial, Helvetica";
+      fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H00FFA834&"; // Azul celeste Apple / Cyan moderno
       outlineWidth = 3;
       shadowDepth = 4;
@@ -149,7 +149,7 @@ export async function generateViralAssSubtitles(params: {
 
     case "beast":
       fontSize = fontSize ?? 74;
-      fontName = "DejaVu Sans, Liberation Sans, Impact, Arial Black";
+      fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : BEAST_COLORS[0];
       outlineWidth = 8;
       shadowDepth = 4;
@@ -160,7 +160,7 @@ export async function generateViralAssSubtitles(params: {
 
     case "minimal":
       fontSize = fontSize ?? 52;
-      fontName = "DejaVu Sans, Liberation Sans, Arial";
+      fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&";
       outlineWidth = 3;
       shadowDepth = 2;
@@ -172,18 +172,13 @@ export async function generateViralAssSubtitles(params: {
     case "hormozi":
     default:
       fontSize = fontSize ?? 70;
-      fontName = "DejaVu Sans, Liberation Sans, Impact, Arial Black";
+      fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&"; // Amarelo clássico Hormozi
       outlineWidth = 7;
       shadowDepth = 3;
       marginV = opts.marginV ?? 420;
       scaleActive = 114;
       break;
-  }
-
-  // Se uma fonte customizada for fornecida, prioriza seu nome com fallbacks do sistema
-  if (opts.fontName) {
-    fontName = `${opts.fontName}, DejaVu Sans, Liberation Sans, Arial`;
   }
 
   const header = `[Script Info]
