@@ -138,7 +138,17 @@ export default function NewJobForm({
   // Opções de "Copiar Estilo" (Vídeo de Referência + Higgsfield AI)
   const [copyStyle, setCopyStyle] = useState(false);
   const [refSourceType, setRefSourceType] = useState<"saved" | "custom_video">("saved");
-  const [userSavedRefs, setUserSavedRefs] = useState<{ id: string; name: string; style_category?: string; design_instructions?: string; reference_path?: string }[]>([]);
+  const [userSavedRefs, setUserSavedRefs] = useState<{
+    id: string;
+    name: string;
+    style_category?: string;
+    design_instructions?: string;
+    reference_path?: string;
+    subtitle_style?: string;
+    custom_font_name?: string | null;
+    custom_font_path?: string | null;
+    manual_adjustments?: any;
+  }[]>([]);
   const [refMode, setRefMode] = useState<"upload" | "link">("upload");
   const [refUrl, setRefUrl] = useState("");
   const [refFile, setRefFile] = useState<File | null>(null);
@@ -149,12 +159,12 @@ export default function NewJobForm({
     const supabase = createClient();
     supabase
       .from("saved_references")
-      .select("id, name, style_category, design_instructions, reference_path")
+      .select("id, name, style_category, design_instructions, reference_path, subtitle_style, custom_font_name, custom_font_path, manual_adjustments")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         if (data && data.length > 0) {
-          setUserSavedRefs(data);
+          setUserSavedRefs(data as any);
           setRefStyle(data[0].name);
         }
       });
@@ -311,13 +321,15 @@ export default function NewJobForm({
       }
     }
 
+    const refManualAdj = copyStyle && refSourceType === "saved" ? selectedUserRef?.manual_adjustments : null;
+
     const payload: Record<string, any> = {
       user_id: userId,
       ...(projectId ? { project_id: projectId } : {}),
       ...source,
       file_name: mode === "upload" && file ? file.name : null,
       orientation,
-      vertical_mode: orientation === "vertical" ? verticalMode : "crop",
+      vertical_mode: orientation === "vertical" ? (refManualAdj?.camera?.verticalMode || verticalMode) : "crop",
       crop_x: cropPct / 100,
       clip_count: clipCount,
       min_seconds: minSeconds,
@@ -328,15 +340,18 @@ export default function NewJobForm({
       reference_path: copyStyle && refSourceType === "custom_video" ? refPath : (copyStyle && refSourceType === "saved" ? (selectedUserRef?.reference_path || null) : null),
       reference_style: copyStyle ? refStyle : null,
       design_instructions: copyStyle ? (designInstructions.trim() || selectedUserRef?.design_instructions || null) : null,
+      custom_font_name: copyStyle && refSourceType === "saved" ? (selectedUserRef?.custom_font_name || null) : null,
+      custom_font_path: copyStyle && refSourceType === "saved" ? (selectedUserRef?.custom_font_path || null) : null,
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
-      subtitle_style: subtitleStyle,
+      subtitle_style: copyStyle && refSourceType === "saved" && selectedUserRef?.subtitle_style ? selectedUserRef.subtitle_style : subtitleStyle,
       transcription_provider: transcriptionProvider,
       enable_sfx: enableSfx,
       enable_emojis: enableEmojis,
       enable_visual_analysis: enableVisualAnalysis,
       enable_extended_thinking: enableExtendedThinking,
       manual_adjustments: {
+        ...(refManualAdj || {}),
         aiCuration: {
           enableVisualAnalysis,
           enableExtendedThinking,
