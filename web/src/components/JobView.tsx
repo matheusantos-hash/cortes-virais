@@ -459,6 +459,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
         <ClipEditorModal
           clip={editingClip}
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
+          userId={job.user_id}
+          projectId={job.project_id || undefined}
           onClose={() => setEditingClip(null)}
           onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls) => {
             const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls);

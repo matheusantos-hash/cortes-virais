@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { updateProjectAction, deleteUserClip, cancelJob } from "@/app/actions";
-import type { Project, Job, Clip } from "@/lib/types";
+import { updateProjectAction, deleteUserClip, cancelJob, requestClipTrimAction, saveClipCanvasBrollsAction } from "@/app/actions";
+import type { Project, Job, Clip, CanvasBroll } from "@/lib/types";
 import { fmtDate, isFinal, fmtClock } from "@/lib/format";
 import ClipEditorModal from "./ClipEditorModal";
 import StatusBadge from "./StatusBadge";
@@ -521,9 +521,23 @@ export default function ProjectWorkspace({
         <ClipEditorModal
           clip={editingClip}
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
+          userId={userId}
+          projectId={project.id}
           onClose={() => setEditingClip(null)}
-          onUpdateClipTime={() => refreshProjectData()}
-          onSaveCanvasBrolls={() => refreshProjectData()}
+          onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls) => {
+            const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls);
+            if (!res.success) {
+              throw new Error(res.error || "Falha ao ajustar corte.");
+            }
+            await refreshProjectData();
+          }}
+          onSaveCanvasBrolls={async (clipId, brolls) => {
+            const res = await saveClipCanvasBrollsAction(clipId, brolls);
+            if (!res.success) {
+              throw new Error(res.error || "Falha ao salvar b-rolls.");
+            }
+            await refreshProjectData();
+          }}
         />
       )}
     </div>
