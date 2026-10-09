@@ -277,38 +277,61 @@ export async function downloadVideoSegment(
   onLog?: (line: string) => void
 ): Promise<void> {
   const isHttp = /^https?:\/\//i.test(remoteUrl);
-  const userAgentArgs = isHttp ? ["-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"] : [];
-  await run(
-    "ffmpeg",
-    [
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-y",
-      ...userAgentArgs,
-      "-ss",
-      startSec.toFixed(3),
-      "-i",
-      remoteUrl,
-      "-t",
-      durationSec.toFixed(3),
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "18",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "160k",
-      "-avoid_negative_ts",
-      "make_zero",
-      outPath,
-    ],
-    signal,
-    onLog
-  );
+  const userAgentArgs = isHttp
+    ? [
+        "-reconnect", "1",
+        "-reconnect_streamed", "1",
+        "-reconnect_delay_max", "5",
+        "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      ]
+    : [];
+
+  const baseArgs = [
+    "-hide_banner",
+    "-loglevel", "error",
+    "-y",
+    "-threads", "1",
+    "-filter_threads", "1",
+    ...userAgentArgs,
+    "-ss", startSec.toFixed(3),
+    "-i", remoteUrl,
+    "-t", durationSec.toFixed(3),
+  ];
+
+  try {
+    // 1ª Tentativa: Encode leve e econômico (1 thread, ultrafast, CRF 22) para máxima precisão frame-accurate
+    await run(
+      "ffmpeg",
+      [
+        ...baseArgs,
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "22",
+        "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
+        "-c:a", "aac",
+        "-b:a", "160k",
+        "-avoid_negative_ts", "make_zero",
+        outPath,
+      ],
+      signal,
+      onLog
+    );
+  } catch (err: any) {
+    if (signal?.aborted) throw err;
+    onLog?.(`[BOX ON-DEMAND] Encode leve encontrou limitação de memória (${err?.message || "erro"}). Alternando para extração direta por stream copy...`);
+    // 2ª Tentativa: Stream copy direto da nuvem (zero re-encode, ~10MB RAM, imune a OOM)
+    await run(
+      "ffmpeg",
+      [
+        ...baseArgs,
+        "-c", "copy",
+        "-avoid_negative_ts", "make_zero",
+        outPath,
+      ],
+      signal,
+      onLog
+    );
+  }
 }
 
 let cookiesFilePath: string | null = null;
