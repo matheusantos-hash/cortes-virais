@@ -25,6 +25,7 @@ import {
   ChevronRight,
   EyeIcon,
   EyeOffIcon,
+  Lightbulb,
 } from "./Icons";
 
 interface ClipEditorModalProps {
@@ -835,11 +836,14 @@ export default function ClipEditorModal({
                         fontSize: "0.75rem",
                         fontWeight: 800,
                         color: "#FFE600",
-                        display: "block",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
                         marginBottom: "0.4rem",
                       }}
                     >
-                      💡 Sugestões Identificadas pela IA:
+                      <Lightbulb size={14} style={{ color: "#FFE600" }} />
+                      Sugestões Identificadas pela IA:
                     </span>
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxHeight: "160px", overflowY: "auto" }}>
                       {suggestions.map((s, idx) => {

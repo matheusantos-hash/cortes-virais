@@ -43,6 +43,8 @@ import {
   Clock,
   FileText,
   BarChart3,
+  CheckCircle2,
+  RefreshCw,
   Smartphone,
   Monitor,
   Square,
@@ -1960,42 +1962,65 @@ export default function CopyStyleStudio({
           {sourceClip ? (
             <div
               style={{
-                background: "rgba(0, 240, 255, 0.08)",
-                border: "1px solid rgba(0, 240, 255, 0.4)",
-                borderRadius: "12px",
-                padding: "1rem",
+                background: "linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)",
+                border: "1px solid rgba(6, 182, 212, 0.35)",
+                borderRadius: "14px",
+                padding: "1rem 1.15rem",
                 display: "flex",
                 flexDirection: "column",
                 gap: "0.6rem",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", minWidth: 0, flex: 1 }}>
                   <div
                     style={{
-                      width: "42px",
-                      height: "42px",
-                      borderRadius: "10px",
-                      background: "rgba(0, 240, 255, 0.2)",
+                      width: "44px",
+                      height: "44px",
+                      borderRadius: "12px",
+                      background: "linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(59, 130, 246, 0.2))",
+                      border: "1px solid rgba(6, 182, 212, 0.4)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#00F0FF",
-                      boxShadow: "0 0 12px rgba(0, 240, 255, 0.3)",
+                      color: "#22d3ee",
+                      boxShadow: "0 0 16px rgba(6, 182, 212, 0.25)",
+                      flexShrink: 0,
                     }}
                   >
                     <Film size={22} />
                   </div>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#00F0FF", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                      ★ Corte Pré-Selecionado #{sourceClip.position || "1"}
-                    </span>
-                    <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--text)" }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          color: "#22d3ee",
+                          background: "rgba(6, 182, 212, 0.15)",
+                          border: "1px solid rgba(6, 182, 212, 0.3)",
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        <Sparkles size={11} />
+                        Corte Pré-Selecionado #{sourceClip.position || "1"}
+                      </span>
+                    </div>
+                    <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {sourceClip.title}
                     </strong>
-                    <span className="muted small" style={{ fontSize: "0.76rem" }}>
-                      ✓ Vídeo já disponível no servidor (Zero tempo de upload necessário)
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
+                      <CheckCircle2 size={13} style={{ color: "#10b981", flexShrink: 0 }} />
+                      <span className="muted small" style={{ fontSize: "0.76rem" }}>
+                        Vídeo já disponível no servidor (Zero tempo de upload necessário)
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -2003,9 +2028,17 @@ export default function CopyStyleStudio({
                   type="button"
                   onClick={handleClearSourceClip}
                   className="btn btn-secondary btn-small"
-                  style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+                  style={{
+                    fontSize: "0.78rem",
+                    padding: "0.4rem 0.75rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    borderRadius: "8px",
+                  }}
                   title="Trocar vídeo e escolher outro arquivo ou link"
                 >
+                  <RefreshCw size={13} />
                   Trocar Vídeo
                 </button>
               </div>

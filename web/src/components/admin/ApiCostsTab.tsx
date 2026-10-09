@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Search,
+  Lightbulb,
 } from "lucide-react";
 
 interface Props {
@@ -670,8 +671,11 @@ export default function ApiCostsTab({ jobs, users }: Props) {
             })}
           </div>
 
-          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "var(--text-muted)", background: "var(--bg-subtle)", padding: 12, borderRadius: 8 }}>
-            💡 <strong>Dica de Precificação:</strong> Se o seu plano PRO custa R$ 59,90/mês e dá direito a 15 vídeos, seu custo de API será de ~R$ 4,50, gerando uma margem bruta superior a <strong>90%</strong>.
+          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "var(--text-muted)", background: "var(--bg-subtle)", padding: 12, borderRadius: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Lightbulb size={16} style={{ color: "var(--primary)", flexShrink: 0, marginTop: 1 }} />
+            <span>
+              <strong>Dica de Precificação:</strong> Se o seu plano PRO custa R$ 59,90/mês e dá direito a 15 vídeos, seu custo de API será de ~R$ 4,50, gerando uma margem bruta superior a <strong>90%</strong>.
+            </span>
           </div>
         </div>
       </div>

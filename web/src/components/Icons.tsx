@@ -69,6 +69,14 @@ import {
   Plus,
   FolderKanban,
   FolderPlus,
+  Lightbulb,
+  CheckCircle2,
+  RefreshCw,
+  ArrowRightLeft,
+  Star,
+  Info,
+  Clapperboard,
+  Tag,
   type LucideProps,
 } from "lucide-react";
 
@@ -143,6 +151,14 @@ export {
   Plus,
   FolderKanban,
   FolderPlus,
+  Lightbulb,
+  CheckCircle2,
+  RefreshCw,
+  ArrowRightLeft,
+  Star,
+  Info,
+  Clapperboard,
+  Tag,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores

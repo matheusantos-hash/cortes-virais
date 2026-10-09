@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { createProjectAction } from "@/app/actions";
-import { FolderPlus, X, Sparkles, Check } from "./Icons";
+import { FolderPlus, X, Sparkles, Check, Palette } from "./Icons";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -161,29 +161,48 @@ export default function CreateProjectModal({
           </div>
 
           <div>
-            <label className="field-label" style={{ marginBottom: "0.4rem" }}>
-              Etiqueta de Cor do Projeto:
+            <label className="field-label" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "0.5rem" }}>
+              <Palette size={14} style={{ color: "var(--primary)" }} />
+              <strong>Etiqueta de Cor do Projeto:</strong>
             </label>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              {COLOR_OPTIONS.map((col) => (
-                <button
-                  key={col.hex}
-                  type="button"
-                  onClick={() => setColorTag(col.hex)}
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "50%",
-                    background: col.hex,
-                    border: colorTag === col.hex ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
-                    cursor: "pointer",
-                    outline: colorTag === col.hex ? `2px solid ${col.hex}` : "none",
-                    boxShadow: colorTag === col.hex ? `0 0 10px ${col.hex}` : "none",
-                    transition: "all 0.15s ease",
-                  }}
-                  title={col.name}
-                />
-              ))}
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", padding: "4px 2px" }}>
+              {COLOR_OPTIONS.map((col) => {
+                const isSelected = colorTag === col.hex;
+                return (
+                  <button
+                    key={col.hex}
+                    type="button"
+                    onClick={() => setColorTag(col.hex)}
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      background: col.hex,
+                      border: isSelected ? "2px solid #ffffff" : "2px solid rgba(255, 255, 255, 0.15)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: isSelected
+                        ? `0 0 0 2px var(--background, #0f172a), 0 0 0 4px ${col.hex}, 0 4px 12px ${col.hex}66`
+                        : "0 2px 5px rgba(0, 0, 0, 0.25)",
+                      transform: isSelected ? "scale(1.08)" : "scale(1)",
+                      transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                    }}
+                    title={`${col.name} (${col.hex})`}
+                    aria-label={col.name}
+                  >
+                    {isSelected && (
+                      <Check
+                        size={16}
+                        strokeWidth={3}
+                        color="#ffffff"
+                        style={{ filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6))" }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

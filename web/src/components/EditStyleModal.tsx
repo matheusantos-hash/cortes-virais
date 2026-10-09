@@ -26,6 +26,10 @@ import {
   User,
   Users,
   Columns,
+  Lightbulb,
+  Clapperboard,
+  TrendingUp,
+  CheckCircle2,
 } from "./Icons";
 
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024;
@@ -337,8 +341,8 @@ export default function EditStyleModal({
         <form onSubmit={handleSubmit} style={{ overflowY: "auto", flex: 1, paddingRight: "4px" }}>
           {/* CAMPO 1: RENOMEAR O ESTILO */}
           <div style={{ marginBottom: "1.2rem" }}>
-            <label className="field-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Pencil size={14} style={{ color: "var(--primary)" }} />
+            <label className="field-label" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.4rem" }}>
+              <Pencil size={15} style={{ color: "var(--primary)" }} />
               <strong>Nome do Estilo:</strong>
             </label>
             <input
@@ -355,12 +359,26 @@ export default function EditStyleModal({
 
           {/* CAMPO 2: FORMATO PADRÃO DE SAÍDA (PROPORÇÃO DO VÍDEO) */}
           <div style={{ marginBottom: "1.2rem" }}>
-            <label className="field-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Monitor size={14} style={{ color: "var(--primary)" }} />
+            <label className="field-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Monitor size={15} style={{ color: "var(--primary)" }} />
                 <strong>Padrão Formato de Saída (Proporção):</strong>
               </span>
-              <span className="badge badge-accent" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
+              <span
+                style={{
+                  fontSize: "0.74rem",
+                  padding: "0.2rem 0.65rem",
+                  borderRadius: "999px",
+                  fontWeight: 700,
+                  background: "rgba(139, 92, 246, 0.18)",
+                  color: "var(--primary, #a855f7)",
+                  border: "1px solid rgba(139, 92, 246, 0.35)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
+              >
+                <Sparkles size={11} />
                 {resolution === "1920x1080"
                   ? "16:9 Horizontal"
                   : resolution === "1080x1080"
@@ -371,232 +389,344 @@ export default function EditStyleModal({
               </span>
             </label>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.5rem", marginTop: "0.4rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.6rem", marginTop: "0.4rem" }}>
               <div
                 className={`selection-card ${resolution === "1080x1920" ? "active" : ""}`}
                 onClick={() => !isSaving && setResolution("1080x1920")}
                 style={{
-                  padding: "0.65rem 0.5rem",
-                  border: resolution === "1080x1920" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                  borderRadius: "8px",
+                  padding: "0.85rem 0.6rem",
+                  border: resolution === "1080x1920" ? "2px solid var(--primary, #8b5cf6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "12px",
                   cursor: isSaving ? "not-allowed" : "pointer",
-                  background: resolution === "1080x1920" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  background: resolution === "1080x1920" ? "linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(56, 189, 248, 0.12))" : "rgba(15, 23, 42, 0.45)",
+                  boxShadow: resolution === "1080x1920" ? "0 0 16px rgba(139, 92, 246, 0.25)" : "none",
                   textAlign: "center",
-                  transition: "all 0.2s ease",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
-                <Smartphone size={20} style={{ color: resolution === "1080x1920" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Vertical 9:16</strong>
-                <small className="muted" style={{ fontSize: "0.68rem" }}>TikTok / Reels / Shorts</small>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    margin: "0 auto 6px",
+                    background: resolution === "1080x1920" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.05)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: resolution === "1080x1920" ? "var(--primary)" : "var(--muted)",
+                  }}
+                >
+                  <Smartphone size={20} />
+                </div>
+                <strong style={{ display: "block", fontSize: "0.84rem", color: resolution === "1080x1920" ? "var(--text)" : "var(--text-muted)" }}>Vertical 9:16</strong>
+                <small className="muted" style={{ fontSize: "0.69rem" }}>TikTok / Reels / Shorts</small>
               </div>
 
               <div
                 className={`selection-card ${resolution === "1920x1080" ? "active" : ""}`}
                 onClick={() => !isSaving && setResolution("1920x1080")}
                 style={{
-                  padding: "0.65rem 0.5rem",
-                  border: resolution === "1920x1080" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                  borderRadius: "8px",
+                  padding: "0.85rem 0.6rem",
+                  border: resolution === "1920x1080" ? "2px solid var(--primary, #8b5cf6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "12px",
                   cursor: isSaving ? "not-allowed" : "pointer",
-                  background: resolution === "1920x1080" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  background: resolution === "1920x1080" ? "linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(56, 189, 248, 0.12))" : "rgba(15, 23, 42, 0.45)",
+                  boxShadow: resolution === "1920x1080" ? "0 0 16px rgba(139, 92, 246, 0.25)" : "none",
                   textAlign: "center",
-                  transition: "all 0.2s ease",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
-                <Monitor size={20} style={{ color: resolution === "1920x1080" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Horizontal 16:9</strong>
-                <small className="muted" style={{ fontSize: "0.68rem" }}>YouTube / Widescreen</small>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    margin: "0 auto 6px",
+                    background: resolution === "1920x1080" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.05)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: resolution === "1920x1080" ? "var(--primary)" : "var(--muted)",
+                  }}
+                >
+                  <Monitor size={20} />
+                </div>
+                <strong style={{ display: "block", fontSize: "0.84rem", color: resolution === "1920x1080" ? "var(--text)" : "var(--text-muted)" }}>Horizontal 16:9</strong>
+                <small className="muted" style={{ fontSize: "0.69rem" }}>YouTube / Widescreen</small>
               </div>
 
               <div
                 className={`selection-card ${resolution === "1080x1080" ? "active" : ""}`}
                 onClick={() => !isSaving && setResolution("1080x1080")}
                 style={{
-                  padding: "0.65rem 0.5rem",
-                  border: resolution === "1080x1080" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                  borderRadius: "8px",
+                  padding: "0.85rem 0.6rem",
+                  border: resolution === "1080x1080" ? "2px solid var(--primary, #8b5cf6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "12px",
                   cursor: isSaving ? "not-allowed" : "pointer",
-                  background: resolution === "1080x1080" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  background: resolution === "1080x1080" ? "linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(56, 189, 248, 0.12))" : "rgba(15, 23, 42, 0.45)",
+                  boxShadow: resolution === "1080x1080" ? "0 0 16px rgba(139, 92, 246, 0.25)" : "none",
                   textAlign: "center",
-                  transition: "all 0.2s ease",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
-                <Square size={19} style={{ color: resolution === "1080x1080" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Quadrado 1:1</strong>
-                <small className="muted" style={{ fontSize: "0.68rem" }}>Feed Instagram / Social</small>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    margin: "0 auto 6px",
+                    background: resolution === "1080x1080" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.05)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: resolution === "1080x1080" ? "var(--primary)" : "var(--muted)",
+                  }}
+                >
+                  <Square size={19} />
+                </div>
+                <strong style={{ display: "block", fontSize: "0.84rem", color: resolution === "1080x1080" ? "var(--text)" : "var(--text-muted)" }}>Quadrado 1:1</strong>
+                <small className="muted" style={{ fontSize: "0.69rem" }}>Feed Instagram / Social</small>
               </div>
 
               <div
                 className={`selection-card ${resolution === "2160x3840" ? "active" : ""}`}
                 onClick={() => !isSaving && setResolution("2160x3840")}
                 style={{
-                  padding: "0.65rem 0.5rem",
-                  border: resolution === "2160x3840" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                  borderRadius: "8px",
+                  padding: "0.85rem 0.6rem",
+                  border: resolution === "2160x3840" ? "2px solid var(--primary, #8b5cf6)" : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "12px",
                   cursor: isSaving ? "not-allowed" : "pointer",
-                  background: resolution === "2160x3840" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  background: resolution === "2160x3840" ? "linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(56, 189, 248, 0.12))" : "rgba(15, 23, 42, 0.45)",
+                  boxShadow: resolution === "2160x3840" ? "0 0 16px rgba(139, 92, 246, 0.25)" : "none",
                   textAlign: "center",
-                  transition: "all 0.2s ease",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
-                <Smartphone size={20} style={{ color: resolution === "2160x3840" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>4K Vertical</strong>
-                <small className="muted" style={{ fontSize: "0.68rem" }}>Ultra HD 2160p</small>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    margin: "0 auto 6px",
+                    background: resolution === "2160x3840" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.05)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: resolution === "2160x3840" ? "var(--primary)" : "var(--muted)",
+                  }}
+                >
+                  <Smartphone size={20} />
+                </div>
+                <strong style={{ display: "block", fontSize: "0.84rem", color: resolution === "2160x3840" ? "var(--text)" : "var(--text-muted)" }}>4K Vertical</strong>
+                <small className="muted" style={{ fontSize: "0.69rem" }}>Ultra HD 2160p</small>
               </div>
             </div>
 
             {/* SE FOR VERTICAL OU QUADRADO, PERMITE ESCOLHER O ENQUADRAMENTO DA CÂMERA */}
             {resolution !== "1920x1080" && (
-              <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "rgba(15, 23, 42, 0.35)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-                <label className="field-label" style={{ fontSize: "0.78rem", marginBottom: "0.4rem" }}>
-                  Enquadramento Padrão de Câmera:
+              <div
+                style={{
+                  marginTop: "0.75rem",
+                  padding: "0.85rem",
+                  background: "rgba(15, 23, 42, 0.5)",
+                  borderRadius: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                <label className="field-label" style={{ fontSize: "0.78rem", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Layers size={13} style={{ color: "var(--primary)" }} />
+                  <strong>Enquadramento Padrão de Câmera:</strong>
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(95px, 1fr))", gap: "0.35rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(95px, 1fr))", gap: "0.4rem" }}>
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("face_tracking")}
                     style={{
-                      padding: "0.4rem 0.3rem",
-                      fontSize: "0.75rem",
-                      borderRadius: "6px",
-                      border: verticalMode === "face_tracking" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-                      background: verticalMode === "face_tracking" ? "rgba(139, 92, 246, 0.2)" : "transparent",
-                      color: verticalMode === "face_tracking" ? "var(--primary)" : "var(--text-muted)",
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "face_tracking" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "face_tracking" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "face_tracking" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "face_tracking" ? 600 : 400,
                       cursor: isSaving ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "4px",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <User size={13} /> Auto-Face
+                    <User size={14} style={{ color: verticalMode === "face_tracking" ? "var(--primary)" : "inherit" }} /> Auto-Face
                   </button>
 
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("split_face")}
                     style={{
-                      padding: "0.4rem 0.3rem",
-                      fontSize: "0.75rem",
-                      borderRadius: "6px",
-                      border: verticalMode === "split_face" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-                      background: verticalMode === "split_face" ? "rgba(139, 92, 246, 0.2)" : "transparent",
-                      color: verticalMode === "split_face" ? "var(--primary)" : "var(--text-muted)",
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "split_face" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "split_face" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "split_face" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "split_face" ? 600 : 400,
                       cursor: isSaving ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "4px",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <Users size={13} /> Podcast IA
+                    <Users size={14} style={{ color: verticalMode === "split_face" ? "var(--primary)" : "inherit" }} /> Podcast IA
                   </button>
 
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("crop")}
                     style={{
-                      padding: "0.4rem 0.3rem",
-                      fontSize: "0.75rem",
-                      borderRadius: "6px",
-                      border: verticalMode === "crop" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-                      background: verticalMode === "crop" ? "rgba(139, 92, 246, 0.2)" : "transparent",
-                      color: verticalMode === "crop" ? "var(--primary)" : "var(--text-muted)",
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "crop" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "crop" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "crop" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "crop" ? 600 : 400,
                       cursor: isSaving ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "4px",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <Crop size={13} /> Preencher
+                    <Crop size={14} style={{ color: verticalMode === "crop" ? "var(--primary)" : "inherit" }} /> Preencher
                   </button>
 
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("blur")}
                     style={{
-                      padding: "0.4rem 0.3rem",
-                      fontSize: "0.75rem",
-                      borderRadius: "6px",
-                      border: verticalMode === "blur" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-                      background: verticalMode === "blur" ? "rgba(139, 92, 246, 0.2)" : "transparent",
-                      color: verticalMode === "blur" ? "var(--primary)" : "var(--text-muted)",
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "blur" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "blur" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "blur" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "blur" ? 600 : 400,
                       cursor: isSaving ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "4px",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <Layers size={13} /> Fundo Blur
+                    <Layers size={14} style={{ color: verticalMode === "blur" ? "var(--primary)" : "inherit" }} /> Fundo Blur
                   </button>
 
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("split")}
                     style={{
-                      padding: "0.4rem 0.3rem",
-                      fontSize: "0.75rem",
-                      borderRadius: "6px",
-                      border: verticalMode === "split" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-                      background: verticalMode === "split" ? "rgba(139, 92, 246, 0.2)" : "transparent",
-                      color: verticalMode === "split" ? "var(--primary)" : "var(--text-muted)",
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "split" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "split" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "split" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "split" ? 600 : 400,
                       cursor: isSaving ? "not-allowed" : "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "4px",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <Columns size={13} /> Split 50/50
+                    <Columns size={14} style={{ color: verticalMode === "split" ? "var(--primary)" : "inherit" }} /> Split 50/50
                   </button>
                 </div>
               </div>
             )}
-            <small className="muted" style={{ display: "block", marginTop: "0.35rem", fontSize: "0.74rem" }}>
-              💡 Este formato de saída será selecionado automaticamente sempre que este estilo for utilizado para clonagem.
-            </small>
+            <div
+              style={{
+                marginTop: "0.6rem",
+                padding: "0.55rem 0.8rem",
+                borderRadius: "8px",
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "0.76rem",
+                color: "#fbbf24",
+                lineHeight: 1.4,
+              }}
+            >
+              <Lightbulb size={15} style={{ color: "#f59e0b", flexShrink: 0 }} />
+              <span>
+                Este formato de saída será selecionado automaticamente sempre que este estilo for utilizado para clonagem.
+              </span>
+            </div>
           </div>
 
           {/* PAINEL DE ACURÁCIA DA IA */}
           <div
             style={{
               marginBottom: "1.2rem",
-              padding: "1rem",
-              background: "linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 41, 59, 0.6))",
-              borderRadius: "10px",
-              border: "1px solid rgba(139, 92, 246, 0.3)",
+              padding: "1rem 1.15rem",
+              background: "linear-gradient(135deg, rgba(15, 23, 42, 0.75), rgba(30, 41, 59, 0.7))",
+              borderRadius: "14px",
+              border: "1px solid rgba(139, 92, 246, 0.35)",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.25)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Zap size={16} style={{ color: "#10b981" }} />
-                <strong style={{ fontSize: "0.9rem" }}>Acurácia do Modelo com IA</strong>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "8px",
+                    background: "rgba(16, 185, 129, 0.15)",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Zap size={16} style={{ color: "#10b981" }} />
+                </div>
+                <strong style={{ fontSize: "0.92rem", color: "var(--text)" }}>Acurácia do Modelo com IA</strong>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 {newVideoFiles.length > 0 && (
-                  <span className="muted small" style={{ textDecoration: "line-through" }}>
+                  <span className="muted small" style={{ textDecoration: "line-through", fontSize: "0.8rem" }}>
                     {currentAccuracy}%
                   </span>
                 )}
                 <span
                   style={{
-                    fontWeight: 700,
-                    fontSize: "1rem",
+                    fontWeight: 800,
+                    fontSize: "1.05rem",
                     color: accuracyInfo.color,
                   }}
                 >
                   {projectedAccuracy}%
                 </span>
                 <span
-                  className="badge"
                   style={{
-                    background: `${accuracyInfo.color}20`,
+                    background: `${accuracyInfo.color}1a`,
                     color: accuracyInfo.color,
-                    border: `1px solid ${accuracyInfo.color}40`,
+                    border: `1px solid ${accuracyInfo.color}44`,
                     fontSize: "0.72rem",
-                    padding: "0.15rem 0.45rem",
+                    fontWeight: 700,
+                    padding: "0.2rem 0.55rem",
+                    borderRadius: "999px",
+                    letterSpacing: "0.02em",
                   }}
                 >
                   {accuracyInfo.label}
@@ -612,7 +742,7 @@ export default function EditStyleModal({
                 background: "rgba(255, 255, 255, 0.08)",
                 borderRadius: "999px",
                 overflow: "hidden",
-                margin: "0.4rem 0 0.6rem",
+                margin: "0.4rem 0 0.65rem",
               }}
             >
               <div
@@ -621,42 +751,75 @@ export default function EditStyleModal({
                   height: "100%",
                   background: "linear-gradient(90deg, #8b5cf6 0%, #38bdf8 50%, #10b981 100%)",
                   borderRadius: "999px",
+                  boxShadow: "0 0 10px rgba(16, 185, 129, 0.4)",
                   transition: "width 0.4s ease",
                 }}
               />
             </div>
 
-            <p className="muted small" style={{ margin: 0, fontSize: "0.78rem", lineHeight: 1.4 }}>
-              💡 <strong>Como funciona a acurácia?</strong> Quanto mais vídeos de treinamento você adicionar,
-              mais a IA calibra o ritmo de corte médio, a velocidade das legendas e as transições exatas deste estilo.
-            </p>
+            <div
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.55rem 0.75rem",
+                borderRadius: "8px",
+                background: "rgba(139, 92, 246, 0.08)",
+                border: "1px solid rgba(139, 92, 246, 0.2)",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                fontSize: "0.77rem",
+                lineHeight: 1.45,
+                color: "var(--text-muted)",
+              }}
+            >
+              <Lightbulb size={14} style={{ color: "#f59e0b", flexShrink: 0, marginTop: "2px" }} />
+              <div>
+                <strong style={{ color: "var(--text)", fontWeight: 600 }}>Como funciona a acurácia?</strong> Quanto mais vídeos de treinamento você adicionar,
+                mais a IA calibra o ritmo de corte médio, a velocidade das legendas e as transições exatas deste estilo.
+              </div>
+            </div>
           </div>
 
           {/* VÍDEOS DE TREINAMENTO JÁ CADASTRADOS */}
           <div style={{ marginBottom: "1.2rem" }}>
-            <label className="field-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Film size={14} style={{ color: "var(--primary)" }} />
+            <label className="field-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.45rem" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <Film size={15} style={{ color: "var(--primary)" }} />
                 <strong>Vídeos de Treinamento Atuais ({existingVideos.length > 0 ? existingVideos.length : baseCount}):</strong>
               </span>
-              <span className="muted small">Material de base já analisado</span>
+              <span className="muted small" style={{ fontSize: "0.75rem" }}>Material de base já analisado</span>
             </label>
 
             {existingVideos.length === 0 ? (
               <div
                 style={{
-                  padding: "0.6rem 0.8rem",
-                  background: "rgba(15, 23, 42, 0.35)",
-                  border: "1px dashed var(--card-border)",
-                  borderRadius: "8px",
+                  padding: "0.75rem 0.9rem",
+                  background: "rgba(15, 23, 42, 0.45)",
+                  border: "1px dashed rgba(255, 255, 255, 0.15)",
+                  borderRadius: "10px",
                   fontSize: "0.82rem",
                   color: "var(--text-muted)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "10px",
                 }}
               >
-                <Video size={14} />
+                <div
+                  style={{
+                    width: "30px",
+                    height: "30px",
+                    borderRadius: "8px",
+                    background: "rgba(139, 92, 246, 0.15)",
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--primary)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Clapperboard size={15} />
+                </div>
                 <span>
                   {reference.reference_path
                     ? "1 vídeo de referência vinculado na criação."
@@ -664,18 +827,23 @@ export default function EditStyleModal({
                 </span>
               </div>
             ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
                 {existingVideos.map((name, idx) => (
                   <span
                     key={idx}
                     className="file-chip"
                     style={{
-                      background: "rgba(15, 23, 42, 0.45)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      background: "rgba(15, 23, 42, 0.55)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
                       fontSize: "0.78rem",
+                      borderRadius: "8px",
+                      padding: "0.3rem 0.6rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    <Film size={12} style={{ color: "var(--primary)" }} />
+                    <Film size={13} style={{ color: "var(--primary)" }} />
                     <span style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {name}
                     </span>
@@ -684,10 +852,16 @@ export default function EditStyleModal({
                         fontSize: "0.68rem",
                         color: "#10b981",
                         background: "rgba(16, 185, 129, 0.15)",
-                        padding: "1px 5px",
-                        borderRadius: "4px",
+                        border: "1px solid rgba(16, 185, 129, 0.3)",
+                        padding: "1px 6px",
+                        borderRadius: "999px",
+                        fontWeight: 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "3px",
                       }}
                     >
+                      <CheckCircle2 size={10} />
                       Treinado
                     </span>
                   </span>
@@ -700,18 +874,34 @@ export default function EditStyleModal({
           <div
             style={{
               marginBottom: "1.2rem",
-              padding: "1rem",
+              padding: "1rem 1.1rem",
               background: "rgba(139, 92, 246, 0.05)",
               border: "1px dashed rgba(139, 92, 246, 0.4)",
-              borderRadius: "10px",
+              borderRadius: "12px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <Video size={16} style={{ color: "var(--primary)" }} />
                 <strong style={{ fontSize: "0.9rem" }}>Adicionar Mais Vídeos de Treinamento</strong>
               </div>
-              <span className="badge badge-accent" style={{ fontSize: "0.7rem" }}>+ Acurácia</span>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  padding: "0.15rem 0.5rem",
+                  borderRadius: "999px",
+                  background: "rgba(139, 92, 246, 0.2)",
+                  color: "var(--primary, #a855f7)",
+                  border: "1px solid rgba(139, 92, 246, 0.35)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <TrendingUp size={11} />
+                + Acurácia
+              </span>
             </div>
 
             <input
@@ -719,7 +909,7 @@ export default function EditStyleModal({
               type="file"
               multiple
               accept="video/*,.mp4,.mov,.mkv"
-              style={{ display: "none"}}
+              style={{ display: "none" }}
               onChange={(e) => handleSelectFiles(e.target.files)}
               disabled={isSaving}
             />
@@ -728,50 +918,72 @@ export default function EditStyleModal({
               className="drop-zone"
               onClick={() => fileInputRef.current?.click()}
               style={{
-                padding: "1.2rem 1rem",
+                padding: "1.25rem 1rem",
                 textAlign: "center",
                 cursor: "pointer",
-                background: "rgba(15, 23, 42, 0.3)",
-                borderRadius: "8px",
+                background: "rgba(15, 23, 42, 0.4)",
+                borderRadius: "10px",
                 border: "1px dashed rgba(139, 92, 246, 0.3)",
-                transition: "border-color 0.2s, background 0.2s",
+                transition: "all 0.2s ease",
               }}
             >
-              <Upload size={24} style={{ color: "var(--primary)", marginBottom: "0.3rem" }} />
-              <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 500 }}>
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: "rgba(139, 92, 246, 0.15)",
+                  border: "1px solid rgba(139, 92, 246, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--primary)",
+                  margin: "0 auto 8px",
+                }}
+              >
+                <Upload size={20} />
+              </div>
+              <p style={{ margin: 0, fontSize: "0.86rem", fontWeight: 500 }}>
                 Clique para selecionar ou arraste <strong>mais vídeos finalizados deste estilo</strong>
               </p>
-              <small className="muted" style={{ display: "block", marginTop: "3px" }}>
+              <small className="muted" style={{ display: "block", marginTop: "4px", fontSize: "0.74rem" }}>
                 Suporta MP4, MOV ou MKV (múltiplos vídeos simultâneos)
               </small>
             </div>
 
             {/* Lista de Novos Vídeos Adicionados */}
             {newVideoFiles.length > 0 && (
-              <div style={{ marginTop: "0.8rem" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                  <small style={{ color: "var(--primary)", fontWeight: 600 }}>
-                    ✨ {newVideoFiles.length} novo(s) vídeo(s) prontos para treinamento:
+              <div style={{ marginTop: "0.85rem" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                  <small style={{ color: "var(--primary)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <Sparkles size={13} />
+                    {newVideoFiles.length} novo(s) vídeo(s) prontos para treinamento:
                   </small>
-                  <small style={{ color: "#10b981", fontWeight: 600 }}>
+                  <small style={{ color: "#10b981", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                    <TrendingUp size={11} />
                     +{projectedAccuracy - currentAccuracy}% de precisão estimada
                   </small>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
                   {newVideoFiles.map((file, idx) => (
                     <span
                       key={idx}
                       className="file-chip"
                       style={{
                         background: "rgba(139, 92, 246, 0.15)",
-                        border: "1px solid rgba(139, 92, 246, 0.3)",
+                        border: "1px solid rgba(139, 92, 246, 0.35)",
+                        borderRadius: "8px",
+                        padding: "0.25rem 0.55rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
                       <Film size={12} style={{ color: "var(--primary)" }} />
-                      <span style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.78rem" }}>
                         {file.name}
                       </span>
-                      <small className="muted">({Math.round(file.size / (1024 * 1024))} MB)</small>
+                      <small className="muted" style={{ fontSize: "0.7rem" }}>({Math.round(file.size / (1024 * 1024))} MB)</small>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -784,11 +996,15 @@ export default function EditStyleModal({
                           border: "none",
                           color: "var(--danger, #ef4444)",
                           cursor: "pointer",
-                          padding: "0 2px",
-                          fontWeight: "bold",
+                          padding: "2px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "4px",
                         }}
+                        title="Remover vídeo"
                       >
-                        ×
+                        <X size={13} />
                       </button>
                     </span>
                   ))}
