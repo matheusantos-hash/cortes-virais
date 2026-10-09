@@ -12,7 +12,7 @@ export interface ApiCostConfig {
   claudeCacheReadPricePerMtok: number; // $0.30
 }
 
-export const DEFAULT_COST_CONFIG: ApiCostConfig = {
+const DEFAULT_COST_CONFIG: ApiCostConfig = {
   usdToBrlRate: 5.85,
   higgsfieldCostPerVideoUsd: 0.25, // Kling / Minimax ~ $0.25/geração
   deepgramCostPerMinUsd: 0.0043, // Nova-3 ~ $0.0043/min
@@ -398,37 +398,44 @@ export async function testRailwayApi(tokenOverride?: string): Promise<{
   message: string;
   data?: any;
 }> {
-  const token =
+  let token = (
     tokenOverride?.trim() ||
     process.env.RAILWAY_API_TOKEN?.trim() ||
-    process.env.RAILWAY_TOKEN?.trim();
+    process.env.RAILWAY_TOKEN?.trim() ||
+    ""
+  ).replace(/^["']|["']$/g, "").trim();
+
+  if (token.toLowerCase().startsWith("bearer ")) {
+    token = token.slice(7).trim();
+  }
 
   if (!token) {
     return {
       success: false,
       message:
-        "RAILWAY_API_TOKEN não está configurado no ambiente nem foi fornecido. Você pode gerar um token em Railway > Account Settings > Tokens.",
+        "RAILWAY_API_TOKEN não está configurado no ambiente nem foi fornecido. Você pode gerar um token em Railway > Account Settings > Tokens ou Project Settings > Tokens.",
     };
   }
 
-  const query = `
-    query GetRailwayOverview {
-      me {
-        id
-        name
-        email
-        projects {
-          edges {
-            node {
-              id
-              name
-              description
-              updatedAt
-              services {
-                edges {
-                  node {
-                    id
-                    name
+  // 1. Tenta como Account Token
+  try {
+    const accountQuery = `
+      query GetRailwayOverview {
+        me {
+          id
+          name
+          email
+          projects {
+            edges {
+              node {
+                id
+                name
+                services {
+                  edges {
+                    node {
+                      id
+                      name
+                    }
                   }
                 }
               }
@@ -436,50 +443,79 @@ export async function testRailwayApi(tokenOverride?: string): Promise<{
           }
         }
       }
-    }
-  `;
+    `;
 
-  try {
-    const res = await fetch("https://backboard.railway.com/graphql", {
+    const resAccount = await fetch("https://backboard.railway.com/graphql/v2", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query: accountQuery }),
     });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      return {
-        success: false,
-        message: `Railway GraphQL retornou HTTP ${res.status}: ${errText.slice(0, 150)}`,
-      };
+    if (resAccount.ok) {
+      const json = await resAccount.json().catch(() => null);
+      if (json?.data?.me) {
+        const me = json.data.me;
+        const projects = me.projects?.edges?.map((e: any) => e.node) || [];
+        return {
+          success: true,
+          message: `Conexão bem-sucedida! Conta: ${me.name || me.email || "Autenticada"} (${projects.length} projetos detectados).`,
+          data: {
+            user: { name: me.name, email: me.email },
+            projectsCount: projects.length,
+          },
+        };
+      }
     }
+  } catch (err: any) {
+    console.warn("[testRailwayApi] Falha na tentativa de Account Token:", err?.message);
+  }
 
-    const json = await res.json();
-    if (json.errors && json.errors.length > 0) {
-      return {
-        success: false,
-        message: `Erro da GraphQL Railway: ${json.errors[0]?.message || "Consulta falhou"}`,
-      };
-    }
+  // 2. Se falhar, tenta como Project Token
+  try {
+    const projectQuery = `
+      query GetProjectTokenInfo {
+        projectToken {
+          projectId
+          environmentId
+        }
+      }
+    `;
 
-    const me = json.data?.me;
-    const projects = me?.projects?.edges?.map((e: any) => e.node) || [];
-
-    return {
-      success: true,
-      message: `Conexão bem-sucedida! Conta: ${me?.name || me?.email || "Autenticada"} (${projects.length} projetos detectados).`,
-      data: {
-        user: { name: me?.name, email: me?.email },
-        projectsCount: projects.length,
-        projects: projects.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          servicesCount: p.services?.edges?.length || 0,
-        })),
+    const resProject = await fetch("https://backboard.railway.com/graphql/v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Project-Access-Token": token,
       },
+      body: JSON.stringify({ query: projectQuery }),
+    });
+
+    if (resProject.ok) {
+      const jsonProject = await resProject.json().catch(() => null);
+      if (jsonProject?.data?.projectToken?.projectId) {
+        const pt = jsonProject.data.projectToken;
+        return {
+          success: true,
+          message: `Conexão bem-sucedida! Token de Projeto válido (Projeto: ${pt.projectId.slice(0, 8)}...).`,
+          data: pt,
+        };
+      }
+
+      if (jsonProject?.errors?.[0]?.message) {
+        return {
+          success: false,
+          message: `Railway retornou: "${jsonProject.errors[0].message}". Verifique se o token foi gerado corretamente em Account Settings > Tokens ou Project Settings > Tokens.`,
+        };
+      }
+    }
+
+    const errText = await resProject.text().catch(() => "");
+    return {
+      success: false,
+      message: `Railway GraphQL retornou status HTTP ${resProject.status}: ${errText.slice(0, 150) || "Consulta falhou"}`,
     };
   } catch (err: any) {
     return {

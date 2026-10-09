@@ -6,9 +6,6 @@ import type { AdminUsuario } from "@/app/admin/page";
 import { fmtDate } from "@/lib/format";
 import {
   getApiCostSummary,
-  testRailwayApi,
-  testAnthropicApi,
-  testHiggsfieldApi,
   type ApiCostSummary,
 } from "@/app/admin/cost-actions";
 import {
@@ -86,8 +83,16 @@ export default function ApiCostsTab({ jobs, users }: Props) {
   const handleTestRailway = async () => {
     setTestResultRailway({ loading: true });
     try {
-      const res = await testRailwayApi(railwayTokenInput);
-      setTestResultRailway({ loading: false, msg: res.message, ok: res.success });
+      const res = await fetch("/api/admin/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "railway", token: railwayTokenInput }),
+      });
+      const data = await res.json().catch(() => ({
+        success: false,
+        message: "Resposta inválida recebida do servidor.",
+      }));
+      setTestResultRailway({ loading: false, msg: data.message, ok: data.success });
     } catch (e: any) {
       setTestResultRailway({ loading: false, msg: e.message || "Erro de conexão", ok: false });
     }
@@ -97,8 +102,16 @@ export default function ApiCostsTab({ jobs, users }: Props) {
   const handleTestClaude = async () => {
     setTestResultClaude({ loading: true });
     try {
-      const res = await testAnthropicApi();
-      setTestResultClaude({ loading: false, msg: res.message, ok: res.success });
+      const res = await fetch("/api/admin/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "claude" }),
+      });
+      const data = await res.json().catch(() => ({
+        success: false,
+        message: "Resposta inválida recebida do servidor.",
+      }));
+      setTestResultClaude({ loading: false, msg: data.message, ok: data.success });
     } catch (e: any) {
       setTestResultClaude({ loading: false, msg: e.message || "Erro de conexão", ok: false });
     }
@@ -108,8 +121,16 @@ export default function ApiCostsTab({ jobs, users }: Props) {
   const handleTestHiggsfield = async () => {
     setTestResultHiggs({ loading: true });
     try {
-      const res = await testHiggsfieldApi();
-      setTestResultHiggs({ loading: false, msg: res.message, ok: res.success });
+      const res = await fetch("/api/admin/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "higgsfield" }),
+      });
+      const data = await res.json().catch(() => ({
+        success: false,
+        message: "Resposta inválida recebida do servidor.",
+      }));
+      setTestResultHiggs({ loading: false, msg: data.message, ok: data.success });
     } catch (e: any) {
       setTestResultHiggs({ loading: false, msg: e.message || "Erro ao verificar", ok: false });
     }
@@ -450,7 +471,7 @@ export default function ApiCostsTab({ jobs, users }: Props) {
             </div>
             <div className="pdl-item">
               <span>GraphQL API Railway:</span>
-              <span>backboard.railway.com/graphql</span>
+              <span>backboard.railway.com/graphql/v2</span>
             </div>
             <div className="pdl-item">
               <span>Projetos & Serviços:</span>
@@ -466,7 +487,7 @@ export default function ApiCostsTab({ jobs, users }: Props) {
             <div className="railway-token-box">
               <input
                 type="password"
-                placeholder="Insira RAILWAY_API_TOKEN para testar..."
+                placeholder="Account Token ou Project Token..."
                 value={railwayTokenInput}
                 onChange={(e) => setRailwayTokenInput(e.target.value)}
                 className="railway-input"
@@ -478,6 +499,9 @@ export default function ApiCostsTab({ jobs, users }: Props) {
               >
                 {testResultRailway?.loading ? "Consultando..." : "Consultar GraphQL"}
               </button>
+            </div>
+            <div style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginTop: 4, lineHeight: 1.3 }}>
+              Suporta tanto Account Token (<em>Account Settings &gt; Tokens</em>) quanto Project Token.
             </div>
             {testResultRailway && (
               <div className={`test-feedback ${testResultRailway.ok ? "success" : "error"}`}>
