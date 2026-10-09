@@ -1962,13 +1962,14 @@ export default function CopyStyleStudio({
           {sourceClip ? (
             <div
               style={{
-                background: "linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)",
-                border: "1px solid rgba(6, 182, 212, 0.35)",
+                background: "var(--bg-subtle)",
+                border: "1px solid rgba(139, 92, 246, 0.35)",
                 borderRadius: "14px",
                 padding: "1rem 1.15rem",
                 display: "flex",
                 flexDirection: "column",
                 gap: "0.6rem",
+                boxShadow: "0 2px 10px rgba(139, 92, 246, 0.08)",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -1978,13 +1979,13 @@ export default function CopyStyleStudio({
                       width: "44px",
                       height: "44px",
                       borderRadius: "12px",
-                      background: "linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(59, 130, 246, 0.2))",
-                      border: "1px solid rgba(6, 182, 212, 0.4)",
+                      background: "rgba(139, 92, 246, 0.15)",
+                      border: "1px solid rgba(139, 92, 246, 0.3)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#22d3ee",
-                      boxShadow: "0 0 16px rgba(6, 182, 212, 0.25)",
+                      color: "var(--primary)",
+                      boxShadow: "0 2px 8px rgba(139, 92, 246, 0.15)",
                       flexShrink: 0,
                     }}
                   >
@@ -1999,9 +2000,9 @@ export default function CopyStyleStudio({
                           gap: "4px",
                           fontSize: "0.7rem",
                           fontWeight: 700,
-                          color: "#22d3ee",
-                          background: "rgba(6, 182, 212, 0.15)",
-                          border: "1px solid rgba(6, 182, 212, 0.3)",
+                          color: "var(--primary)",
+                          background: "rgba(139, 92, 246, 0.12)",
+                          border: "1px solid rgba(139, 92, 246, 0.28)",
                           padding: "2px 8px",
                           borderRadius: "999px",
                           letterSpacing: "0.04em",

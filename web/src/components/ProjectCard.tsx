@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import type { Project, Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
@@ -21,6 +21,12 @@ export default function ProjectCard({
   activeJob,
   onDelete,
 }: ProjectCardProps) {
+  const [mediaError, setMediaError] = useState(false);
+  const isVideo = Boolean(
+    thumbnailUrl &&
+    (thumbnailUrl.includes(".mp4") || thumbnailUrl.includes("/clips/") || thumbnailUrl.includes("video"))
+  );
+
   return (
     <div
       className="project-card"
@@ -50,20 +56,40 @@ export default function ProjectCard({
           textDecoration: "none",
         }}
       >
-        {thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={thumbnailUrl}
-            alt={project.name}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
+        {thumbnailUrl && !mediaError ? (
+          isVideo ? (
+            <video
+              src={thumbnailUrl.includes("#t=") ? thumbnailUrl : `${thumbnailUrl}#t=0.1`}
+              preload="metadata"
+              muted
+              playsInline
+              onError={() => setMediaError(true)}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                pointerEvents: "none",
+              }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumbnailUrl}
+              alt=""
+              onError={() => setMediaError(true)}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )
         ) : (
           <div
             style={{
