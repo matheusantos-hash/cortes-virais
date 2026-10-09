@@ -122,7 +122,33 @@ Responda ESTRITAMENTE em formato JSON puro, sem crases de código markdown e sem
     } catch {
       // Limpeza de possíveis blocos markdown se existirem
       const clean = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-      parsed = JSON.parse(clean);
+      try {
+        parsed = JSON.parse(clean);
+      } catch {
+        // Recuperação inteligente caso a saída tenha atingido max_output_tokens
+        const lastBrace = clean.lastIndexOf("}");
+        if (lastBrace > 0) {
+          try {
+            const closedJson = clean.slice(0, lastBrace + 1) + "\n]}";
+            parsed = JSON.parse(closedJson.replace(/,\s*([\]}])/g, "$1"));
+          } catch {}
+        }
+        if (!parsed) {
+          // Extração granular via regex das palavras já recebidas
+          const itemMatches = clean.match(/\{\s*"word"[\s\S]*?\}/g) || [];
+          const recoveredWords: any[] = [];
+          for (const m of itemMatches) {
+            try {
+              recoveredWords.push(JSON.parse(m.replace(/,\s*([\]}])/g, "$1")));
+            } catch {}
+          }
+          if (recoveredWords.length > 0) {
+            parsed = { words: recoveredWords, audio_tags: [] };
+          } else {
+            throw new Error("Resposta do Gemini foi truncada ou inválida:\n" + clean.slice(0, 150));
+          }
+        }
+      }
     }
 
     const words: Word[] = Array.isArray(parsed.words)

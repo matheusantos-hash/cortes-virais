@@ -141,7 +141,7 @@ export async function tryDirectDownload(url: string, dest: string, signal?: Abor
     return "not-direct";
   }
 
-  const maxGb = Number(process.env.MAX_DOWNLOAD_GB ?? 4);
+  const maxGb = Number(process.env.MAX_DOWNLOAD_GB ?? 20);
   const length = Number(res.headers.get("content-length") ?? 0);
   if (length > maxGb * 1024 ** 3) {
     await res.body.cancel().catch(() => {});

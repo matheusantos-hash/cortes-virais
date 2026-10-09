@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { Word } from "./types.js";
 import { transcribeWithGemini, type AudioTag } from "./gemini_transcribe.js";
+import { probeDuration } from "./media.js";
 
 export type TranscriptionProvider = "deepgram" | "gemini" | "auto";
 
@@ -60,10 +61,24 @@ export async function transcribeAudio(params: {
   onLog?: (msg: string) => void;
 }): Promise<TranscribeResult> {
   const { audioPath, language, provider = "auto", onLog } = params;
+  const audioDuration = await probeDuration(audioPath).catch(() => 0);
+  const isLongAudio = audioDuration > 600; // > 10 minutos
 
   // 1. Escolha explícita do Gemini Pro
   if (provider === "gemini") {
-    onLog?.("[MOTOR TRANSCRIÇÃO] Usuário selecionou Gemini Pro como motor de transcrição.");
+    if (isLongAudio && process.env.DEEPGRAM_API_KEY) {
+      onLog?.(
+        `[OTIMIZAÇÃO ÁUDIO LONGO] Áudio de ${Math.round(audioDuration / 60)} min detectado. O Gemini Pro possui teto de tokens de saída para JSON de palavras. Redirecionando com segurança para Deepgram Nova-3 para garantir transcrição 100% completa.`
+      );
+      try {
+        const words = await transcribeDeepgram(audioPath, language, onLog);
+        return { words, usedProvider: "deepgram" };
+      } catch (err: any) {
+        onLog?.(`[AVISO] Deepgram falhou (${err?.message}). Retornando para Gemini Pro com auto-recuperação de tokens...`);
+      }
+    } else {
+      onLog?.("[MOTOR TRANSCRIÇÃO] Usuário selecionou Gemini Pro como motor de transcrição.");
+    }
     const result = await transcribeWithGemini(audioPath, language, onLog);
     return {
       words: result.words,

@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { VisualHighlight } from "./types.js";
+import { probeDuration } from "./media.js";
 
 /**
  * Gera um preview ultraleve do vídeo para upload rápido no Gemini AI.
@@ -11,10 +12,12 @@ import type { VisualHighlight } from "./types.js";
  * - CRF 32 com libx264 (compactação extrema sem perda de marcos visuais)
  * - Sem áudio (-an) para economizar dados
  * - -vsync vfr para evitar qualquer descompasso (drift) de timestamps com a transcrição
+ * - Limite de duração para vídeos longos evitando travar CPU do container
  */
 async function generatePreviewVideo(
   sourcePath: string,
   outPath: string,
+  durationLimitSec?: number,
   signal?: AbortSignal,
   onLog?: (msg: string) => void
 ): Promise<void> {
@@ -25,6 +28,13 @@ async function generatePreviewVideo(
       "-hide_banner",
       "-loglevel", "error",
       "-y",
+    ];
+
+    if (durationLimitSec && durationLimitSec > 0) {
+      args.push("-t", durationLimitSec.toFixed(1));
+    }
+
+    args.push(
       "-i", sourcePath,
       "-vf", "scale='min(640,iw)':-2",
       "-c:v", "libx264",
@@ -32,8 +42,8 @@ async function generatePreviewVideo(
       "-preset", "veryfast",
       "-vsync", "vfr",
       "-an",
-      outPath,
-    ];
+      outPath
+    );
 
     const child = execFile("ffmpeg", args, (err) => {
       if (err) {
@@ -110,7 +120,13 @@ export async function analyzeVideoVisuals(args: {
 
   const previewPath = path.join(workDir, "preview_gemini.mp4");
   if (!existsSync(previewPath)) {
-    await generatePreviewVideo(videoPath, previewPath, signal, onLog);
+    const duration = await probeDuration(videoPath).catch(() => 0);
+    const maxSec = 600; // Máximo de 10 minutos para análise visual em vídeos longos
+    const limitSec = duration > maxSec ? maxSec : undefined;
+    if (limitSec) {
+      onLog?.(`[GEMINI VISION] Vídeo longo detectado (${Math.round(duration / 60)} min). Limitando preview aos primeiros ${Math.round(limitSec / 60)} min para economizar CPU.`);
+    }
+    await generatePreviewVideo(videoPath, previewPath, limitSec, signal, onLog);
   }
 
   if (signal?.aborted) throw new Error("Análise cancelada pelo usuário");

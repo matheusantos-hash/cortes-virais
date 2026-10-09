@@ -41,7 +41,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const MAX_VIDEO_MINUTES = Number(process.env.MAX_VIDEO_MINUTES ?? 120);
+const MAX_VIDEO_MINUTES = Number(process.env.MAX_VIDEO_MINUTES ?? 240);
 const POLL_MS = 5000;
 const IN_PROGRESS = ["downloading", "transcribing", "analyzing", "cutting"];
 
@@ -439,7 +439,7 @@ async function processJob(job: Job) {
 
     if (!userFetchErr && userData) {
       const isUserAdmin = Boolean(userData.is_xandao);
-      const maxAllowed = Number(userData.limite_max_video_minutos ?? 60.0);
+      const maxAllowed = Number(userData.limite_max_video_minutos ?? 180.0);
 
       if (!isUserAdmin && minutes > maxAllowed) {
         throw new UserError(

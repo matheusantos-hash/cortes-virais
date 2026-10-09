@@ -203,7 +203,8 @@ export async function findCandidates(
     messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
   };
 
-  if (useThinking) {
+  const supportsExplicitThinking = /claude-3-7|claude-4/i.test(model);
+  if (useThinking && supportsExplicitThinking) {
     createParams.thinking = {
       type: "enabled",
       budget_tokens: budgetTokens,
@@ -211,7 +212,19 @@ export async function findCandidates(
     // CRÍTICO: Não definir temperature diferente de 1.0 quando thinking está ativo!
   }
 
-  const res = await client.messages.create(createParams);
+  let res: any;
+  try {
+    res = await client.messages.create(createParams);
+  } catch (apiErr: any) {
+    if (createParams.thinking && (apiErr?.message?.includes("thinking") || apiErr?.status === 400)) {
+      onLog?.(`[AVISO CLAUDE] Modelo "${model}" não aceitou parâmetro de Extended Thinking (${apiErr?.message || "erro"}). Retentando automaticamente em modo editorial padrão...`);
+      delete createParams.thinking;
+      createParams.max_tokens = Math.min(createParams.max_tokens, 4096);
+      res = await client.messages.create(createParams);
+    } else {
+      throw apiErr;
+    }
+  }
 
   let text = "";
   let thinkingSummary = "";
