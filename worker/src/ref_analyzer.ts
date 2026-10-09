@@ -229,16 +229,39 @@ Responda SOMENTE o JSON puro, sem markdown e sem explicações adicionais:
     ];
 
     const modelEnv = process.env.CLAUDE_MODEL?.trim();
-    const modelName = modelEnv && modelEnv !== "claude-sonnet-5-5"
-      ? modelEnv
-      : "claude-3-5-sonnet-20241022";
-    const res = await anthropic.messages.create({
-      model: modelName,
-      max_tokens: 1500,
-      messages: [{ role: "user", content }],
-    });
+    const candidateModels = Array.from(
+      new Set([
+        modelEnv,
+        "claude-sonnet-5-5",
+        "claude-sonnet-5",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-7-sonnet-20250219",
+        "claude-sonnet-4-5-20250929",
+      ])
+    ).filter(Boolean) as string[];
 
-    let replyText = res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
+    let res: any;
+    let lastErr: any;
+    for (const modelName of candidateModels) {
+      try {
+        res = await anthropic.messages.create({
+          model: modelName,
+          max_tokens: 1500,
+          messages: [{ role: "user", content }],
+        });
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        if (err?.status === 404 || err?.message?.includes("not_found")) {
+          onLog?.(`[CLONE ESTILO] Modelo "${modelName}" não disponível (404). Tentando modelo alternativo...`);
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!res) throw lastErr;
+
+    let replyText = res.content.flatMap((b: any) => (b.type === "text" ? [b.text] : [])).join("").trim();
     if (replyText.startsWith("```")) {
       replyText = replyText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
     }

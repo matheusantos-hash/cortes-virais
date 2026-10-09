@@ -507,6 +507,7 @@ export async function testAnthropicApi(keyOverride?: string): Promise<{
 
   try {
     // Faz uma chamada rápida de verificação
+    const modelToTest = process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-5-5";
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -515,7 +516,7 @@ export async function testAnthropicApi(keyOverride?: string): Promise<{
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
+        model: modelToTest,
         max_tokens: 10,
         messages: [{ role: "user", content: "Ping" }],
       }),

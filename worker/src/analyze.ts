@@ -188,45 +188,85 @@ export async function findCandidates(
   const dynamicMaxTokens = budgetTokens + outputTokensReserve;
 
   const modelEnv = process.env.CLAUDE_MODEL?.trim();
-  const model = modelEnv && modelEnv !== "claude-sonnet-5-5"
-    ? modelEnv
-    : (useThinking ? "claude-3-7-sonnet-20250219" : "claude-3-5-sonnet-20241022");
+  const preferredModel = modelEnv || (useThinking ? "claude-sonnet-5-5" : "claude-sonnet-5-5");
 
-  const createParams: any = {
-    model,
-    max_tokens: dynamicMaxTokens,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM,
-        // Ativa Prompt Caching na Anthropic (90% de desconto de tokens no prompt do sistema)
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
-  };
-
-  const supportsExplicitThinking = /claude-3-7|claude-4/i.test(model);
-  if (useThinking && supportsExplicitThinking) {
-    createParams.thinking = {
-      type: "enabled",
-      budget_tokens: budgetTokens,
-    };
-    // CRÍTICO: Não definir temperature diferente de 1.0 quando thinking está ativo!
-  }
+  // Lista de modelos ordenada por preferência para resiliência caso algum retorne 404
+  const candidateModels = Array.from(
+    new Set([
+      preferredModel,
+      "claude-sonnet-5-5",
+      "claude-sonnet-5",
+      "claude-3-7-sonnet-20250219",
+      "claude-3-5-sonnet-20241022",
+      "claude-sonnet-4-5-20250929",
+    ])
+  ).filter(Boolean);
 
   let res: any;
-  try {
-    res = await client.messages.create(createParams);
-  } catch (apiErr: any) {
-    if (createParams.thinking && (apiErr?.message?.includes("thinking") || apiErr?.status === 400)) {
-      onLog?.(`[AVISO CLAUDE] Modelo "${model}" não aceitou parâmetro de Extended Thinking (${apiErr?.message || "erro"}). Retentando automaticamente em modo editorial padrão...`);
-      delete createParams.thinking;
-      createParams.max_tokens = Math.min(createParams.max_tokens, 4096);
+  let lastError: any;
+
+  for (const model of candidateModels) {
+    const createParams: any = {
+      model,
+      max_tokens: dynamicMaxTokens,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM,
+          // Ativa Prompt Caching na Anthropic (90% de desconto de tokens no prompt do sistema)
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
+    };
+
+    if (useThinking) {
+      if (/claude-5|sonnet-5/i.test(model)) {
+        createParams.thinking = { type: "adaptive" };
+      } else if (/claude-3-7|claude-4/i.test(model)) {
+        createParams.thinking = {
+          type: "enabled",
+          budget_tokens: budgetTokens,
+        };
+      }
+    }
+
+    try {
       res = await client.messages.create(createParams);
-    } else {
+      break;
+    } catch (apiErr: any) {
+      lastError = apiErr;
+
+      // Se falhou por parâmetro de thinking inválido (400), tenta o mesmo modelo sem thinking
+      if (createParams.thinking && (apiErr?.message?.includes("thinking") || apiErr?.status === 400)) {
+        onLog?.(`[AVISO CLAUDE] Modelo "${model}" não aceitou parâmetro de Extended Thinking (${apiErr?.message || "erro"}). Retentando automaticamente em modo editorial padrão...`);
+        delete createParams.thinking;
+        createParams.max_tokens = Math.min(createParams.max_tokens, 4096);
+        try {
+          res = await client.messages.create(createParams);
+          break;
+        } catch (retryErr: any) {
+          lastError = retryErr;
+          if (retryErr?.status === 404 || retryErr?.message?.includes("not_found")) {
+            onLog?.(`[AVISO CLAUDE] Modelo "${model}" não disponível (404). Tentando modelo alternativo...`);
+            continue;
+          }
+          throw retryErr;
+        }
+      }
+
+      // Se falhou com 404 (not_found_error), tenta próximo modelo da lista
+      if (apiErr?.status === 404 || apiErr?.message?.includes("not_found")) {
+        onLog?.(`[AVISO CLAUDE] Modelo "${model}" não encontrado no provedor Anthropic (404). Tentando modelo alternativo...`);
+        continue;
+      }
+
       throw apiErr;
     }
+  }
+
+  if (!res) {
+    throw lastError || new Error("Nenhum modelo Claude disponível respondeu à requisição.");
   }
 
   let text = "";
