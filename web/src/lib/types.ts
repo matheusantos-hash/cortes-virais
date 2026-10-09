@@ -148,6 +148,8 @@ export interface StyleLearningMetrics {
   subtitleMaxWordsPerLine?: number;
   sampleVideoNames?: string[];
   sampleSubtitleNames?: string[];
+  accuracyScore?: number;
+  trainingSamplesCount?: number;
 }
 
 export interface SavedReference {
