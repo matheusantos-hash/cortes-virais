@@ -66,6 +66,9 @@ import {
   Moon,
   Eye,
   EyeOff,
+  Plus,
+  FolderKanban,
+  FolderPlus,
   type LucideProps,
 } from "lucide-react";
 
@@ -137,6 +140,9 @@ export {
   Moon,
   Eye,
   EyeOff,
+  Plus,
+  FolderKanban,
+  FolderPlus,
 };
 
 // Aliases retrocompatíveis com as interfaces anteriores

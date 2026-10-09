@@ -81,10 +81,24 @@ export interface Job {
   logs?: string[];
   created_at: string;
   started_at: string | null;
-  finished_at: string | null;
+  finished_at?: string | null;
   clips?: Clip[];
   job_type?: "full" | "trim";
   canvas_brolls?: CanvasBroll[];
+  project_id?: string | null;
+}
+
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string | null;
+  thumbnail_url?: string | null;
+  color_tag?: string;
+  created_at: string;
+  updated_at?: string;
+  jobs?: Job[];
+  clips_count?: number;
 }
 
 export interface ManualAdjustments {

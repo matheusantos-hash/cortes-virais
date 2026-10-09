@@ -73,8 +73,8 @@ export default async function AdminPage() {
   ]);
 
   const users = (usersData ?? []) as AdminUsuario[];
-  const jobs = (jobsData ?? []) as Job[];
-  const clips = (clipsData ?? []) as import("@/lib/types").Clip[];
+  const jobs = (jobsData ?? []) as unknown as Job[];
+  const clips = (clipsData ?? []) as unknown as import("@/lib/types").Clip[];
 
   // Calcula stats gerais
   const stats: AdminStats = {

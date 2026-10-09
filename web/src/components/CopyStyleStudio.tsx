@@ -6,6 +6,7 @@ import { uploadResumable } from "@/lib/upload";
 import type { ExportSettings, ManualAdjustments, SavedReference, SubtitleStyle } from "@/lib/types";
 import SavedReferencesModal from "./SavedReferencesModal";
 import EditStyleModal from "./EditStyleModal";
+import FontSelector from "./FontSelector";
 import {
   Copy,
   Upload,
@@ -2450,130 +2451,31 @@ export default function CopyStyleStudio({
                   <span>Destaque palavra por palavra (Word highlight)</span>
                 </label>
 
-                {/* Upload e Herança de Fonte Tipográfica Própria (.ttf, .otf, .woff, .woff2) */}
+                {/* Seletor de Fontes Embutidas + Ícone de Olho + Modal de Amostra com Negrito ON/OFF */}
                 <div style={{ marginTop: "0.4rem", paddingTop: "0.6rem", borderTop: "1px dashed var(--card-border)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                    <label className="field-label" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Type size={14} style={{ color: "var(--primary)" }} />
-                      Fonte Tipográfica das Legendas
-                    </label>
-                    {customFontName ? (
-                      <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>
-                        {customFontFile ? "Nova Fonte Enviada" : appliedRef ? `Herdada de ${appliedRef.name}` : "Ativa"}
-                      </span>
-                    ) : (
-                      <span className="muted" style={{ fontSize: "0.72rem" }}>Padrão do Sistema</span>
-                    )}
-                  </div>
-
-                  <input
-                    ref={fontFileInputRef}
-                    type="file"
-                    accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/x-font-ttf,application/x-font-otf"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFontSelect(e.target.files[0]);
-                      }
+                  <FontSelector
+                    selectedFontName={customFontName || "Montserrat Black"}
+                    onSelectFontName={(fontName) => {
+                      setCustomFontName(fontName);
+                      setCustomFontFile(null);
+                      setCustomFontPath(null);
+                      setFontPreviewUrl(null);
                     }}
+                    onSelectCustomFile={(file) => handleFontSelect(file)}
+                    customFontFile={customFontFile}
+                    customFontPath={customFontPath}
+                    onClearCustomFont={() => {
+                      setCustomFontFile(null);
+                      setCustomFontPath(null);
+                      setCustomFontName("");
+                      setFontPreviewUrl(null);
+                      if (fontFileInputRef.current) fontFileInputRef.current.value = "";
+                    }}
+                    primaryColor={primaryColor}
+                    highlightColor={highlightColor}
+                    isInheritedFromStyle={Boolean(appliedRef && !customFontFile)}
+                    styleName={appliedRef?.name}
                   />
-
-                  {customFontFile || customFontPath || customFontName ? (
-                    <div
-                      style={{
-                        background: "var(--bg-subtle)",
-                        border: "1px solid var(--primary)",
-                        borderRadius: "8px",
-                        padding: "0.6rem 0.8rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "0.75rem",
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                          <span style={{ color: "var(--primary)", fontWeight: 700, fontSize: "0.85rem" }}>
-                            ✓ {customFontName || customFontFile?.name || "Fonte Personalizada"}
-                          </span>
-                          {customFontFile && (
-                            <span className="muted" style={{ fontSize: "0.7rem" }}>
-                              ({Math.round(customFontFile.size / 1024)} KB)
-                            </span>
-                          )}
-                          {appliedRef && !customFontFile && (
-                            <span className="badge" style={{ fontSize: "0.65rem", background: "rgba(16, 185, 129, 0.15)", color: "#10b981" }}>
-                              Igual ao estilo salvo
-                            </span>
-                          )}
-                        </div>
-                        {/* Preview dinâmico da fonte */}
-                        <p
-                          style={{
-                            margin: "0.25rem 0 0",
-                            fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : (customFontName ? `'${customFontName}', sans-serif` : "inherit"),
-                            fontSize: "0.95rem",
-                            fontWeight: 700,
-                            color: "var(--text)",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          CORTES AI 100%
-                        </p>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-small"
-                          onClick={() => fontFileInputRef.current?.click()}
-                          title="Trocar arquivo de fonte para este corte específico"
-                          style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
-                        >
-                          <Pencil size={12} style={{ marginRight: "3px" }} />
-                          Trocar
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-icon"
-                          title="Remover fonte personalizada e usar padrão do sistema"
-                          onClick={() => {
-                            setCustomFontFile(null);
-                            setCustomFontPath(null);
-                            setCustomFontName("");
-                            setFontPreviewUrl(null);
-                            if (fontFileInputRef.current) fontFileInputRef.current.value = "";
-                          }}
-                          style={{ padding: "5px", color: "var(--danger)", cursor: "pointer", background: "transparent", border: "none" }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fontFileInputRef.current?.click()}
-                      className="btn-secondary"
-                      style={{
-                        width: "100%",
-                        fontSize: "0.82rem",
-                        padding: "0.5rem 0.75rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "6px",
-                        borderStyle: "dashed",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Upload size={14} />
-                      Subir arquivo da fonte (.ttf, .otf, .woff)
-                    </button>
-                  )}
-                  <p className="muted" style={{ fontSize: "0.72rem", margin: "0.35rem 0 0" }}>
-                    Você pode alterar a cor ou tipografia exclusivamente para esta clonagem sem alterar o estilo original salvo.
-                  </p>
                 </div>
               </div>
             </div>

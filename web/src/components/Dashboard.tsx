@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cancelJob, deleteUserJob, deleteUserClip } from "@/app/actions";
+import { cancelJob, deleteUserJob, deleteUserClip, deleteProjectAction } from "@/app/actions";
 import { fmtClock, fmtDate, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
-import type { Clip, Job, JobStatus } from "@/lib/types";
+import type { Clip, Job, JobStatus, Project } from "@/lib/types";
 import NewJobForm from "./NewJobForm";
 import CopyStyleStudio from "./CopyStyleStudio";
 import ModeSelectorCards, { DashboardMode } from "./ModeSelectorCards";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
+import ProjectCard from "./ProjectCard";
+import CreateProjectModal from "./CreateProjectModal";
 import {
   DownloadIcon,
   TrashIcon,
@@ -31,6 +33,8 @@ import {
   User,
   Users,
   AlertTriangle,
+  Plus,
+  FolderKanban,
 } from "./Icons";
 
 function getStageDescription(status: JobStatus): string {
@@ -56,10 +60,20 @@ function getStageDescription(status: JobStatus): string {
   }
 }
 
-export default function Dashboard({ userId, initialJobs }: { userId: string; initialJobs: Job[] }) {
+export default function Dashboard({
+  userId,
+  initialJobs,
+  initialProjects = [],
+}: {
+  userId: string;
+  initialJobs: Job[];
+  initialProjects?: Project[];
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [activeMode, setActiveMode] = useState<DashboardMode>("cortes");
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
@@ -80,6 +94,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
   }, []);
 
   const refresh = useCallback(async () => {
+    // 1. Carrega jobs
     const { data } = await supabase
       .from("jobs")
       .select("*, clips:clips!clips_job_id_fkey (*)")
@@ -87,7 +102,23 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
       .order("created_at", { ascending: false })
       .limit(30);
     if (data) setJobs(data as Job[]);
+
+    // 2. Carrega projetos
+    const { data: pList } = await supabase
+      .from("projects")
+      .select("*, jobs:jobs(id, clips:clips(id, file_path))")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+    if (pList) setProjects(pList as any);
   }, [supabase, userId]);
+
+  async function handleDeleteProject(projectId: string) {
+    if (!confirm("Deseja realmente excluir este projeto? Os vídeos associados ficarão desvinculados.")) return;
+    try {
+      await deleteProjectAction(projectId);
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch {}
+  }
 
   // Links temporários para reproduzir os clipes (bucket privado)
   useEffect(() => {
@@ -357,11 +388,136 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
           </div>
         )}
 
-        {/* GALERIA DE PROJETOS E CLIPES (CRUD) */}
+        {/* SEÇÃO ESTILO CAPCUT: MEUS PROJETOS */}
+        <section className="stack">
+          <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "8px",
+                  background: "rgba(139, 92, 246, 0.15)",
+                  color: "var(--primary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <FolderKanban size={16} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Meus Projetos (CapCut Style)</h2>
+              <span className="badge badge-queued" style={{ fontSize: "0.72rem" }}>
+                {projects.length} projeto(s)
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary btn-small"
+              onClick={() => setIsCreateProjectOpen(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                fontWeight: 600,
+                boxShadow: "0 2px 10px rgba(99, 102, 241, 0.25)",
+              }}
+            >
+              <Plus size={15} />
+              <span>Novo Projeto</span>
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: "1rem",
+            }}
+          >
+            {/* Card Pontilhado Criar Novo Projeto */}
+            <button
+              type="button"
+              onClick={() => setIsCreateProjectOpen(true)}
+              style={{
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "2px dashed var(--card-border)",
+                borderRadius: "14px",
+                padding: "2rem 1rem",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.6rem",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                color: "var(--text-muted)",
+                minHeight: "180px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--primary)";
+                e.currentTarget.style.color = "var(--primary)";
+                e.currentTarget.style.background = "rgba(139, 92, 246, 0.04)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--card-border)";
+                e.currentTarget.style.color = "var(--text-muted)";
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+              }}
+            >
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid var(--card-border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "inherit",
+                }}
+              >
+                <Plus size={20} />
+              </div>
+              <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>Criar Projeto</span>
+              <small style={{ fontSize: "0.74rem", opacity: 0.7 }}>Organize seus cortes sem bagunça</small>
+            </button>
+
+            {/* Lista de Projetos Existentes */}
+            {projects.map((proj: any) => {
+              // Calcular clipes totais deste projeto
+              const projJobs = (proj.jobs || []) as { id: string; clips?: { id: string; file_path: string }[] }[];
+              let totalClips = 0;
+              let firstClipPath: string | null = null;
+              projJobs.forEach((pj) => {
+                if (pj.clips) {
+                  totalClips += pj.clips.length;
+                  if (!firstClipPath && pj.clips[0]?.file_path) {
+                    firstClipPath = pj.clips[0].file_path;
+                  }
+                }
+              });
+
+              return (
+                <ProjectCard
+                  key={proj.id}
+                  project={proj}
+                  clipsCount={totalClips}
+                  thumbnailUrl={firstClipPath && urls[firstClipPath] ? urls[firstClipPath] : null}
+                  onDelete={handleDeleteProject}
+                />
+              );
+            })}
+          </div>
+        </section>
+
+        {/* FEED DE VÍDEOS PROCESSADOS RECENTES */}
         <section className="stack">
           <div className="row">
-            <h2>Galeria de Projetos &amp; Clipes</h2>
-            <span className="muted small">{jobs.length} projeto(s)</span>
+            <h2>Todos os Clipes Recentes</h2>
+            <span className="muted small">{jobs.length} vídeo(s)</span>
           </div>
 
           {jobs.length === 0 && (
@@ -588,6 +744,17 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
         </section>
       </section>
     </div>
+
+    {/* MODAL PARA CRIAÇÃO DE PROJETO (CAPCUT STYLE) */}
+    <CreateProjectModal
+      isOpen={isCreateProjectOpen}
+      userId={userId}
+      onClose={() => setIsCreateProjectOpen(false)}
+      onCreated={() => {
+        setIsCreateProjectOpen(false);
+        refresh();
+      }}
+    />
     </div>
   );
 }

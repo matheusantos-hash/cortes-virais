@@ -316,4 +316,101 @@ export async function saveClipCanvasBrollsAction(
   }
 }
 
+/** Cria um novo projeto (CapCut Workspace) */
+export async function createProjectAction(
+  name: string,
+  description?: string,
+  colorTag?: string
+): Promise<{ success: boolean; project?: any; error?: string }> {
+  if (!name?.trim()) return { success: false, error: "Nome do projeto é obrigatório." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    const { data, error } = await supabase
+      .from("projects")
+      .insert({
+        user_id: user.id,
+        name: name.trim(),
+        description: description?.trim() || null,
+        color_tag: colorTag || "#8B5CF6",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[createProjectAction] erro:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/projetos");
+    return { success: true, project: data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Falha ao criar projeto." };
+  }
+}
+
+/** Atualiza dados de um projeto existente */
+export async function updateProjectAction(
+  projectId: string,
+  partial: { name?: string; description?: string; color_tag?: string; thumbnail_url?: string }
+): Promise<{ success: boolean; error?: string }> {
+  if (!projectId) return { success: false, error: "ID do projeto não fornecido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    const { error } = await supabase
+      .from("projects")
+      .update({
+        ...partial,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", projectId)
+      .eq("user_id", user.id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath(`/projetos/${projectId}`);
+    revalidatePath("/");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Falha ao atualizar projeto." };
+  }
+}
+
+/** Exclui um projeto e desassocia os jobs */
+export async function deleteProjectAction(projectId: string): Promise<{ success: boolean; error?: string }> {
+  if (!projectId) return { success: false, error: "ID do projeto não fornecido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    // Desvincula jobs associados a este projeto
+    await supabase.from("jobs").update({ project_id: null }).eq("project_id", projectId);
+
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", projectId)
+      .eq("user_id", user.id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/");
+    revalidatePath("/projetos");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Falha ao excluir projeto." };
+  }
+}
+
+
 
