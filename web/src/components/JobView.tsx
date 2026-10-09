@@ -405,6 +405,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                           path: clip.file_path,
                           url: clip.file_path ? urls[clip.file_path] : undefined,
                           position: clip.position,
+                          orientation: job.orientation,
+                          verticalMode: job.vertical_mode,
                         };
                         try {
                           sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));

@@ -257,12 +257,14 @@ export default function ClipEditorModal({
       alert("Aguarde a finalização do processamento do corte para enviá-lo ao Clone Studio.");
       return;
     }
+    const isHorizontal = videoRef.current ? videoRef.current.videoWidth > videoRef.current.videoHeight : false;
     const clipData = {
       id: clip.id,
       title: clip.title,
       path: clip.file_path,
       url: videoSrc,
       position: clip.position,
+      orientation: isHorizontal ? "horizontal" : "vertical",
     };
     try {
       sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));

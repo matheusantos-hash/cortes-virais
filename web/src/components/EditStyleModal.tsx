@@ -19,6 +19,13 @@ import {
   Clock,
   Subtitles,
   AlertCircle,
+  Smartphone,
+  Monitor,
+  Square,
+  Crop,
+  User,
+  Users,
+  Columns,
 } from "./Icons";
 
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024;
@@ -68,6 +75,12 @@ export default function EditStyleModal({
 
   const [name, setName] = useState(reference?.name || "");
   const [designInstructions, setDesignInstructions] = useState(reference?.design_instructions || "");
+  const [resolution, setResolution] = useState<"1080x1920" | "1920x1080" | "1080x1080" | "2160x3840">(
+    reference?.export_settings?.resolution || "1080x1920"
+  );
+  const [verticalMode, setVerticalMode] = useState<"face_tracking" | "crop" | "blur" | "split" | "split_face">(
+    reference?.manual_adjustments?.camera?.verticalMode || "face_tracking"
+  );
   const [newVideoFiles, setNewVideoFiles] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
@@ -79,6 +92,8 @@ export default function EditStyleModal({
     if (reference) {
       setName(reference.name || "");
       setDesignInstructions(reference.design_instructions || "");
+      setResolution(reference.export_settings?.resolution || "1080x1920");
+      setVerticalMode(reference.manual_adjustments?.camera?.verticalMode || "face_tracking");
       setNewVideoFiles([]);
       setErrorMsg(null);
       setIsSaving(false);
@@ -187,6 +202,17 @@ export default function EditStyleModal({
         name: name.trim(),
         design_instructions: designInstructions.trim() || reference.design_instructions,
         sample_videos: updatedSampleVideos,
+        export_settings: {
+          ...(reference.export_settings || {}),
+          resolution,
+        },
+        manual_adjustments: {
+          ...(reference.manual_adjustments || {}),
+          camera: {
+            ...(reference.manual_adjustments?.camera || {}),
+            verticalMode: resolution.includes("1920x1080") ? "crop" : verticalMode,
+          },
+        },
         learning_status: "ready",
         learning_metrics: {
           ...(reference.learning_metrics || {}),
@@ -325,6 +351,212 @@ export default function EditStyleModal({
               disabled={isSaving}
               style={{ width: "100%", fontSize: "0.95rem", fontWeight: 600 }}
             />
+          </div>
+
+          {/* CAMPO 2: FORMATO PADRÃO DE SAÍDA (PROPORÇÃO DO VÍDEO) */}
+          <div style={{ marginBottom: "1.2rem" }}>
+            <label className="field-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Monitor size={14} style={{ color: "var(--primary)" }} />
+                <strong>Padrão Formato de Saída (Proporção):</strong>
+              </span>
+              <span className="badge badge-accent" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
+                {resolution === "1920x1080"
+                  ? "16:9 Horizontal"
+                  : resolution === "1080x1080"
+                  ? "1:1 Quadrado"
+                  : resolution === "2160x3840"
+                  ? "9:16 4K Ultra HD"
+                  : "9:16 Vertical"}
+              </span>
+            </label>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.5rem", marginTop: "0.4rem" }}>
+              <div
+                className={`selection-card ${resolution === "1080x1920" ? "active" : ""}`}
+                onClick={() => !isSaving && setResolution("1080x1920")}
+                style={{
+                  padding: "0.65rem 0.5rem",
+                  border: resolution === "1080x1920" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  background: resolution === "1080x1920" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  textAlign: "center",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Smartphone size={20} style={{ color: resolution === "1080x1920" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
+                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Vertical 9:16</strong>
+                <small className="muted" style={{ fontSize: "0.68rem" }}>TikTok / Reels / Shorts</small>
+              </div>
+
+              <div
+                className={`selection-card ${resolution === "1920x1080" ? "active" : ""}`}
+                onClick={() => !isSaving && setResolution("1920x1080")}
+                style={{
+                  padding: "0.65rem 0.5rem",
+                  border: resolution === "1920x1080" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  background: resolution === "1920x1080" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  textAlign: "center",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Monitor size={20} style={{ color: resolution === "1920x1080" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
+                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Horizontal 16:9</strong>
+                <small className="muted" style={{ fontSize: "0.68rem" }}>YouTube / Widescreen</small>
+              </div>
+
+              <div
+                className={`selection-card ${resolution === "1080x1080" ? "active" : ""}`}
+                onClick={() => !isSaving && setResolution("1080x1080")}
+                style={{
+                  padding: "0.65rem 0.5rem",
+                  border: resolution === "1080x1080" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  background: resolution === "1080x1080" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  textAlign: "center",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Square size={19} style={{ color: resolution === "1080x1080" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
+                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>Quadrado 1:1</strong>
+                <small className="muted" style={{ fontSize: "0.68rem" }}>Feed Instagram / Social</small>
+              </div>
+
+              <div
+                className={`selection-card ${resolution === "2160x3840" ? "active" : ""}`}
+                onClick={() => !isSaving && setResolution("2160x3840")}
+                style={{
+                  padding: "0.65rem 0.5rem",
+                  border: resolution === "2160x3840" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  background: resolution === "2160x3840" ? "rgba(139, 92, 246, 0.15)" : "rgba(15, 23, 42, 0.35)",
+                  textAlign: "center",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Smartphone size={20} style={{ color: resolution === "2160x3840" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
+                <strong style={{ display: "block", fontSize: "0.82rem", marginTop: "4px" }}>4K Vertical</strong>
+                <small className="muted" style={{ fontSize: "0.68rem" }}>Ultra HD 2160p</small>
+              </div>
+            </div>
+
+            {/* SE FOR VERTICAL OU QUADRADO, PERMITE ESCOLHER O ENQUADRAMENTO DA CÂMERA */}
+            {resolution !== "1920x1080" && (
+              <div style={{ marginTop: "0.75rem", padding: "0.75rem", background: "rgba(15, 23, 42, 0.35)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                <label className="field-label" style={{ fontSize: "0.78rem", marginBottom: "0.4rem" }}>
+                  Enquadramento Padrão de Câmera:
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(95px, 1fr))", gap: "0.35rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("face_tracking")}
+                    style={{
+                      padding: "0.4rem 0.3rem",
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      border: verticalMode === "face_tracking" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                      background: verticalMode === "face_tracking" ? "rgba(139, 92, 246, 0.2)" : "transparent",
+                      color: verticalMode === "face_tracking" ? "var(--primary)" : "var(--text-muted)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <User size={13} /> Auto-Face
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("split_face")}
+                    style={{
+                      padding: "0.4rem 0.3rem",
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      border: verticalMode === "split_face" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                      background: verticalMode === "split_face" ? "rgba(139, 92, 246, 0.2)" : "transparent",
+                      color: verticalMode === "split_face" ? "var(--primary)" : "var(--text-muted)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Users size={13} /> Podcast IA
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("crop")}
+                    style={{
+                      padding: "0.4rem 0.3rem",
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      border: verticalMode === "crop" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                      background: verticalMode === "crop" ? "rgba(139, 92, 246, 0.2)" : "transparent",
+                      color: verticalMode === "crop" ? "var(--primary)" : "var(--text-muted)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Crop size={13} /> Preencher
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("blur")}
+                    style={{
+                      padding: "0.4rem 0.3rem",
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      border: verticalMode === "blur" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                      background: verticalMode === "blur" ? "rgba(139, 92, 246, 0.2)" : "transparent",
+                      color: verticalMode === "blur" ? "var(--primary)" : "var(--text-muted)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Layers size={13} /> Fundo Blur
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("split")}
+                    style={{
+                      padding: "0.4rem 0.3rem",
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      border: verticalMode === "split" ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                      background: verticalMode === "split" ? "rgba(139, 92, 246, 0.2)" : "transparent",
+                      color: verticalMode === "split" ? "var(--primary)" : "var(--text-muted)",
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Columns size={13} /> Split 50/50
+                  </button>
+                </div>
+              </div>
+            )}
+            <small className="muted" style={{ display: "block", marginTop: "0.35rem", fontSize: "0.74rem" }}>
+              💡 Este formato de saída será selecionado automaticamente sempre que este estilo for utilizado para clonagem.
+            </small>
           </div>
 
           {/* PAINEL DE ACURÁCIA DA IA */}

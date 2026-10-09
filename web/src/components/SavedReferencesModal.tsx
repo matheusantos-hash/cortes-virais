@@ -17,6 +17,8 @@ import {
   Upload as UploadIcon,
   Pencil,
   Zap,
+  Monitor,
+  Smartphone,
 } from "./Icons";
 
 interface SavedReferencesModalProps {
@@ -216,6 +218,29 @@ export default function SavedReferencesModal({
                         {ref.custom_font_name || ref.manual_adjustments?.subtitles?.customFontName}
                       </span>
                     )}
+                    <span
+                      className="badge"
+                      style={{
+                        background: ref.export_settings?.resolution === "1920x1080" ? "rgba(99, 102, 241, 0.15)" : "var(--bg-subtle)",
+                        color: ref.export_settings?.resolution === "1920x1080" ? "var(--primary)" : "var(--text-muted)",
+                        fontSize: "0.72rem",
+                        border: "1px solid var(--card-border)",
+                      }}
+                    >
+                      {ref.export_settings?.resolution === "1920x1080" ? (
+                        <>
+                          <Monitor size={11} style={{ marginRight: "3px", verticalAlign: "middle" }} /> 16:9 Horizontal
+                        </>
+                      ) : ref.export_settings?.resolution === "1080x1080" ? (
+                        "1:1 Quadrado"
+                      ) : ref.export_settings?.resolution === "2160x3840" ? (
+                        "9:16 4K Ultra"
+                      ) : (
+                        <>
+                          <Smartphone size={11} style={{ marginRight: "3px", verticalAlign: "middle" }} /> 9:16 Vertical
+                        </>
+                      )}
+                    </span>
                   </div>
 
                   <p
@@ -242,9 +267,18 @@ export default function SavedReferencesModal({
                     {ref.manual_adjustments?.keyMoments?.cutPacing && (
                       <span>• Ritmo: {ref.manual_adjustments.keyMoments.cutPacing}</span>
                     )}
-                    {ref.export_settings?.resolution && (
-                      <span>• Resolução: {ref.export_settings.resolution}</span>
-                    )}
+                    <span>
+                      • Formato:{" "}
+                      <strong>
+                        {ref.export_settings?.resolution === "1920x1080"
+                          ? "16:9 Horizontal"
+                          : ref.export_settings?.resolution === "1080x1080"
+                          ? "1:1 Quadrado"
+                          : ref.export_settings?.resolution === "2160x3840"
+                          ? "9:16 4K Ultra"
+                          : "9:16 Vertical"}
+                      </strong>
+                    </span>
                   </p>
 
                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.35rem" }}>

@@ -42,6 +42,9 @@ import {
   Clock,
   FileText,
   BarChart3,
+  Smartphone,
+  Monitor,
+  Square,
 } from "./Icons";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
@@ -241,6 +244,14 @@ export default function CopyStyleStudio({
         if (parsed && (parsed.path || parsed.url)) {
           setSourceClip(parsed);
           setSourceMode("upload");
+          if (parsed.orientation === "horizontal" || parsed.resolution === "1920x1080") {
+            setResolution("1920x1080");
+          } else if (parsed.resolution) {
+            setResolution(parsed.resolution);
+          }
+          if (parsed.verticalMode) {
+            setVerticalMode(parsed.verticalMode);
+          }
         }
       }
     } catch {}
@@ -440,6 +451,11 @@ export default function CopyStyleStudio({
       setVerticalMode(ref.manual_adjustments.camera.verticalMode);
     }
 
+    // Carregar Formato de Saída / Resolução se especificado no estilo
+    if (ref.export_settings?.resolution) {
+      setResolution(ref.export_settings.resolution);
+    }
+
     // Se tiver métricas aprendidas pela IA, aplicar parâmetros
     if (ref.learning_metrics) {
       const m = ref.learning_metrics;
@@ -529,6 +545,7 @@ export default function CopyStyleStudio({
             sample_videos: finalRef.sample_videos,
             sample_subtitles: finalRef.sample_subtitles,
             manual_adjustments: finalRef.manual_adjustments,
+            export_settings: finalRef.export_settings,
           })
           .eq("id", finalRef.id);
         if (updErr) {
@@ -564,6 +581,12 @@ export default function CopyStyleStudio({
       setSelectedRefId(finalRef.id);
       setReferenceName(finalRef.name);
       if (finalRef.design_instructions) setDesignInstructions(finalRef.design_instructions);
+      if (finalRef.export_settings?.resolution) {
+        setResolution(finalRef.export_settings.resolution);
+      }
+      if (finalRef.manual_adjustments?.camera?.verticalMode) {
+        setVerticalMode(finalRef.manual_adjustments.camera.verticalMode);
+      }
     }
 
     const accuracyScore = finalRef.learning_metrics?.accuracyScore ?? 92;
@@ -1256,6 +1279,21 @@ export default function CopyStyleStudio({
                     <option value="Gamer / Reações">Gamer &amp; Dinâmico</option>
                   </select>
                 </div>
+
+                <div style={{ flex: 1, minWidth: "200px" }}>
+                  <label className="field-label">Formato Padrão de Saída</label>
+                  <select
+                    className="input select"
+                    value={resolution}
+                    onChange={(e) => setResolution(e.target.value as any)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="1080x1920">Vertical 9:16 (TikTok / Reels / Shorts)</option>
+                    <option value="1920x1080">Horizontal 16:9 (YouTube Padrão)</option>
+                    <option value="1080x1080">Quadrado 1:1 (Feed Instagram)</option>
+                    <option value="2160x3840">4K Vertical 9:16 (Ultra HD)</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -1638,8 +1676,82 @@ export default function CopyStyleStudio({
                         Legendas: <strong>{subtitleStyle}</strong> • Destaque:{" "}
                         <span style={{ color: highlightColor, fontWeight: 700 }}>● {highlightColor}</span> • Câmera:{" "}
                         <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : "Auto-Face"}</strong> • Ritmo:{" "}
-                        <strong>{cutPacing}</strong>
+                        <strong>{cutPacing}</strong> • Formato:{" "}
+                        <strong style={{ color: "var(--primary)" }}>
+                          {resolution === "1920x1080"
+                            ? "16:9 Horizontal"
+                            : resolution === "1080x1080"
+                            ? "1:1 Quadrado"
+                            : resolution === "2160x3840"
+                            ? "9:16 4K Ultra"
+                            : "9:16 Vertical"}
+                        </strong>
                       </p>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.45rem", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <Monitor size={12} style={{ color: "var(--primary)" }} /> Formato de Saída deste Clone:
+                        </span>
+                        <div style={{ display: "inline-flex", background: "rgba(15, 23, 42, 0.4)", borderRadius: "6px", padding: "2px", border: "1px solid var(--card-border)" }}>
+                          <button
+                            type="button"
+                            onClick={() => setResolution("1080x1920")}
+                            style={{
+                              padding: "2px 8px",
+                              fontSize: "0.72rem",
+                              borderRadius: "4px",
+                              border: "none",
+                              cursor: "pointer",
+                              background: resolution === "1080x1920" || resolution === "2160x3840" ? "var(--primary)" : "transparent",
+                              color: resolution === "1080x1920" || resolution === "2160x3840" ? "#fff" : "var(--text-muted)",
+                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            <Smartphone size={11} /> 9:16 Vertical
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setResolution("1920x1080")}
+                            style={{
+                              padding: "2px 8px",
+                              fontSize: "0.72rem",
+                              borderRadius: "4px",
+                              border: "none",
+                              cursor: "pointer",
+                              background: resolution === "1920x1080" ? "var(--primary)" : "transparent",
+                              color: resolution === "1920x1080" ? "#fff" : "var(--text-muted)",
+                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            <Monitor size={11} /> 16:9 Horizontal
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setResolution("1080x1080")}
+                            style={{
+                              padding: "2px 8px",
+                              fontSize: "0.72rem",
+                              borderRadius: "4px",
+                              border: "none",
+                              cursor: "pointer",
+                              background: resolution === "1080x1080" ? "var(--primary)" : "transparent",
+                              color: resolution === "1080x1080" ? "#fff" : "var(--text-muted)",
+                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            <Square size={11} /> 1:1 Quadrado
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

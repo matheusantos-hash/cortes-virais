@@ -208,6 +208,7 @@ export default function Dashboard({ userId, initialJobs }: { userId: string; ini
       referenceStyle: job.reference_style,
       subtitleStyle: job.subtitle_style,
       verticalMode: job.vertical_mode,
+      orientation: job.orientation,
     };
     try {
       sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));
