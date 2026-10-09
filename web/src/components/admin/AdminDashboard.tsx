@@ -7,7 +7,8 @@ import UsersTab from "./UsersTab";
 import ResourcesTab from "./ResourcesTab";
 import PerformanceTab from "./PerformanceTab";
 import ClipsTab from "./ClipsTab";
-import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon, FilmIcon } from "@/components/Icons";
+import ApiCostsTab from "./ApiCostsTab";
+import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon, FilmIcon, Coins } from "@/components/Icons";
 
 interface Props {
   users: AdminUsuario[];
@@ -16,7 +17,7 @@ interface Props {
   stats: AdminStats;
 }
 
-type TabKey = "users" | "resources" | "performance" | "clips";
+type TabKey = "users" | "resources" | "performance" | "clips" | "costs";
 
 export default function AdminDashboard({ users, jobs, clips = [], stats }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("users");
@@ -98,6 +99,13 @@ export default function AdminDashboard({ users, jobs, clips = [], stats }: Props
           <FilmIcon size={18} />
           <span>Biblioteca de Clipes</span>
         </button>
+        <button
+          className={`admin-tab ${activeTab === "costs" ? "active" : ""}`}
+          onClick={() => setActiveTab("costs")}
+        >
+          <Coins size={18} />
+          <span>Custos de API</span>
+        </button>
       </div>
 
       {/* Tab content */}
@@ -106,6 +114,7 @@ export default function AdminDashboard({ users, jobs, clips = [], stats }: Props
         {activeTab === "resources" && <ResourcesTab jobs={jobs} />}
         {activeTab === "performance" && <PerformanceTab jobs={jobs} users={users} />}
         {activeTab === "clips" && <ClipsTab clips={clips} users={users} jobs={jobs} />}
+        {activeTab === "costs" && <ApiCostsTab jobs={jobs} users={users} />}
       </div>
     </div>
   );
