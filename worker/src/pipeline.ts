@@ -291,6 +291,7 @@ export async function processVideo(args: {
         outPath: assPath,
         opts: {
           style: opts.subtitleStyle ?? "hormozi",
+          primaryColor: opts.primaryColor,
           highlightColor: opts.highlightColor,
           fontName: opts.customFontName ?? undefined,
           enableEmojis: opts.enableEmojis !== false,

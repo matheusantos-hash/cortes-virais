@@ -265,9 +265,13 @@ export default function CopyStyleStudio({
   };
 
   // 3. AJUSTES MANUAIS NA CÓPIA DA EDIÇÃO
+  // Referência Ativa Aplicada aos Ajustes
+  const [appliedRef, setAppliedRef] = useState<SavedReference | null>(null);
+
   // Ajuste de Legendas
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("hormozi");
   const [fontSize, setFontSize] = useState<"medium" | "large" | "extra">("extra");
+  const [primaryColor, setPrimaryColor] = useState("#FFFFFF");
   const [highlightColor, setHighlightColor] = useState("#FACC15");
   const [positionY, setPositionY] = useState<"bottom" | "center-bottom" | "center">("center-bottom");
   const [enableEmojis, setEnableEmojis] = useState(false);
@@ -380,27 +384,31 @@ export default function CopyStyleStudio({
         fullList = [...userList, ...PRESET_REFERENCES];
       }
       setSavedRefs(fullList);
-      setSelectedRefId((prev) => {
-        if (prev && fullList.some((r) => r.id === prev)) return prev;
-        return fullList[0]?.id ?? null;
-      });
-      if (fullList.length > 0 && !referenceName) {
-        setReferenceName(fullList[0].name);
-        if (fullList[0].design_instructions) setDesignInstructions(fullList[0].design_instructions);
+      const targetId = selectedRefId || fullList[0]?.id || null;
+      setSelectedRefId(targetId);
+      const initialTarget = fullList.find((r) => r.id === targetId) || fullList[0] || null;
+      if (initialTarget && (!referenceName || !appliedRef)) {
+        applyReference(initialTarget);
       }
     } catch {
       setSavedRefs(PRESET_REFERENCES);
-      setSelectedRefId((prev) => prev ?? PRESET_REFERENCES[0]?.id ?? null);
+      const targetId = selectedRefId || PRESET_REFERENCES[0]?.id || null;
+      setSelectedRefId(targetId);
+      const initialPreset = PRESET_REFERENCES.find((r) => r.id === targetId) || PRESET_REFERENCES[0];
+      if (initialPreset && (!referenceName || !appliedRef)) {
+        applyReference(initialPreset);
+      }
     }
-  }, [supabase, userId, referenceName]);
+  }, [supabase, userId, referenceName, selectedRefId, appliedRef]);
 
   useEffect(() => {
     loadSavedReferences();
   }, [loadSavedReferences]);
 
-  // Aplicar uma referência selecionada
+  // Aplicar uma referência selecionada aos Ajustes Manuais na Cópia de Edição
   function applyReference(ref: SavedReference) {
     setSelectedRefId(ref.id);
+    setAppliedRef(ref);
     setReferenceName(ref.name);
     setStyleSourceType("saved");
     setRefFile(null);
@@ -413,32 +421,61 @@ export default function CopyStyleStudio({
       setDesignInstructions(ref.design_instructions);
     }
 
-    // Carregar Ajustes Manuais
-    if (ref.manual_adjustments?.subtitles) {
-      const s = ref.manual_adjustments.subtitles;
-      if (s.style) setSubtitleStyle(s.style);
-      if (s.fontSize) setFontSize(s.fontSize);
-      if (s.highlightColor) setHighlightColor(s.highlightColor);
-      if (s.positionY) setPositionY(s.positionY);
-      if (s.enableEmojis !== undefined) setEnableEmojis(s.enableEmojis);
-      if (s.karaokeHighlight !== undefined) setKaraokeHighlight(s.karaokeHighlight);
+    // 1. Carregar Ajustes Manuais de Legenda
+    const sub = ref.manual_adjustments?.subtitles;
+    const detectedColors = ref.learning_metrics?.detectedColors;
+
+    // Estilo Visual
+    const resolvedStyle = (sub?.style || ref.subtitle_style || "hormozi") as SubtitleStyle;
+    setSubtitleStyle(resolvedStyle);
+
+    // Tamanho da Fonte
+    if (sub?.fontSize) {
+      setFontSize(sub.fontSize);
     }
 
-    const savedFontPath = ref.custom_font_path || ref.manual_adjustments?.subtitles?.customFontPath || null;
-    const savedFontName = ref.custom_font_name || ref.manual_adjustments?.subtitles?.customFontName || "";
+    // Cor Principal da Legenda (Branca por padrão ou definida no estilo)
+    const resolvedPrimary = sub?.primaryColor || detectedColors?.primary || "#FFFFFF";
+    setPrimaryColor(resolvedPrimary);
+
+    // Cor do Destaque (Karaokê)
+    const resolvedHighlight = sub?.highlightColor || detectedColors?.highlight || "#FACC15";
+    setHighlightColor(resolvedHighlight);
+
+    // Posição Vertical
+    const resolvedPosY = sub?.positionY || ref.learning_metrics?.detectedPosition || "center-bottom";
+    setPositionY(resolvedPosY);
+
+    // Emojis e Karaokê
+    if (sub?.enableEmojis !== undefined) {
+      setEnableEmojis(sub.enableEmojis);
+    }
+    if (sub?.karaokeHighlight !== undefined) {
+      setKaraokeHighlight(sub.karaokeHighlight);
+    }
+
+    // Fonte Tipográfica do Estilo
+    const savedFontPath = ref.custom_font_path || sub?.customFontPath || null;
+    const savedFontName = ref.custom_font_name || sub?.customFontName || ref.learning_metrics?.detectedFontFamily || "";
     setCustomFontPath(savedFontPath);
     setCustomFontName(savedFontName);
     setCustomFontFile(null);
     setFontPreviewUrl(null);
 
+    // 2. Momentos Importantes & Dinâmica de Corte
     if (ref.manual_adjustments?.keyMoments) {
       const k = ref.manual_adjustments.keyMoments;
       if (k.hookSensitivity) setHookSensitivity(k.hookSensitivity);
       if (k.cutPacing) setCutPacing(k.cutPacing);
       if (k.removeSilences !== undefined) setRemoveSilences(k.removeSilences);
       if (k.smartPunchInZoom !== undefined) setSmartPunchInZoom(k.smartPunchInZoom);
+    } else if (ref.learning_metrics?.avgCutPacingSec) {
+      if (ref.learning_metrics.avgCutPacingSec <= 2.2) setCutPacing("ultra_fast");
+      else if (ref.learning_metrics.avgCutPacingSec <= 3.5) setCutPacing("dynamic");
+      else setCutPacing("smooth");
     }
 
+    // 3. Sound Design
     if (ref.manual_adjustments?.soundDesign) {
       const snd = ref.manual_adjustments.soundDesign;
       if (snd.enableSfx !== undefined) setEnableSfx(snd.enableSfx);
@@ -446,30 +483,37 @@ export default function CopyStyleStudio({
       if (snd.sfxVolume !== undefined) setSfxVolume(snd.sfxVolume);
     }
 
-    // Carregar Câmera e Enquadramento se especificado
-    if (ref.manual_adjustments?.camera?.verticalMode) {
-      setVerticalMode(ref.manual_adjustments.camera.verticalMode);
+    // 4. B-Rolls
+    if (ref.manual_adjustments?.brolls) {
+      const b = ref.manual_adjustments.brolls;
+      if (b.enabled !== undefined) setUseBroll(b.enabled);
+      if (b.source) setBrollSource(b.source);
     }
 
-    // Carregar Formato de Saída / Resolução se especificado no estilo
+    // 5. Câmera e Enquadramento Vertical
+    if (ref.manual_adjustments?.camera?.verticalMode) {
+      setVerticalMode(ref.manual_adjustments.camera.verticalMode);
+    } else if (ref.learning_metrics?.cameraFramingPattern === "split_screen") {
+      setVerticalMode("split");
+    } else if (ref.learning_metrics?.cameraFramingPattern === "face_tracking") {
+      setVerticalMode("face_tracking");
+    }
+
+    // 6. Formato de Saída / Resolução e Exportação
     if (ref.export_settings?.resolution) {
       setResolution(ref.export_settings.resolution);
     }
-
-    // Se tiver métricas aprendidas pela IA, aplicar parâmetros
-    if (ref.learning_metrics) {
-      const m = ref.learning_metrics;
-      if (m.detectedColors?.highlight) {
-        setHighlightColor(m.detectedColors.highlight);
-      }
-      if (m.cameraFramingPattern === "split_screen") {
-        setVerticalMode("split");
-      } else if (m.cameraFramingPattern === "face_tracking") {
-        setVerticalMode("face_tracking");
-      }
+    if (ref.export_settings?.codec) setCodec(ref.export_settings.codec);
+    if (ref.export_settings?.fps) setFps(ref.export_settings.fps);
+    if (ref.export_settings?.bitrate) setBitrate(ref.export_settings.bitrate);
+    if (ref.export_settings?.audioNormalization !== undefined) {
+      setAudioNormalization(ref.export_settings.audioNormalization);
+    }
+    if (ref.export_settings?.generateNleTimeline !== undefined) {
+      setGenerateNleTimeline(ref.export_settings.generateNleTimeline);
     }
 
-    setSuccessMsg(`Estilo "${ref.name}" carregado com sucesso!`);
+    setSuccessMsg(`Estilo "${ref.name}" carregado com sucesso nos ajustes manuais!`);
     setTimeout(() => setSuccessMsg(null), 3500);
   }
 
@@ -708,7 +752,7 @@ export default function CopyStyleStudio({
 
       const detectedCutSec = newStyleCategory.includes("Rápido") ? 2.0 : newStyleCategory.includes("Podcast") ? 3.5 : 2.4;
       const detectedSubStyle = (subtitleStyle || "hormozi") as SubtitleStyle;
-      const primaryCol = "#FFFFFF";
+      const primaryCol = primaryColor || "#FFFFFF";
       const highlightCol = highlightColor || "#FACC15";
 
       const newRefId = crypto.randomUUID();
@@ -917,6 +961,7 @@ export default function CopyStyleStudio({
         subtitles: {
           style: subtitleStyle,
           fontSize,
+          primaryColor,
           highlightColor,
           positionY,
           enableEmojis,
@@ -1673,8 +1718,14 @@ export default function CopyStyleStudio({
                         </span>
                       </div>
                       <p className="muted small" style={{ margin: "0.25rem 0 0" }}>
-                        Legendas: <strong>{subtitleStyle}</strong> • Destaque:{" "}
-                        <span style={{ color: highlightColor, fontWeight: 700 }}>● {highlightColor}</span> • Câmera:{" "}
+                        Legendas: <strong>{subtitleStyle}</strong> • Base:{" "}
+                        <span style={{ color: primaryColor, fontWeight: 700 }}>● {primaryColor}</span> • Destaque:{" "}
+                        <span style={{ color: highlightColor, fontWeight: 700 }}>● {highlightColor}</span>
+                        {customFontName ? (
+                          <>
+                            {" "}• Fonte: <strong>{customFontName}</strong>
+                          </>
+                        ) : null} • Câmera:{" "}
                         <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : "Auto-Face"}</strong> • Ritmo:{" "}
                         <strong>{cutPacing}</strong> • Formato:{" "}
                         <strong style={{ color: "var(--primary)" }}>
@@ -2050,15 +2101,135 @@ export default function CopyStyleStudio({
             </div>
           </div>
 
+          {/* BANNER DINÂMICO DE HERANÇA DO ESTILO SALVO */}
+          {appliedRef && styleSourceType === "saved" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "rgba(139, 92, 246, 0.08)",
+                border: "1px solid rgba(139, 92, 246, 0.28)",
+                borderRadius: "8px",
+                padding: "0.75rem 1rem",
+                marginBottom: "1rem",
+                flexWrap: "wrap",
+                gap: "0.6rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: "260px" }}>
+                <Sparkles size={18} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.88rem", color: "var(--text)", fontWeight: 600 }}>
+                      Configurações herdadas do estilo: <strong>{appliedRef.name}</strong>
+                    </span>
+                    <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>Pré-configurado</span>
+                  </div>
+                  <small className="muted" style={{ display: "block", fontSize: "0.75rem", marginTop: "2px" }}>
+                    Todas as opções abaixo foram preenchidas com as configurações deste estilo. Você pode alterar qualquer detalhe especificamente para este corte mantendo o restante original.
+                  </small>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                onClick={() => applyReference(appliedRef)}
+                title="Restaurar valores padrão do estilo selecionado"
+                style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem", display: "inline-flex", alignItems: "center", gap: "4px" }}
+              >
+                <RotateCcw size={12} />
+                Restaurar Padrão do Estilo
+              </button>
+            </div>
+          )}
+
           <div className="studio-controls-grid">
             {/* Bloco 1: Legendas */}
             <div className="control-box">
-              <div className="control-box-header">
-                <Subtitles size={17} style={{ color: "var(--primary)" }} />
-                <strong>Ajuste de Legendas</strong>
+              <div className="control-box-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Subtitles size={17} style={{ color: "var(--primary)" }} />
+                  <strong>Ajuste de Legendas</strong>
+                </div>
+                {appliedRef && (
+                  <span className="badge" style={{ fontSize: "0.68rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--primary)" }}>
+                    {appliedRef.name.slice(0, 18)}…
+                  </span>
+                )}
               </div>
 
               <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
+                {/* Visualização Dinâmica da Legenda (Live Preview) */}
+                <div
+                  style={{
+                    background: "rgba(10, 15, 29, 0.85)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "8px",
+                    padding: "0.75rem",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+                    <span className="muted" style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Preview da Legenda em Tempo Real
+                    </span>
+                    <span style={{ fontSize: "0.68rem", color: "var(--primary)", fontWeight: 600 }}>
+                      {subtitleStyle.toUpperCase()} • {fontSize.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "0.6rem 0.4rem",
+                      borderRadius: "6px",
+                      background: "radial-gradient(ellipse at center, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.95) 100%)",
+                      minHeight: "48px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : (customFontName ? `'${customFontName}', sans-serif` : "inherit"),
+                      fontSize: fontSize === "extra" ? "1.25rem" : fontSize === "large" ? "1.1rem" : "0.95rem",
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: primaryColor,
+                        textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 6px rgba(0,0,0,0.8)",
+                        marginRight: "6px",
+                      }}
+                    >
+                      CORTE DA
+                    </span>
+                    <span
+                      style={{
+                        color: highlightColor,
+                        textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 6px rgba(0,0,0,0.8)",
+                      }}
+                    >
+                      PEGADA 🔥
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: "0.4rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", fontSize: "0.7rem" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      Base: <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: primaryColor, display: "inline-block", border: "1px solid #666" }} /> <strong>{primaryColor}</strong>
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      Destaque: <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: highlightColor, display: "inline-block", border: "1px solid #666" }} /> <strong>{highlightColor}</strong>
+                    </span>
+                    {customFontName && (
+                      <span style={{ color: "var(--primary)" }}>
+                        Fonte: <strong>{customFontName}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="field-label">Estilo Visual</label>
                   <select
@@ -2101,33 +2272,163 @@ export default function CopyStyleStudio({
                   </div>
                 </div>
 
-                <div className="row" style={{ gap: "0.5rem", alignItems: "center" }}>
-                  <label className="field-label" style={{ margin: 0, flex: 1 }}>
-                    Cor do Destaque (Karaokê):
-                  </label>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    {[
-                      { color: "#FACC15", name: "Amarelo" },
-                      { color: "#10B981", name: "Verde" },
-                      { color: "#38BDF8", name: "Ciano" },
-                      { color: "#F43F5E", name: "Rosa" },
-                    ].map((c) => (
-                      <button
-                        key={c.color}
-                        type="button"
-                        onClick={() => setHighlightColor(c.color)}
+                {/* COR 1: COR PRINCIPAL DO TEXTO (BASE DA LEGENDA) */}
+                <div style={{ padding: "0.5rem", background: "rgba(15, 23, 42, 0.3)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+                    <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
+                      Cor Principal do Texto (Base):
+                    </label>
+                    <span style={{ fontSize: "0.72rem", color: primaryColor, fontWeight: 700, fontFamily: "monospace" }}>
+                      {primaryColor}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                      {[
+                        { color: "#FFFFFF", name: "Branco Puro" },
+                        { color: "#FACC15", name: "Amarelo Neon" },
+                        { color: "#38BDF8", name: "Ciano" },
+                        { color: "#10B981", name: "Verde" },
+                        { color: "#F43F5E", name: "Rosa" },
+                        { color: "#000000", name: "Preto" },
+                      ].map((c) => {
+                        const isSelected = primaryColor.toUpperCase() === c.color.toUpperCase();
+                        return (
+                          <button
+                            key={c.color}
+                            type="button"
+                            onClick={() => setPrimaryColor(c.color)}
+                            style={{
+                              width: "26px",
+                              height: "26px",
+                              borderRadius: "50%",
+                              background: c.color,
+                              border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
+                              cursor: "pointer",
+                              outline: isSelected ? "2px solid var(--primary)" : "none",
+                              boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
+                              transition: "all 0.15s ease",
+                            }}
+                            title={`${c.name} (${c.color})`}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <input
+                        type="color"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
                         style={{
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "50%",
-                          background: c.color,
-                          border: highlightColor === c.color ? "2px solid #000" : "1px solid rgba(0,0,0,0.15)",
+                          width: "28px",
+                          height: "26px",
+                          padding: 0,
+                          border: "1px solid var(--card-border)",
+                          borderRadius: "4px",
                           cursor: "pointer",
-                          outline: highlightColor === c.color ? "2px solid var(--primary)" : "none",
+                          background: "transparent",
                         }}
-                        title={c.name}
+                        title="Escolher cor personalizada"
                       />
-                    ))}
+                      <input
+                        type="text"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
+                        style={{
+                          width: "80px",
+                          fontSize: "0.75rem",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          border: "1px solid var(--card-border)",
+                          background: "var(--input-bg)",
+                          color: "var(--text)",
+                          textAlign: "center",
+                          fontFamily: "monospace",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* COR 2: COR DO DESTAQUE (KARAOKÊ / PALAVRA ATIVA) */}
+                <div style={{ padding: "0.5rem", background: "rgba(15, 23, 42, 0.3)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+                    <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
+                      Cor do Destaque (Karaokê):
+                    </label>
+                    <span style={{ fontSize: "0.72rem", color: highlightColor, fontWeight: 700, fontFamily: "monospace" }}>
+                      {highlightColor}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                      {[
+                        { color: "#FACC15", name: "Amarelo Neon" },
+                        { color: "#10B981", name: "Verde Esmeralda" },
+                        { color: "#38BDF8", name: "Ciano" },
+                        { color: "#F43F5E", name: "Rosa Vibrante" },
+                        { color: "#FFFFFF", name: "Branco" },
+                        { color: "#FB923C", name: "Laranja" },
+                      ].map((c) => {
+                        const isSelected = highlightColor.toUpperCase() === c.color.toUpperCase();
+                        return (
+                          <button
+                            key={c.color}
+                            type="button"
+                            onClick={() => setHighlightColor(c.color)}
+                            style={{
+                              width: "26px",
+                              height: "26px",
+                              borderRadius: "50%",
+                              background: c.color,
+                              border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
+                              cursor: "pointer",
+                              outline: isSelected ? "2px solid var(--primary)" : "none",
+                              boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
+                              transition: "all 0.15s ease",
+                            }}
+                            title={`${c.name} (${c.color})`}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <input
+                        type="color"
+                        value={highlightColor}
+                        onChange={(e) => setHighlightColor(e.target.value.toUpperCase())}
+                        style={{
+                          width: "28px",
+                          height: "26px",
+                          padding: 0,
+                          border: "1px solid var(--card-border)",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          background: "transparent",
+                        }}
+                        title="Escolher cor personalizada"
+                      />
+                      <input
+                        type="text"
+                        value={highlightColor}
+                        onChange={(e) => setHighlightColor(e.target.value.toUpperCase())}
+                        style={{
+                          width: "80px",
+                          fontSize: "0.75rem",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          border: "1px solid var(--card-border)",
+                          background: "var(--input-bg)",
+                          color: "var(--text)",
+                          textAlign: "center",
+                          fontFamily: "monospace",
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -2149,14 +2450,20 @@ export default function CopyStyleStudio({
                   <span>Destaque palavra por palavra (Word highlight)</span>
                 </label>
 
-                {/* Upload de Fonte Tipográfica Própria (.ttf, .otf, .woff, .woff2) */}
+                {/* Upload e Herança de Fonte Tipográfica Própria (.ttf, .otf, .woff, .woff2) */}
                 <div style={{ marginTop: "0.4rem", paddingTop: "0.6rem", borderTop: "1px dashed var(--card-border)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
                     <label className="field-label" style={{ margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
                       <Type size={14} style={{ color: "var(--primary)" }} />
-                      Fonte Tipográfica Própria (.ttf, .otf, .woff)
+                      Fonte Tipográfica das Legendas
                     </label>
-                    <span className="muted" style={{ fontSize: "0.72rem" }}>Opcional</span>
+                    {customFontName ? (
+                      <span className="badge badge-accent" style={{ fontSize: "0.68rem" }}>
+                        {customFontFile ? "Nova Fonte Enviada" : appliedRef ? `Herdada de ${appliedRef.name}` : "Ativa"}
+                      </span>
+                    ) : (
+                      <span className="muted" style={{ fontSize: "0.72rem" }}>Padrão do Sistema</span>
+                    )}
                   </div>
 
                   <input
@@ -2171,7 +2478,7 @@ export default function CopyStyleStudio({
                     }}
                   />
 
-                  {customFontFile || customFontPath ? (
+                  {customFontFile || customFontPath || customFontName ? (
                     <div
                       style={{
                         background: "var(--bg-subtle)",
@@ -2194,12 +2501,17 @@ export default function CopyStyleStudio({
                               ({Math.round(customFontFile.size / 1024)} KB)
                             </span>
                           )}
+                          {appliedRef && !customFontFile && (
+                            <span className="badge" style={{ fontSize: "0.65rem", background: "rgba(16, 185, 129, 0.15)", color: "#10b981" }}>
+                              Igual ao estilo salvo
+                            </span>
+                          )}
                         </div>
                         {/* Preview dinâmico da fonte */}
                         <p
                           style={{
                             margin: "0.25rem 0 0",
-                            fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : "inherit",
+                            fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : (customFontName ? `'${customFontName}', sans-serif` : "inherit"),
                             fontSize: "0.95rem",
                             fontWeight: 700,
                             color: "var(--text)",
@@ -2210,21 +2522,33 @@ export default function CopyStyleStudio({
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        className="btn-icon"
-                        title="Remover fonte personalizada"
-                        onClick={() => {
-                          setCustomFontFile(null);
-                          setCustomFontPath(null);
-                          setCustomFontName("");
-                          setFontPreviewUrl(null);
-                          if (fontFileInputRef.current) fontFileInputRef.current.value = "";
-                        }}
-                        style={{ padding: "5px", color: "var(--danger)", cursor: "pointer", background: "transparent", border: "none" }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-small"
+                          onClick={() => fontFileInputRef.current?.click()}
+                          title="Trocar arquivo de fonte para este corte específico"
+                          style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+                        >
+                          <Pencil size={12} style={{ marginRight: "3px" }} />
+                          Trocar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-icon"
+                          title="Remover fonte personalizada e usar padrão do sistema"
+                          onClick={() => {
+                            setCustomFontFile(null);
+                            setCustomFontPath(null);
+                            setCustomFontName("");
+                            setFontPreviewUrl(null);
+                            if (fontFileInputRef.current) fontFileInputRef.current.value = "";
+                          }}
+                          style={{ padding: "5px", color: "var(--danger)", cursor: "pointer", background: "transparent", border: "none" }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button
@@ -2248,7 +2572,7 @@ export default function CopyStyleStudio({
                     </button>
                   )}
                   <p className="muted" style={{ fontSize: "0.72rem", margin: "0.35rem 0 0" }}>
-                    Envie o arquivo de fonte do vídeo de referência para replicar 1:1 a tipografia original.
+                    Você pode alterar a cor ou tipografia exclusivamente para esta clonagem sem alterar o estilo original salvo.
                   </p>
                 </div>
               </div>

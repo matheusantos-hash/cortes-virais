@@ -548,6 +548,7 @@ async function processJob(job: Job) {
       useBroll: job.use_broll ?? manualAdj?.brolls?.enabled ?? false,
       brollSource: job.broll_source ?? manualAdj?.brolls?.source ?? "pexels",
       subtitleStyle: job.subtitle_style ?? manualAdj?.subtitles?.style,
+      primaryColor: manualAdj?.subtitles?.primaryColor ?? (job as any).primary_color,
       highlightColor: manualAdj?.subtitles?.highlightColor,
       enableSfx: job.enable_sfx ?? manualAdj?.soundDesign?.enableSfx ?? true,
       enableEmojis: job.enable_emojis ?? manualAdj?.subtitles?.enableEmojis ?? true,
