@@ -15,6 +15,8 @@ import {
   Crop,
   Clock,
   Play,
+  Pause,
+  Maximize2,
   Save,
   Smartphone,
   Square,
@@ -24,6 +26,8 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   EyeIcon,
   EyeOffIcon,
   Lightbulb,
@@ -75,6 +79,10 @@ export default function ClipEditorModal({
   // Estados do Player & Safe Zones CapCut
   const [showSafeZones, setShowSafeZones] = useState(true);
   const [zoomScale, setZoomScale] = useState<number>(1); // 1x, 1.5x, 2x
+  const [isFocusMode, setIsFocusMode] = useState(false);
+  const [timelineHeight, setTimelineHeight] = useState<number>(215);
+  const [isResizingTimeline, setIsResizingTimeline] = useState(false);
+  const [rightAccordionOpen, setRightAccordionOpen] = useState<"inspector" | "hook" | "clone">("inspector");
 
   // Estados da Capa / Thumbnail
   const [thumbTitle, setThumbTitle] = useState(clip.title);
@@ -120,6 +128,9 @@ export default function ClipEditorModal({
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
+      } else if (e.code === "KeyF") {
+        e.preventDefault();
+        setIsFocusMode((prev) => !prev);
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         seekRelative(-1);
@@ -135,6 +146,24 @@ export default function ClipEditorModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlay, seekRelative, onClose]);
+
+  // Redimensionamento interativo da Timeline por arrasto (drag)
+  useEffect(() => {
+    if (!isResizingTimeline) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const newH = Math.max(120, Math.min(window.innerHeight * 0.6, window.innerHeight - e.clientY));
+      setTimelineHeight(newH);
+    };
+    const handleMouseUp = () => {
+      setIsResizingTimeline(false);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingTimeline]);
 
   const setStartToCurrent = () => {
     if (!videoRef.current) return;
@@ -374,251 +403,121 @@ export default function ClipEditorModal({
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       }}
     >
-      {/* 1. HEADER DO ESTÚDIO CAPCUT */}
-      <header
-        style={{
-          height: "54px",
-          backgroundColor: "#12151D",
-          borderBottom: "1px solid #232733",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 1rem",
-          gap: "1rem",
-          zIndex: 10,
-        }}
-      >
+      {/* 1. HEADER DO ESTÚDIO COMPACTO (48px) */}
+      <header className="h-12 bg-[#11131B] border-b border-[#212635] flex items-center justify-between px-3 gap-3 z-10 shrink-0">
         {/* Esquerda: Voltar e Identificação do Corte */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
             onClick={onClose}
-            className="btn btn-small"
-            style={{
-              background: "#1C202B",
-              border: "1px solid #2C3242",
-              color: "#F3F4F6",
-              padding: "0.35rem 0.65rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              fontSize: "0.82rem",
-              fontWeight: 600,
-            }}
+            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-200 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Voltar para a lista de cortes (Esc)"
           >
-            <ArrowLeft size={15} /> Voltar
+            <ArrowLeft size={14} /> Voltar
           </button>
 
-          <div style={{ height: "18px", width: "1px", background: "#2C3242" }} />
+          <div className="h-4 w-px bg-[#2B3142]" />
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span
-              style={{
-                background: "linear-gradient(135deg, #6366F1, #A855F7)",
-                color: "#FFF",
-                padding: "0.15rem 0.5rem",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                fontWeight: 800,
-                letterSpacing: "0.02em",
-              }}
-            >
+          <div className="flex items-center gap-2 truncate">
+            <span className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white px-1.5 py-0.5 rounded text-[11px] font-extrabold tracking-wider shrink-0">
               #{clip.position}
             </span>
-            <span
-              style={{
-                fontSize: "0.92rem",
-                fontWeight: 700,
-                maxWidth: "340px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                color: "#F3F4F6",
-              }}
-            >
+            <span className="text-xs font-bold text-gray-200 truncate max-w-[260px] md:max-w-[400px]">
               {clip.title}
             </span>
           </div>
         </div>
 
-        {/* Centro: Timecode Digital Monospace & Safe Zones Toggle */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <div
-            style={{
-              background: "#08090D",
-              border: "1px solid #232733",
-              padding: "0.25rem 0.75rem",
-              borderRadius: "8px",
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "0.85rem",
-              color: "#00F0FF",
-              fontWeight: 600,
-              letterSpacing: "0.05em",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-            }}
-          >
-            <span style={{ color: "#FFF" }}>{formatTimecode(currentTime)}</span>
-            <span style={{ color: "#64748B" }}>/</span>
-            <span style={{ color: "#94A3B8" }}>{formatTimecode(duration)}</span>
+        {/* Centro: Timecode Digital Monospace & Toggles Pequenos */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="bg-[#08090D] border border-[#232733] px-2.5 py-1 rounded-md font-mono text-xs text-cyan-400 font-semibold tracking-wider flex items-center gap-1.5 shadow-inner">
+            <span className="text-white">{formatTimecode(currentTime)}</span>
+            <span className="text-gray-500">/</span>
+            <span className="text-gray-400">{formatTimecode(duration)}</span>
           </div>
 
           <button
             type="button"
             onClick={() => setShowSafeZones(!showSafeZones)}
-            style={{
-              background: showSafeZones ? "rgba(0, 240, 255, 0.12)" : "#1C202B",
-              color: showSafeZones ? "#00F0FF" : "#94A3B8",
-              border: `1px solid ${showSafeZones ? "rgba(0, 240, 255, 0.4)" : "#2C3242"}`,
-              padding: "0.3rem 0.65rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "0.76rem",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+              showSafeZones
+                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/40"
+                : "bg-[#181B26] text-gray-400 border-[#2B3142] hover:text-gray-300"
+            }`}
             title="Alternar Safe Zones de TikTok / Reels / Shorts"
           >
-            {showSafeZones ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
-            Safe Zones {showSafeZones ? "ON" : "OFF"}
+            {showSafeZones ? <EyeIcon size={12} /> : <EyeOffIcon size={12} />}
+            Safe Zones
           </button>
 
           <button
             type="button"
             onClick={() => setEnableBrollOverlay(!enableBrollOverlay)}
-            style={{
-              background: enableBrollOverlay ? "rgba(168, 85, 247, 0.15)" : "#1C202B",
-              color: enableBrollOverlay ? "#C084FC" : "#94A3B8",
-              border: `1px solid ${enableBrollOverlay ? "rgba(168, 85, 247, 0.4)" : "#2C3242"}`,
-              padding: "0.3rem 0.65rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "0.76rem",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              transition: "all 0.15s ease",
-            }}
+            className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+              enableBrollOverlay
+                ? "bg-purple-500/15 text-purple-300 border-purple-500/40"
+                : "bg-[#181B26] text-gray-400 border-[#2B3142] hover:text-gray-300"
+            }`}
             title="Ativar/Desativar Prévia de Motion Graphics Canvas"
           >
-            <SparklesIcon size={14} /> Overlays {enableBrollOverlay ? "ON" : "OFF"}
+            <SparklesIcon size={12} /> Overlays
           </button>
         </div>
 
         {/* Direita: Ações de Salvar e Fechar */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setIsCloneModalOpen(true)}
-            style={{
-              background: "rgba(168, 85, 247, 0.18)",
-              border: "1px solid #C084FC",
-              color: "#C084FC",
-              padding: "0.4rem 0.85rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              transition: "all 0.15s ease",
-              boxShadow: "0 0 14px rgba(168, 85, 247, 0.25)",
-            }}
+            className="bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/50 text-purple-300 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
             title="Abrir estúdio de clonagem de edição com IA para este corte"
           >
-            <SparklesIcon size={14} /> Clonar Estilo
+            <SparklesIcon size={13} /> Clonar Estilo
           </button>
 
           <button
             type="button"
             onClick={handleSaveBrolls}
             disabled={isSavingBrolls}
-            style={{
-              background: "#1C202B",
-              border: "1px solid #2C3242",
-              color: "#F3F4F6",
-              padding: "0.4rem 0.8rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "0.82rem",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-            }}
+            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-300 px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+            title="Salvar camadas de B-Roll configuradas"
           >
-            <Save size={14} /> {isSavingBrolls ? "Salvando..." : "Salvar Overlays"}
+            <Save size={13} /> {isSavingBrolls ? "..." : "Salvar"}
           </button>
 
           <button
             type="button"
             onClick={handleSaveTrimAndBrolls}
             disabled={isSavingTrim}
-            style={{
-              background: "linear-gradient(135deg, #4F46E5, #06B6D4)",
-              border: "none",
-              color: "#FFF",
-              padding: "0.45rem 1rem",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "0.84rem",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              boxShadow: "0 2px 10px rgba(6, 182, 212, 0.3)",
-            }}
+            className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-60"
+            title="Re-renderizar vídeo final com corte e overlays"
           >
-            <SparklesIcon size={15} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar Corte"}
+            <SparklesIcon size={13} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#94A3B8",
-              cursor: "pointer",
-              padding: "0.35rem",
-              display: "flex",
-              alignItems: "center",
-            }}
-            title="Fechar Estúdio"
+            className="text-gray-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+            title="Fechar Estúdio (Esc)"
           >
-            <XIcon size={18} />
+            <XIcon size={17} />
           </button>
         </div>
       </header>
 
       {/* 2. ÁREA DE TRABALHO PRINCIPAL (3 COLUNAS: ESQUERDA, PLAYER CENTRAL, DIREITA) */}
       <div
+        className="flex-1 grid overflow-hidden bg-[#0D0F16] transition-all duration-200"
         style={{
-          flex: 1,
-          display: "grid",
-          gridTemplateColumns: "300px 1fr 280px",
-          overflow: "hidden",
-          backgroundColor: "#0D0F16",
+          gridTemplateColumns: isFocusMode ? "0px 1fr 0px" : "300px 1fr 280px",
         }}
       >
         {/* COLUNA ESQUERDA: BIBLIOTECA DE RECURSOS E ABAS */}
         <aside
-          style={{
-            backgroundColor: "#13161F",
-            borderRight: "1px solid #212634",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
+          className={`bg-[#13161F] border-r border-[#212634] flex flex-col overflow-hidden transition-all duration-200 ${
+            isFocusMode ? "invisible opacity-0" : "visible opacity-100"
+          }`}
         >
           {/* Navegação por Abas Verticais/Pills estilo CapCut */}
           <div
@@ -730,8 +629,44 @@ export default function ClipEditorModal({
           <div style={{ flex: 1, overflowY: "auto", padding: "0.85rem" }}>
             {activeTab === "brolls" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                {/* 1. SUGESTÕES DA IA NO TOPO */}
+                {suggestions.length > 0 && (
+                  <div className="bg-amber-500/10 p-3 rounded-lg border border-amber-400/30 shadow-sm">
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5 mb-2">
+                      <Lightbulb size={14} className="text-amber-400" />
+                      Sugestões Identificadas pela IA ({suggestions.length}):
+                    </span>
+                    <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+                      {suggestions.map((s, idx) => {
+                        const isAdded = canvasBrolls.some((b) => Math.abs(b.offsetSec - s.offsetSec) < 0.5);
+                        return (
+                          <div
+                            key={idx}
+                            className="flex justify-between items-center bg-[#0E1017] p-2 rounded border border-[#212634] text-xs"
+                          >
+                            <div className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[170px]">
+                              <strong className="text-cyan-400 font-mono">{s.offsetSec}s</strong>: {s.suggestedTitle}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isAdded}
+                              onClick={() => addFromSuggestion(s)}
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors ${
+                                isAdded ? "bg-gray-800 text-gray-500 cursor-default" : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                              }`}
+                            >
+                              {isAdded ? "Ativo" : "+ Add"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. INSERIR MANUALMENTE NO PLAYHEAD */}
                 <div>
-                  <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#FFF" }}>
+                  <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.88rem", color: "#FFF", fontWeight: 700 }}>
                     Inserir Motion no Playhead
                   </h4>
                   <p style={{ margin: 0, fontSize: "0.74rem", color: "#94A3B8" }}>
@@ -812,73 +747,6 @@ export default function ClipEditorModal({
                     + Tag Viral
                   </button>
                 </div>
-
-                {/* Sugestões da IA */}
-                {suggestions.length > 0 && (
-                  <div
-                    style={{
-                      background: "rgba(255, 230, 0, 0.05)",
-                      padding: "0.65rem",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(255, 230, 0, 0.2)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        color: "#FFE600",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        marginBottom: "0.4rem",
-                      }}
-                    >
-                      <Lightbulb size={14} style={{ color: "#FFE600" }} />
-                      Sugestões Identificadas pela IA:
-                    </span>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxHeight: "160px", overflowY: "auto" }}>
-                      {suggestions.map((s, idx) => {
-                        const isAdded = canvasBrolls.some((b) => Math.abs(b.offsetSec - s.offsetSec) < 0.5);
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              background: "#0E1017",
-                              padding: "0.35rem 0.5rem",
-                              borderRadius: "5px",
-                              fontSize: "0.74rem",
-                            }}
-                          >
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "160px" }}>
-                              <strong style={{ color: "#00F0FF" }}>{s.offsetSec}s</strong>: {s.suggestedTitle}
-                            </div>
-                            <button
-                              type="button"
-                              disabled={isAdded}
-                              onClick={() => addFromSuggestion(s)}
-                              style={{
-                                padding: "0.2rem 0.45rem",
-                                borderRadius: "4px",
-                                border: "none",
-                                background: isAdded ? "#262C3A" : "#6366F1",
-                                color: isAdded ? "#94A3B8" : "#FFF",
-                                fontSize: "0.68rem",
-                                fontWeight: 700,
-                                cursor: isAdded ? "default" : "pointer",
-                              }}
-                            >
-                              {isAdded ? "Ativo" : "+ Add"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* Lista de B-Rolls Adicionados */}
                 <div>
@@ -1238,35 +1106,10 @@ export default function ClipEditorModal({
         </aside>
 
         {/* COLUNA CENTRAL: PLAYER VIEWPORT COM SAFE ZONES DO TIKTOK */}
-        <main
-          style={{
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1rem",
-            backgroundColor: "#090B10",
-            overflow: "hidden",
-          }}
-        >
-          {/* Container do Player 9:16 com Safe Zones */}
-          <div
-            style={{
-              position: "relative",
-              aspectRatio: "9/16",
-              height: "calc(100% - 44px)",
-              maxHeight: "480px",
-              backgroundColor: "#000",
-              borderRadius: "14px",
-              overflow: "hidden",
-              border: "1px solid #202534",
-              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.8)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+        {/* COLUNA CENTRAL: PLAYER VIEWPORT (PREVIEW GRANDE 9:16) */}
+        <main className="relative flex flex-col items-center justify-center p-3 bg-[#090B10] overflow-hidden min-h-0">
+          {/* Container do Player 9:16 Responsivo que ocupa toda a altura útil */}
+          <div className="relative aspect-[9/16] h-full max-h-[calc(100%-48px)] bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center">
             {videoSrc ? (
               <>
                 <video
@@ -1278,12 +1121,7 @@ export default function ClipEditorModal({
                   onPause={() => setIsPlaying(false)}
                   onEnded={() => setIsPlaying(false)}
                   onClick={togglePlay}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    cursor: "pointer",
-                  }}
+                  className="w-full h-full object-contain cursor-pointer"
                 />
 
                 {/* Camada Dinâmica de B-Rolls Canvas em Tempo Real */}
@@ -1295,101 +1133,45 @@ export default function ClipEditorModal({
                   />
                 )}
 
-                {/* OVERLAY DE SAFE ZONES (TIKTOK / REELS / SHORTS) */}
+                {/* OVERLAY DE SAFE ZONES DISCRETAS (TIKTOK / REELS / SHORTS) */}
                 {showSafeZones && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      pointerEvents: "none",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      padding: "12px",
-                      zIndex: 20,
-                    }}
-                  >
-                    {/* Top Bar Safe Margin */}
-                    <div
-                      style={{
-                        height: "44px",
-                        borderBottom: "1px dashed rgba(255, 255, 255, 0.25)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "rgba(255, 255, 255, 0.4)",
-                        fontSize: "0.65rem",
-                        fontWeight: 600,
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      <span>TOPO (Seguindo / Para Você)</span>
+                  <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 z-20">
+                    {/* Top Bar Safe Margin Discreta */}
+                    <div className="h-10 border-b border-dashed border-white/20 flex items-center justify-center">
+                      <span className="text-[10px] font-medium tracking-wider text-white/30 uppercase bg-black/40 px-1.5 py-0.5 rounded">
+                        Safe Zone Superior
+                      </span>
                     </div>
 
-                    {/* Lateral Direita (Botões de Curtir / Comentar / Compartilhar) */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        right: "8px",
-                        bottom: "90px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                        alignItems: "center",
-                        opacity: 0.35,
-                      }}
-                    >
-                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1px dashed #FFF" }} />
-                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1px dashed #FFF" }} />
-                      <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: "1px dashed #FFF" }} />
-                      <div style={{ width: "20px", height: "20px", borderRadius: "50%", border: "1px dashed #00F0FF" }} />
+                    {/* Lateral Direita Discreta */}
+                    <div className="absolute right-2 bottom-20 flex flex-col gap-2 items-center opacity-25">
+                      <div className="w-5 h-5 rounded-full border border-dashed border-white/60" />
+                      <div className="w-5 h-5 rounded-full border border-dashed border-white/60" />
+                      <div className="w-5 h-5 rounded-full border border-dashed border-white/60" />
+                      <div className="w-4 h-4 rounded-full border border-dashed border-cyan-400" />
                     </div>
 
-                    {/* Bottom Safe Margin (Nome do Usuário e Legenda do TikTok) */}
-                    <div
-                      style={{
-                        height: "76px",
-                        borderTop: "1px dashed rgba(255, 255, 255, 0.25)",
-                        paddingTop: "6px",
-                        color: "rgba(255, 255, 255, 0.4)",
-                        fontSize: "0.65rem",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <span>BASE (Nome do Perfil &amp; Legenda)</span>
+                    {/* Bottom Safe Margin Discreta */}
+                    <div className="h-16 border-t border-dashed border-white/20 pt-1 flex items-start justify-center">
+                      <span className="text-[10px] font-medium text-white/30 uppercase bg-black/40 px-1.5 py-0.5 rounded">
+                        Safe Zone Inferior (Legendas)
+                      </span>
                     </div>
                   </div>
                 )}
               </>
             ) : (
-              <div style={{ color: "#64748B", fontSize: "0.85rem" }}>Vídeo não carregado</div>
+              <div className="text-gray-500 text-sm font-medium">Vídeo não carregado</div>
             )}
           </div>
 
-          {/* Barra de Controles Inferior do Player */}
-          <div
-            style={{
-              height: "40px",
-              marginTop: "0.4rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-            }}
-          >
+          {/* Barra de Controles do Player com Atalhos em Tooltip e Modo Foco */}
+          <div className="h-10 mt-2 flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={() => seekRelative(-1)}
-              style={{
-                background: "#151822",
-                border: "1px solid #262B3A",
-                color: "#FFF",
-                padding: "0.3rem 0.55rem",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-              }}
-              title="Voltar 1 segundo"
+              className="bg-[#151822] hover:bg-[#1E2332] border border-[#262B3A] text-gray-200 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition-colors"
+              title="Voltar 1 segundo (←)"
             >
               -1s
             </button>
@@ -1397,220 +1179,117 @@ export default function ClipEditorModal({
             <button
               type="button"
               onClick={togglePlay}
-              style={{
-                background: isPlaying ? "#EF4444" : "#6366F1",
-                border: "none",
-                color: "#FFF",
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
-              }}
+              className={`w-9 h-9 rounded-full flex items-center justify-center text-white cursor-pointer transition-transform hover:scale-105 shadow-lg ${
+                isPlaying ? "bg-rose-500 hover:bg-rose-600" : "bg-indigo-600 hover:bg-indigo-500"
+              }`}
               title={isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"}
             >
-              <Play size={16} style={{ marginLeft: isPlaying ? "0" : "2px" }} />
+              {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
             </button>
 
             <button
               type="button"
               onClick={() => seekRelative(1)}
-              style={{
-                background: "#151822",
-                border: "1px solid #262B3A",
-                color: "#FFF",
-                padding: "0.3rem 0.55rem",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-              }}
-              title="Avançar 1 segundo"
+              className="bg-[#151822] hover:bg-[#1E2332] border border-[#262B3A] text-gray-200 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition-colors"
+              title="Avançar 1 segundo (→)"
             >
               +1s
             </button>
 
-            <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
-              (Espaço para Play/Pause • Setas para navegar)
-            </span>
-          </div>
-        </main>
-
-        {/* COLUNA DIREITA: INSPETOR DE PROPRIEDADES OU CLONADOR DE ESTILO */}
-        <aside
-          style={{
-            backgroundColor: "#13161F",
-            borderLeft: "1px solid #212634",
-            padding: "0.85rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            overflowY: "auto",
-          }}
-        >
-          {/* Cabeçalho do Inspetor de Elementos */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderBottom: "1px solid #212634",
-              paddingBottom: "0.45rem",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-              <SlidersHorizontal size={14} style={{ color: "#00F0FF" }} />
-              <h4 style={{ margin: 0, fontSize: "0.84rem", color: "#FFF", fontWeight: 700 }}>
-                Inspetor de Elementos
-              </h4>
-            </div>
+            <div className="h-4 w-px bg-[#262B3A]" />
 
             <button
               type="button"
-              onClick={() => setIsCloneModalOpen(true)}
-              style={{
-                background: "rgba(168, 85, 247, 0.15)",
-                border: "1px solid rgba(168, 85, 247, 0.4)",
-                color: "#C084FC",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                transition: "all 0.15s ease",
-              }}
-              title="Abrir estúdio de clonagem de edição IA"
+              onClick={() => setIsFocusMode((prev) => !prev)}
+              className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isFocusMode
+                  ? "bg-indigo-600 text-white border-indigo-400"
+                  : "bg-[#151822] hover:bg-[#1E2332] text-gray-400 border-[#262B3A]"
+              }`}
+              title="Modo Foco: expandir preview ocultando abas laterais (Tecla F)"
             >
-              <SparklesIcon size={11} /> Clonar Estilo
+              <Maximize2 size={13} />
+              <span>{isFocusMode ? "Sair do Foco (F)" : "Modo Foco (F)"}</span>
             </button>
           </div>
+        </main>
 
-          {selectedBroll ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.74rem", color: "#00F0FF", fontWeight: 700 }}>
-                      Item Selecionado:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeBroll(selectedBroll.id)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#EF4444",
-                        cursor: "pointer",
-                        fontSize: "0.7rem",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Excluir
-                    </button>
-                  </div>
+        {/* COLUNA DIREITA: ACCORDION COM UM BLOCO ABERTO POR VEZ */}
+        <aside
+          className={`bg-[#13161F] border-l border-[#212634] p-3 flex flex-col gap-2 overflow-y-auto transition-all duration-200 ${
+            isFocusMode ? "invisible opacity-0" : "visible opacity-100"
+          }`}
+        >
+          {/* 1. SEÇÃO ACCORDION: INSPETOR DE ELEMENTOS */}
+          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924]">
+            <button
+              type="button"
+              onClick={() => setRightAccordionOpen(rightAccordionOpen === "inspector" ? "hook" : "inspector")}
+              className="w-full flex items-center justify-between px-3 py-2 bg-[#1A1E2C] hover:bg-[#202537] text-left transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={14} className="text-cyan-400" />
+                <span className="text-xs font-bold text-gray-200">Inspetor de Elementos</span>
+              </div>
+              {rightAccordionOpen === "inspector" ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+            </button>
 
-                  <div>
-                    <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                      Template:
-                    </label>
-                    <select
-                      value={selectedBroll.template}
-                      onChange={(e) => updateBroll(selectedBroll.id, { template: e.target.value as CanvasBrollTemplate })}
-                      style={{
-                        width: "100%",
-                        background: "#181B26",
-                        border: "1px solid #2A3042",
-                        color: "#FFF",
-                        padding: "0.35rem",
-                        borderRadius: "6px",
-                        fontSize: "0.76rem",
-                      }}
-                    >
-                      <option value="metric_counter">Contador de Métrica</option>
-                      <option value="growth_chart">Gráfico de Crescimento</option>
-                      <option value="glass_alert">Alerta Glassmorphism</option>
-                      <option value="viral_tag">Tag Viral</option>
-                    </select>
-                  </div>
+            {rightAccordionOpen === "inspector" && (
+              <div className="p-3">
+                {selectedBroll ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.74rem", color: "#00F0FF", fontWeight: 700 }}>
+                        Item Selecionado:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeBroll(selectedBroll.id)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          fontSize: "0.7rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </div>
 
-                  <div>
-                    <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                      Título / Tag:
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedBroll.data.title || ""}
-                      onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, title: e.target.value } })}
-                      style={{
-                        width: "100%",
-                        background: "#181B26",
-                        border: "1px solid #2A3042",
-                        color: "#FFF",
-                        padding: "0.35rem",
-                        borderRadius: "6px",
-                        fontSize: "0.76rem",
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                      Valor em Destaque:
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedBroll.data.value || ""}
-                      onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, value: e.target.value } })}
-                      style={{
-                        width: "100%",
-                        background: "#181B26",
-                        border: "1px solid #2A3042",
-                        color: "#00F0FF",
-                        fontWeight: 700,
-                        padding: "0.35rem",
-                        borderRadius: "6px",
-                        fontSize: "0.76rem",
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                      Posição Vertical:
-                    </label>
-                    <select
-                      value={selectedBroll.data.positionY || "top"}
-                      onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, positionY: e.target.value as any } })}
-                      style={{
-                        width: "100%",
-                        background: "#181B26",
-                        border: "1px solid #2A3042",
-                        color: "#FFF",
-                        padding: "0.35rem",
-                        borderRadius: "6px",
-                        fontSize: "0.76rem",
-                      }}
-                    >
-                      <option value="top">Topo</option>
-                      <option value="center">Centro</option>
-                      <option value="bottom">Base</option>
-                    </select>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
                     <div>
                       <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                        Início (s):
+                        Template:
+                      </label>
+                      <select
+                        value={selectedBroll.template}
+                        onChange={(e) => updateBroll(selectedBroll.id, { template: e.target.value as CanvasBrollTemplate })}
+                        style={{
+                          width: "100%",
+                          background: "#181B26",
+                          border: "1px solid #2A3042",
+                          color: "#FFF",
+                          padding: "0.35rem",
+                          borderRadius: "6px",
+                          fontSize: "0.76rem",
+                        }}
+                      >
+                        <option value="metric_counter">Contador de Métrica</option>
+                        <option value="growth_chart">Gráfico de Crescimento</option>
+                        <option value="glass_alert">Alerta Glassmorphism</option>
+                        <option value="viral_tag">Tag Viral</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
+                        Título / Tag:
                       </label>
                       <input
-                        type="number"
-                        step="0.1"
-                        value={selectedBroll.offsetSec}
-                        onChange={(e) => updateBroll(selectedBroll.id, { offsetSec: parseFloat(e.target.value) || 0 })}
+                        type="text"
+                        value={selectedBroll.data.title || ""}
+                        onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, title: e.target.value } })}
                         style={{
                           width: "100%",
                           background: "#181B26",
@@ -1625,13 +1304,32 @@ export default function ClipEditorModal({
 
                     <div>
                       <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
-                        Duração (s):
+                        Valor em Destaque:
                       </label>
                       <input
-                        type="number"
-                        step="0.5"
-                        value={selectedBroll.durationSec}
-                        onChange={(e) => updateBroll(selectedBroll.id, { durationSec: parseFloat(e.target.value) || 1 })}
+                        type="text"
+                        value={selectedBroll.data.value || ""}
+                        onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, value: e.target.value } })}
+                        style={{
+                          width: "100%",
+                          background: "#181B26",
+                          border: "1px solid #2A3042",
+                          color: "#00F0FF",
+                          fontWeight: 700,
+                          padding: "0.35rem",
+                          borderRadius: "6px",
+                          fontSize: "0.76rem",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
+                        Posição Vertical:
+                      </label>
+                      <select
+                        value={selectedBroll.data.positionY || "top"}
+                        onChange={(e) => updateBroll(selectedBroll.id, { data: { ...selectedBroll.data, positionY: e.target.value as any } })}
                         style={{
                           width: "100%",
                           background: "#181B26",
@@ -1641,67 +1339,143 @@ export default function ClipEditorModal({
                           borderRadius: "6px",
                           fontSize: "0.76rem",
                         }}
-                      />
+                      >
+                        <option value="top">Topo</option>
+                        <option value="center">Centro</option>
+                        <option value="bottom">Base</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
+                      <div>
+                        <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
+                          Início (s):
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={selectedBroll.offsetSec}
+                          onChange={(e) => updateBroll(selectedBroll.id, { offsetSec: parseFloat(e.target.value) || 0 })}
+                          style={{
+                            width: "100%",
+                            background: "#181B26",
+                            border: "1px solid #2A3042",
+                            color: "#FFF",
+                            padding: "0.35rem",
+                            borderRadius: "6px",
+                            fontSize: "0.76rem",
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: "0.74rem", color: "#94A3B8", display: "block", marginBottom: "0.2rem" }}>
+                          Duração (s):
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={selectedBroll.durationSec}
+                          onChange={(e) => updateBroll(selectedBroll.id, { durationSec: parseFloat(e.target.value) || 1 })}
+                          style={{
+                            width: "100%",
+                            background: "#181B26",
+                            border: "1px solid #2A3042",
+                            color: "#FFF",
+                            padding: "0.35rem",
+                            borderRadius: "6px",
+                            fontSize: "0.76rem",
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: "1rem 0.5rem",
-                    textAlign: "center",
-                    color: "#64748B",
-                    fontSize: "0.76rem",
-                  }}
-                >
-                  Clique em um elemento na timeline para editar suas propriedades.
-                </div>
-              )}
+                ) : (
+                  <div className="py-4 text-center text-gray-500 text-xs">
+                    Clique em um elemento na timeline para editar propriedades.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-              <div style={{ marginTop: "auto", paddingTop: "0.75rem", borderTop: "1px solid #212634" }}>
-                <span style={{ fontSize: "0.7rem", color: "#64748B", display: "block" }}>
-                  Gancho Editorial:
-                </span>
-                <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "#94A3B8", fontStyle: "italic" }}>
+          {/* 2. SEÇÃO ACCORDION: GANCHO EDITORIAL */}
+          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924]">
+            <button
+              type="button"
+              onClick={() => setRightAccordionOpen(rightAccordionOpen === "hook" ? "inspector" : "hook")}
+              className="w-full flex items-center justify-between px-3 py-2 bg-[#1A1E2C] hover:bg-[#202537] text-left transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb size={14} className="text-amber-400" />
+                <span className="text-xs font-bold text-gray-200">Gancho & Análise Viral</span>
+              </div>
+              {rightAccordionOpen === "hook" ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+            </button>
+
+            {rightAccordionOpen === "hook" && (
+              <div className="p-3 text-xs flex flex-col gap-2">
+                <span className="text-gray-400 text-[11px] block">Gancho Editorial Identificado:</span>
+                <p className="m-0 text-gray-200 italic bg-[#0F1118] p-2.5 rounded border border-[#212634]">
                   &quot;{clip.hook || clip.title}&quot;
                 </p>
+                {clip.reason && (
+                  <p className="m-0 text-gray-400 text-[11px] leading-relaxed">
+                    {clip.reason}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
+          {/* 3. SEÇÃO ACCORDION: CLONAGEM DE ESTILO COM IA */}
+          <div className="border border-purple-500/30 rounded-lg overflow-hidden bg-[#181528] mt-auto">
+            <button
+              type="button"
+              onClick={() => setRightAccordionOpen(rightAccordionOpen === "clone" ? "inspector" : "clone")}
+              className="w-full flex items-center justify-between px-3 py-2 bg-purple-950/40 hover:bg-purple-950/60 text-left transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <SparklesIcon size={14} className="text-purple-400" />
+                <span className="text-xs font-bold text-purple-200">Clonagem de Estilo (IA)</span>
+              </div>
+              {rightAccordionOpen === "clone" ? <ChevronUp size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
+            </button>
+
+            {rightAccordionOpen === "clone" && (
+              <div className="p-3 flex flex-col gap-2">
+                <p className="text-xs text-purple-200/80 m-0 leading-relaxed">
+                  Importe ou clone cortes de referências virais, ritmos de transição e paleta de cores para este corte.
+                </p>
                 <button
                   type="button"
                   onClick={() => setIsCloneModalOpen(true)}
-                  style={{
-                    width: "100%",
-                    marginTop: "0.75rem",
-                    background: "linear-gradient(135deg, rgba(124, 58, 237, 0.25), rgba(168, 85, 247, 0.15))",
-                    border: "1px solid rgba(168, 85, 247, 0.45)",
-                    borderRadius: "8px",
-                    padding: "0.55rem 0.75rem",
-                    color: "#E9D5FF",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.4rem",
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    boxShadow: "0 2px 10px rgba(168, 85, 247, 0.2)",
-                    transition: "all 0.15s ease",
-                  }}
+                  className="w-full mt-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
                   title="Abrir o estúdio completo de clonagem de edição com IA"
                 >
-                  <SparklesIcon size={14} style={{ color: "#C084FC" }} />
-                  Clonar Estilo de Edição (IA)
+                  <SparklesIcon size={14} className="text-purple-200" />
+                  Abrir Clone Studio
                 </button>
               </div>
+            )}
+          </div>
         </aside>
       </div>
 
-      {/* 3. TIMELINE MULTITRACK PROFISSIONAL (ESTILO CAPCUT) */}
+      {/* 3. BARRA DE REDIMENSIONAMENTO DA TIMELINE (DRAG HANDLE) */}
+      <div
+        onMouseDown={() => setIsResizingTimeline(true)}
+        className="h-2 bg-[#12151F] hover:bg-cyan-500/40 border-t border-b border-[#212635] cursor-row-resize flex items-center justify-center transition-colors select-none z-20 group"
+        title="Arraste para ajustar a altura da Timeline"
+      >
+        <div className="w-12 h-1 rounded-full bg-gray-600 group-hover:bg-cyan-400 transition-colors" />
+      </div>
+
+      {/* 4. TIMELINE MULTITRACK PROFISSIONAL (REDIMENSIONÁVEL) */}
       <footer
         style={{
-          height: "215px",
+          height: `${timelineHeight}px`,
           backgroundColor: "#0F1118",
-          borderTop: "1px solid #212635",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
