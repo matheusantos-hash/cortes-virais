@@ -279,9 +279,9 @@ export async function processVideo(args: {
       }
     }
     
-    // Gera legendas dinâmicas animadas palavra por palavra (se ativado ou padrão para vertical)
+    // Gera legendas dinâmicas animadas palavra por palavra (se não foi explicitamente desativado)
     let subFile: string | undefined = undefined;
-    const shouldAddSubs = opts.subtitles !== false && opts.orientation === "vertical";
+    const shouldAddSubs = opts.subtitles !== false;
     if (shouldAddSubs && words?.length) {
       const assPath = path.join(workDir, `subs-c${i + 1}.ass`);
       const generated = await generateViralAssSubtitles({
@@ -295,6 +295,7 @@ export async function processVideo(args: {
           highlightColor: opts.highlightColor,
           fontName: opts.customFontName ?? undefined,
           enableEmojis: opts.enableEmojis !== false,
+          orientation: opts.orientation,
         },
       });
       if (generated) {

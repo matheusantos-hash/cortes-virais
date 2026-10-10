@@ -11,6 +11,7 @@ export interface SubtitleOptions {
   maxWordsPerLine?: number;
   marginV?: number;
   enableEmojis?: boolean;
+  orientation?: "vertical" | "horizontal";
 }
 
 function formatAssTime(seconds: number): string {
@@ -121,6 +122,9 @@ export async function generateViralAssSubtitles(params: {
   }
 
   const styleType: SubtitleStyle = opts.style || "hormozi";
+  const isLandscape = opts.orientation === "horizontal";
+  const playResX = isLandscape ? 1920 : 1080;
+  const playResY = isLandscape ? 1080 : 1920;
 
   let fontSize = opts.fontSize;
   let highlightColor = hexToAssColor(opts.highlightColor, "&H0020FFFF&");
@@ -128,9 +132,9 @@ export async function generateViralAssSubtitles(params: {
   let outlineColor = hexToAssColor(opts.outlineColor, "&H00000000&"); // Preto
   let backColor = "&H80000000&";
   let fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
-  let maxWordsPerLine = opts.maxWordsPerLine ?? 3;
-  let marginV = opts.marginV ?? 420;
-  let outlineWidth = 6;
+  let maxWordsPerLine = opts.maxWordsPerLine ?? (isLandscape ? 4 : 3);
+  let marginV = opts.marginV ?? (isLandscape ? 85 : 420);
+  let outlineWidth = isLandscape ? 5 : 6;
   let shadowDepth = 3;
   let borderStyle = 1; // 1 = Outline + drop shadow, 3 = Opaque box
   let scaleActive = 112;
@@ -138,46 +142,48 @@ export async function generateViralAssSubtitles(params: {
   // Configuração refinada baseada no estilo selecionado
   switch (styleType) {
     case "apple":
-      fontSize = fontSize ?? 58;
+      fontSize = fontSize ?? (isLandscape ? 44 : 58);
       fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H00FFA834&"; // Azul celeste Apple / Cyan moderno
-      outlineWidth = 3;
-      shadowDepth = 4;
-      marginV = opts.marginV ?? 380;
+      outlineWidth = isLandscape ? 2 : 3;
+      shadowDepth = isLandscape ? 3 : 4;
+      marginV = opts.marginV ?? (isLandscape ? 75 : 380);
       scaleActive = 104;
+      maxWordsPerLine = opts.maxWordsPerLine ?? (isLandscape ? 4 : 3);
       break;
 
     case "beast":
-      fontSize = fontSize ?? 74;
+      fontSize = fontSize ?? (isLandscape ? 54 : 74);
       fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : BEAST_COLORS[0];
-      outlineWidth = 8;
-      shadowDepth = 4;
-      marginV = opts.marginV ?? 440;
+      outlineWidth = isLandscape ? 6 : 8;
+      shadowDepth = isLandscape ? 3 : 4;
+      marginV = opts.marginV ?? (isLandscape ? 90 : 440);
       scaleActive = 118;
-      maxWordsPerLine = 2; // ritmo ainda mais frenético
+      maxWordsPerLine = opts.maxWordsPerLine ?? (isLandscape ? 3 : 2); // ritmo ainda mais frenético
       break;
 
     case "minimal":
-      fontSize = fontSize ?? 52;
+      fontSize = fontSize ?? (isLandscape ? 40 : 52);
       fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&";
-      outlineWidth = 3;
+      outlineWidth = 2;
       shadowDepth = 2;
-      marginV = opts.marginV ?? 280;
+      marginV = opts.marginV ?? (isLandscape ? 65 : 280);
       scaleActive = 102;
-      maxWordsPerLine = 4;
+      maxWordsPerLine = opts.maxWordsPerLine ?? (isLandscape ? 5 : 4);
       break;
 
     case "hormozi":
     default:
-      fontSize = fontSize ?? 70;
+      fontSize = fontSize ?? (isLandscape ? 50 : 70);
       fontName = opts.fontName ? opts.fontName.split(",")[0].trim() : "DejaVu Sans";
       highlightColor = opts.highlightColor ? hexToAssColor(opts.highlightColor) : "&H0020FFFF&"; // Amarelo clássico Hormozi
-      outlineWidth = 7;
+      outlineWidth = isLandscape ? 5 : 7;
       shadowDepth = 3;
-      marginV = opts.marginV ?? 420;
+      marginV = opts.marginV ?? (isLandscape ? 85 : 420);
       scaleActive = 114;
+      maxWordsPerLine = opts.maxWordsPerLine ?? (isLandscape ? 4 : 3);
       break;
   }
 
@@ -187,8 +193,8 @@ ScriptType: v4.00+
 WrapStyle: 0
 ScaledBorderAndShadow: yes
 YCbCr Matrix: TV.709
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: ${playResX}
+PlayResY: ${playResY}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
