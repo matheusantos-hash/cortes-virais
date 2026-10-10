@@ -8,7 +8,8 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { CanceledError, downloadVideo, isBoxUrl, probeDuration, probeSource, resolveBoxDirectUrl, trimClip, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
-import { prepareCustomFont } from "./fonts.js";
+import { prepareCustomFont, resolveSystemFont } from "./fonts.js";
+import { generateViralAssSubtitles } from "./subtitles.js";
 import type { Options, Orientation, VerticalMode } from "./types.js";
 
 const rawUrl = process.env.SUPABASE_URL?.trim();
@@ -227,6 +228,65 @@ async function processJob(job: Job) {
       const trimEnd = Number(job.trim_end ?? (Number(clip.end_seconds) - Number(clip.start_seconds)));
       const activeCanvasBrolls = (job.canvas_brolls as any) || (clip.canvas_brolls as any) || [];
 
+      // Resolução de fontes e legendas para o re-render (se ajustadas pelo usuário)
+      const manualAdj = (job.manual_adjustments as any) || {};
+      const requestedFont = job.custom_font_name || manualAdj?.subtitles?.customFontName || manualAdj?.customFontName;
+      let trimFontsDir: string | undefined;
+      let trimSubtitlesPath: string | undefined;
+
+      const clipWords = clip.edit_decisions?.words;
+      if (clipWords && clipWords.length > 0 && (job.subtitle_style || requestedFont || manualAdj?.subtitles)) {
+        let activeFontName = requestedFont || "Poppins";
+        if (requestedFont) {
+          const sysFont = resolveSystemFont(requestedFont);
+          if (sysFont) {
+            try {
+              const prep = await prepareCustomFont({
+                inputPath: sysFont.filePath,
+                outDir: path.join(workDir, "fonts"),
+                requestedName: sysFont.family,
+              });
+              activeFontName = prep.fontName;
+              trimFontsDir = prep.fontsDir;
+              await pushLog(`[FONTE TIPOGRÁFICA] Aplicando fonte do sistema "${activeFontName}" nas legendas do corte.`);
+            } catch (err: any) {
+              console.warn("Falha ao preparar fonte do sistema no trim:", err);
+            }
+          }
+        }
+
+        const assOut = path.join(workDir, "trim_subtitles.ass");
+        const newAbsStart = Number(clip.start_seconds) + trimStart;
+        const newAbsEnd = Number(clip.start_seconds) + trimEnd;
+        const relativeWords = clipWords
+          .map((w: any) => ({
+            word: w.w || w.word,
+            start: Math.max(0, (w.s ?? w.start) - newAbsStart),
+            end: Math.max(0, (w.e ?? w.end) - newAbsStart),
+          }))
+          .filter((w: any) => w.end > 0 && w.start < (newAbsEnd - newAbsStart));
+
+        if (relativeWords.length > 0) {
+          const generatedAss = await generateViralAssSubtitles({
+            words: relativeWords,
+            clipStart: 0,
+            clipEnd: (newAbsEnd - newAbsStart),
+            outPath: assOut,
+            opts: {
+              style: job.subtitle_style || manualAdj?.subtitles?.style || "hormozi",
+              fontName: activeFontName,
+              primaryColor: manualAdj?.subtitles?.primaryColor,
+              highlightColor: manualAdj?.subtitles?.highlightColor,
+              enableEmojis: manualAdj?.subtitles?.enableEmojis !== false,
+            },
+          });
+          if (generatedAss) {
+            trimSubtitlesPath = generatedAss;
+            await pushLog(`[LEGENDA] Novas legendas dinâmicas geradas com estilo "${job.subtitle_style || 'hormozi'}" e tipografia "${activeFontName}".`);
+          }
+        }
+      }
+
       await updateJob(job.id, { progress: 50 });
       await trimClip({
         input: currentClipPath,
@@ -234,6 +294,8 @@ async function processJob(job: Job) {
         trimStartSec: trimStart,
         trimEndSec: trimEnd,
         canvasBrolls: activeCanvasBrolls,
+        subtitlesPath: trimSubtitlesPath,
+        fontsDir: trimFontsDir,
         signal: abortCtrl.signal,
         onLog: pushLog,
       });
@@ -387,11 +449,15 @@ async function processJob(job: Job) {
       }
     }
 
-    // 1.2 Obter fonte tipográfica personalizada (se fornecida para as legendas)
+    // 1.2 Obter fonte tipográfica personalizada ou do sistema (se fornecida para as legendas)
     let customFontName: string | null = null;
     let fontsDir: string | null = null;
     const fontStoragePath = job.custom_font_path || (job.manual_adjustments as any)?.subtitles?.customFontPath;
-    const requestedFontName = job.custom_font_name || (job.manual_adjustments as any)?.subtitles?.customFontName;
+    const requestedFontName = (
+      job.custom_font_name ||
+      (job.manual_adjustments as any)?.subtitles?.customFontName ||
+      (job.manual_adjustments as any)?.customFontName
+    )?.trim();
 
     if (fontStoragePath) {
       try {
@@ -408,10 +474,28 @@ async function processJob(job: Job) {
 
         customFontName = prepared.fontName;
         fontsDir = prepared.fontsDir;
-        await pushLog(`[FONTE TIPOGRÁFICA] Fonte "${customFontName}" pronta e carregada para queima nas legendas.`);
+        await pushLog(`[FONTE TIPOGRÁFICA] Fonte customizada "${customFontName}" pronta e carregada para queima nas legendas.`);
       } catch (err: any) {
         console.error(`[${job.id}] Falha ao processar fonte customizada:`, err);
         await pushLog(`[AVISO] Não foi possível carregar a fonte customizada (${err?.message || "erro"}). Usando tipografia padrão.`);
+      }
+    } else if (requestedFontName) {
+      // Resolução de fontes nativas do sistema (Poppins Bold, Montserrat, Anton, Bebas Neue, etc.)
+      const sysFont = resolveSystemFont(requestedFontName);
+      if (sysFont) {
+        try {
+          const prepared = await prepareCustomFont({
+            inputPath: sysFont.filePath,
+            outDir: path.join(workDir, "fonts"),
+            requestedName: sysFont.family,
+          });
+          customFontName = prepared.fontName;
+          fontsDir = prepared.fontsDir;
+          await pushLog(`[FONTE TIPOGRÁFICA] Fonte do sistema "${customFontName}" (${sysFont.fileName}) carregada com sucesso para queima nas legendas.`);
+        } catch (err: any) {
+          console.error(`[${job.id}] Falha ao carregar fonte do sistema:`, err);
+          await pushLog(`[AVISO] Falha ao carregar fonte do sistema "${requestedFontName}".`);
+        }
       }
     }
 

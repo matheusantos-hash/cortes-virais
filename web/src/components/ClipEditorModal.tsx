@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { Clip, CanvasBroll, CanvasBrollTemplate, SubtitleStyle, VerticalMode } from "@/lib/types";
+import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
 import CanvasBrollOverlay from "./CanvasBrollOverlay";
 import { detectBrollTriggers, type BrollTriggerSuggestion } from "@/lib/detectBrollTriggers";
 import CloneStudioModal from "./CloneStudioModal";
@@ -38,6 +39,8 @@ import {
   Undo,
   Redo,
   Subtitles,
+  Type,
+  Palette,
 } from "./Icons";
 
 interface ClipEditorModalProps {
@@ -56,6 +59,14 @@ interface ClipEditorModalProps {
       verticalMode?: VerticalMode;
       cropX?: number;
       subtitleStyle?: SubtitleStyle;
+      customFontName?: string;
+      primaryColor?: string;
+      highlightColor?: string;
+      subtitlePosition?: "bottom" | "center-bottom" | "center";
+      subtitleFontSize?: "small" | "medium" | "large" | "extra";
+      enableEmojis?: boolean;
+      subtitles?: Record<string, any>;
+      [key: string]: any;
     }
   ) => Promise<void> | void;
   onSaveCanvasBrolls?: (clipId: string, brolls: CanvasBroll[]) => Promise<void> | void;
@@ -88,6 +99,15 @@ export default function ClipEditorModal({
   const [verticalMode, setVerticalMode] = useState<VerticalMode>("crop");
   const [cropX, setCropX] = useState<number>(0.5); // 0.0 (esquerda) a 1.0 (direita), 0.5 (centro)
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("hormozi");
+  
+  // Customização Completa de Legendas & Tipografias do Sistema (Poppins Bold como padrão moderno)
+  const [selectedFontName, setSelectedFontName] = useState<string>("Poppins Bold");
+  const [primaryColor, setPrimaryColor] = useState<string>("#FFFFFF");
+  const [highlightColor, setHighlightColor] = useState<string>("#FACC15");
+  const [subtitlePosition, setSubtitlePosition] = useState<"bottom" | "center-bottom" | "center">("bottom");
+  const [subtitleFontSize, setSubtitleFontSize] = useState<"small" | "medium" | "large" | "extra">("large");
+  const [enableEmojis, setEnableEmojis] = useState<boolean>(true);
+  const [showSubtitlePreview, setShowSubtitlePreview] = useState<boolean>(true);
 
   // Interface do snapshot do editor para a pilha de histórico
   interface EditorSnapshot {
@@ -99,6 +119,12 @@ export default function ClipEditorModal({
     verticalMode: VerticalMode;
     cropX: number;
     subtitleStyle: SubtitleStyle;
+    selectedFontName: string;
+    primaryColor: string;
+    highlightColor: string;
+    subtitlePosition: "bottom" | "center-bottom" | "center";
+    subtitleFontSize: "small" | "medium" | "large" | "extra";
+    enableEmojis: boolean;
   }
 
   // Estados de B-Rolls Canvas & Overlays
@@ -128,12 +154,33 @@ export default function ClipEditorModal({
           verticalMode,
           cropX,
           subtitleStyle,
+          selectedFontName,
+          primaryColor,
+          highlightColor,
+          subtitlePosition,
+          subtitleFontSize,
+          enableEmojis,
           ...overrides,
         },
       ]);
       setFutureStack([]); // limpa o refazer ao tomar nova ação
     },
-    [trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]
+    [
+      trimStart,
+      trimEnd,
+      canvasBrolls,
+      selectedBrollId,
+      aspectRatio,
+      verticalMode,
+      cropX,
+      subtitleStyle,
+      selectedFontName,
+      primaryColor,
+      highlightColor,
+      subtitlePosition,
+      subtitleFontSize,
+      enableEmojis,
+    ]
   );
 
   // Função Desfazer (Undo)
@@ -153,6 +200,12 @@ export default function ClipEditorModal({
         verticalMode,
         cropX,
         subtitleStyle,
+        selectedFontName,
+        primaryColor,
+        highlightColor,
+        subtitlePosition,
+        subtitleFontSize,
+        enableEmojis,
       },
       ...f,
     ]);
@@ -166,11 +219,33 @@ export default function ClipEditorModal({
     setVerticalMode(previous.verticalMode);
     setCropX(previous.cropX);
     setSubtitleStyle(previous.subtitleStyle);
+    if (previous.selectedFontName) setSelectedFontName(previous.selectedFontName);
+    if (previous.primaryColor) setPrimaryColor(previous.primaryColor);
+    if (previous.highlightColor) setHighlightColor(previous.highlightColor);
+    if (previous.subtitlePosition) setSubtitlePosition(previous.subtitlePosition);
+    if (previous.subtitleFontSize) setSubtitleFontSize(previous.subtitleFontSize);
+    if (typeof previous.enableEmojis === "boolean") setEnableEmojis(previous.enableEmojis);
 
     setTimeout(() => {
       isUndoRedoActionRef.current = false;
     }, 50);
-  }, [pastStack, trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]);
+  }, [
+    pastStack,
+    trimStart,
+    trimEnd,
+    canvasBrolls,
+    selectedBrollId,
+    aspectRatio,
+    verticalMode,
+    cropX,
+    subtitleStyle,
+    selectedFontName,
+    primaryColor,
+    highlightColor,
+    subtitlePosition,
+    subtitleFontSize,
+    enableEmojis,
+  ]);
 
   // Função Refazer (Redo)
   const handleRedo = useCallback(() => {
@@ -190,6 +265,12 @@ export default function ClipEditorModal({
         verticalMode,
         cropX,
         subtitleStyle,
+        selectedFontName,
+        primaryColor,
+        highlightColor,
+        subtitlePosition,
+        subtitleFontSize,
+        enableEmojis,
       },
     ]);
     setFutureStack(newFuture);
@@ -202,11 +283,33 @@ export default function ClipEditorModal({
     setVerticalMode(next.verticalMode);
     setCropX(next.cropX);
     setSubtitleStyle(next.subtitleStyle);
+    if (next.selectedFontName) setSelectedFontName(next.selectedFontName);
+    if (next.primaryColor) setPrimaryColor(next.primaryColor);
+    if (next.highlightColor) setHighlightColor(next.highlightColor);
+    if (next.subtitlePosition) setSubtitlePosition(next.subtitlePosition);
+    if (next.subtitleFontSize) setSubtitleFontSize(next.subtitleFontSize);
+    if (typeof next.enableEmojis === "boolean") setEnableEmojis(next.enableEmojis);
 
     setTimeout(() => {
       isUndoRedoActionRef.current = false;
     }, 50);
-  }, [futureStack, trimStart, trimEnd, canvasBrolls, selectedBrollId, aspectRatio, verticalMode, cropX, subtitleStyle]);
+  }, [
+    futureStack,
+    trimStart,
+    trimEnd,
+    canvasBrolls,
+    selectedBrollId,
+    aspectRatio,
+    verticalMode,
+    cropX,
+    subtitleStyle,
+    selectedFontName,
+    primaryColor,
+    highlightColor,
+    subtitlePosition,
+    subtitleFontSize,
+    enableEmojis,
+  ]);
 
   // Estados do Player & Safe Zones CapCut
   const [showSafeZones, setShowSafeZones] = useState(true);
@@ -438,6 +541,21 @@ export default function ClipEditorModal({
         verticalMode,
         cropX,
         subtitleStyle,
+        customFontName: selectedFontName,
+        primaryColor,
+        highlightColor,
+        subtitlePosition,
+        subtitleFontSize,
+        enableEmojis,
+        subtitles: {
+          style: subtitleStyle,
+          customFontName: selectedFontName,
+          primaryColor,
+          highlightColor,
+          positionY: subtitlePosition,
+          fontSize: subtitleFontSize,
+          enableEmojis,
+        },
       });
       onClose();
     } catch (err: any) {
@@ -446,6 +564,76 @@ export default function ClipEditorModal({
       setIsSavingTrim(false);
     }
   };
+
+  // Cálculo da família tipográfica ativa para o CSS da legenda
+  const activeSystemFont = useMemo(() => {
+    return (
+      SYSTEM_FONTS.find(
+        (f) =>
+          f.name.toLowerCase() === selectedFontName.toLowerCase() ||
+          f.fontFamily.toLowerCase() === selectedFontName.toLowerCase() ||
+          selectedFontName.toLowerCase().includes(f.fontFamily.toLowerCase())
+      ) || SYSTEM_FONTS.find((f) => f.id === "poppins") || SYSTEM_FONTS[0]
+    );
+  }, [selectedFontName]);
+
+  // Cálculo em tempo real da legenda e palavra ativa sincronizada no player
+  const activeSubtitleData = useMemo(() => {
+    const words = clip.edit_decisions?.words;
+    if (!words || words.length === 0) {
+      // Mock dinâmico animado com base no tempo para preview instantâneo quando não houver palavras gravadas
+      const cycle = Math.floor(currentTime * 1.2) % 3;
+      const mockPhrases = [
+        ["DOMINE", "O SEGREDO", "DO ALGORITMO 🔥"],
+        ["ESTILO", "VIRAL", "DE ALTA RETENÇÃO ⚡"],
+        ["LEGENDAS", "QUE PRENDEM", "A ATENÇÃO ✨"],
+      ];
+      const phrase = mockPhrases[cycle] || mockPhrases[0];
+      const activeIndex = Math.floor((currentTime * 2.8) % phrase.length);
+      return {
+        words: phrase.map((w, idx) => ({ text: w, isActive: idx === activeIndex })),
+        isLiveMock: true,
+      };
+    }
+
+    // Normaliza timestamps para o clipe
+    const baseOffset = clip.start_seconds || 0;
+    const relWords = words.map((w: any) => {
+      const start = (w.s ?? w.start) >= baseOffset ? (w.s ?? w.start) - baseOffset : (w.s ?? w.start);
+      const end = (w.e ?? w.end) >= baseOffset ? (w.e ?? w.end) - baseOffset : (w.e ?? w.end);
+      return {
+        text: ((w.w ?? w.word) || "").toUpperCase(),
+        start,
+        end,
+      };
+    });
+
+    // Encontra a palavra falada no currentTime
+    const activeIdx = relWords.findIndex((w) => currentTime >= w.start && currentTime <= w.end);
+    if (activeIdx !== -1) {
+      // Agrupa em janelas de 3 palavras em torno da palavra ativa
+      const startGroup = Math.max(0, activeIdx - (activeIdx % 3));
+      const endGroup = Math.min(relWords.length, startGroup + 3);
+      const group = relWords.slice(startGroup, endGroup).map((w, i) => ({
+        text: w.text,
+        isActive: startGroup + i === activeIdx,
+      }));
+      return { words: group, isLiveMock: false };
+    }
+
+    // Se estiver entre palavras, pega o grupo mais recente
+    const nearestIdx = relWords.findIndex((w) => w.start > currentTime);
+    if (nearestIdx > 0 && currentTime - relWords[nearestIdx - 1].end < 1.2) {
+      const startGroup = Math.max(0, (nearestIdx - 1) - ((nearestIdx - 1) % 3));
+      const endGroup = Math.min(relWords.length, startGroup + 3);
+      return {
+        words: relWords.slice(startGroup, endGroup).map((w) => ({ text: w.text, isActive: false })),
+        isLiveMock: false,
+      };
+    }
+
+    return null;
+  }, [clip.edit_decisions, clip.start_seconds, currentTime]);
 
   // Estado do Modal de Clonagem de Estilo (Clone Studio completo com DNA de edição)
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
@@ -1533,59 +1721,368 @@ export default function ClipEditorModal({
               </div>
             )}
 
-            {/* ABA: ESTILOS DE LEGENDA */}
+            {/* ABA: ESTILOS E FONTES DE LEGENDA DO SISTEMA */}
             {activeTab === "subtitles" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                <div>
-                  <h4 style={{ margin: "0 0 0.25rem", fontSize: "0.9rem", color: "#FFF" }}>
-                    Estilos de Legenda Viral
-                  </h4>
-                  <p style={{ margin: 0, fontSize: "0.74rem", color: "#94A3B8" }}>
-                    Alterne o estilo das legendas dinâmicas do corte:
-                  </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {/* Cabeçalho da aba */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <h4 style={{ margin: "0 0 0.15rem", fontSize: "0.9rem", color: "#FFF", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <Type size={16} style={{ color: "#00F0FF" }} />
+                      Tipografia &amp; Legendas Virais
+                    </h4>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#94A3B8" }}>
+                      Personalize fontes do sistema, cores de destaque e animações:
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSubtitlePreview((prev) => !prev)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      background: showSubtitlePreview ? "rgba(0, 240, 255, 0.15)" : "#1E2230",
+                      border: `1px solid ${showSubtitlePreview ? "#00F0FF" : "#333A4D"}`,
+                      color: showSubtitlePreview ? "#00F0FF" : "#94A3B8",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                    title="Ativar/desativar prévia da legenda sobre o vídeo"
+                  >
+                    {showSubtitlePreview ? <EyeIcon size={12} /> : <EyeOffIcon size={12} />}
+                    {showSubtitlePreview ? "Prévia ON" : "Prévia OFF"}
+                  </button>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {[
-                    { id: "hormozi", name: "Alex Hormozi", desc: "Caixa alta amarela/verde, negrito agressivo com borda preta" },
-                    { id: "beast", name: "MrBeast Impact", desc: "Tipografia grande, destaque multicolorido e alto contraste" },
-                    { id: "apple", name: "Apple Minimalist", desc: "Linhas limpas, tipografia neutra elegante e discreta" },
-                    { id: "minimal", name: "Legenda Clássica", desc: "Texto inferior sutil com fundo preto suave" },
-                  ].map((sub) => {
-                    const isSelected = subtitleStyle === sub.id;
-                    return (
-                      <div
-                        key={sub.id}
-                        onClick={() => {
-                          recordHistory({ subtitleStyle: sub.id as SubtitleStyle });
-                          setSubtitleStyle(sub.id as SubtitleStyle);
+                {/* 1. SELETOR DE FONTES DO SISTEMA (COM DESTAQUE PARA POPPINS BOLD) */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.76rem", fontWeight: 700, color: "#E2E8F0" }}>
+                      Fonte do Sistema:
+                    </span>
+                    <span style={{ fontSize: "0.7rem", color: "#00F0FF", fontWeight: 700 }}>
+                      {selectedFontName}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "0.45rem",
+                      maxHeight: "220px",
+                      overflowY: "auto",
+                      paddingRight: "2px",
+                    }}
+                  >
+                    {SYSTEM_FONTS.map((font) => {
+                      const isSelected =
+                        selectedFontName.toLowerCase() === font.name.toLowerCase() ||
+                        selectedFontName.toLowerCase() === font.fontFamily.toLowerCase() ||
+                        selectedFontName.toLowerCase().includes(font.fontFamily.toLowerCase());
+
+                      const isPoppins = font.id === "poppins";
+
+                      return (
+                        <div
+                          key={font.id}
+                          onClick={() => {
+                            recordHistory({ selectedFontName: font.name });
+                            setSelectedFontName(font.name);
+                          }}
+                          style={{
+                            padding: "0.5rem 0.6rem",
+                            borderRadius: "8px",
+                            border: isSelected
+                              ? "2px solid #00F0FF"
+                              : isPoppins
+                              ? "1px solid rgba(0, 240, 255, 0.4)"
+                              : "1px solid #282E40",
+                            background: isSelected
+                              ? "rgba(0, 240, 255, 0.16)"
+                              : isPoppins
+                              ? "rgba(0, 240, 255, 0.05)"
+                              : "#151824",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.2rem",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span
+                              style={{
+                                fontFamily: `'${font.fontFamily}', sans-serif`,
+                                fontSize: "0.86rem",
+                                fontWeight: 800,
+                                color: isSelected ? "#00F0FF" : "#FFF",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {font.name}
+                            </span>
+                            {isSelected && (
+                              <Check size={12} style={{ color: "#00F0FF", flexShrink: 0 }} />
+                            )}
+                          </div>
+                          <span style={{ fontSize: "0.64rem", color: "#64748B" }}>
+                            {font.category}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. ESTILO DE ANIMAÇÃO VIRAL */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: "#E2E8F0" }}>
+                    Animação &amp; Estilo do Corte:
+                  </span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+                    {[
+                      { id: "hormozi", name: "Alex Hormozi", desc: "Caixa alta amarela/verde vibrante" },
+                      { id: "beast", name: "MrBeast Impact", desc: "Destaque neon e alto impacto" },
+                      { id: "apple", name: "Apple Minimal", desc: "Clean moderno e discreto" },
+                      { id: "minimal", name: "Legenda Clássica", desc: "Texto sutil com fundo suave" },
+                    ].map((sub) => {
+                      const isSelected = subtitleStyle === sub.id;
+                      return (
+                        <div
+                          key={sub.id}
+                          onClick={() => {
+                            recordHistory({ subtitleStyle: sub.id as SubtitleStyle });
+                            setSubtitleStyle(sub.id as SubtitleStyle);
+                          }}
+                          style={{
+                            padding: "0.5rem 0.6rem",
+                            background: isSelected ? "rgba(0, 240, 255, 0.12)" : "#151824",
+                            borderRadius: "8px",
+                            border: `1px solid ${isSelected ? "#00F0FF" : "#282E40"}`,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <strong style={{ fontSize: "0.78rem", color: isSelected ? "#00F0FF" : "#FFF" }}>
+                              {sub.name}
+                            </strong>
+                          </div>
+                          <span style={{ fontSize: "0.64rem", color: "#64748B", display: "block", marginTop: "0.15rem" }}>
+                            {sub.desc}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. CORES PERSONALIZADAS: TEXTO BASE & DESTAQUE KARAOKE */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem", background: "#151824", padding: "0.75rem", borderRadius: "8px", border: "1px solid #242938" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Palette size={14} style={{ color: "#00F0FF" }} />
+                    <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0" }}>
+                      Paleta de Cores da Legenda:
+                    </span>
+                  </div>
+
+                  {/* Cor Primária (Texto Falado Padrão) */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#94A3B8" }}>Cor do Texto:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {[
+                        { hex: "#FFFFFF", name: "Branco" },
+                        { hex: "#FACC15", name: "Amarelo" },
+                        { hex: "#00F0FF", name: "Ciano" },
+                        { hex: "#10B981", name: "Verde" },
+                      ].map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            recordHistory({ primaryColor: c.hex });
+                            setPrimaryColor(c.hex);
+                          }}
+                          style={{
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            background: c.hex,
+                            border: primaryColor === c.hex ? "2px solid #00F0FF" : "1px solid #475569",
+                            cursor: "pointer",
+                            transform: primaryColor === c.hex ? "scale(1.2)" : "scale(1)",
+                            transition: "all 0.15s ease",
+                          }}
+                          title={c.name}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={primaryColor}
+                        onChange={(e) => {
+                          recordHistory({ primaryColor: e.target.value });
+                          setPrimaryColor(e.target.value);
                         }}
                         style={{
-                          padding: "0.65rem",
-                          background: isSelected ? "rgba(0, 240, 255, 0.12)" : "#171A25",
-                          borderRadius: "8px",
-                          border: `1px solid ${isSelected ? "#00F0FF" : "#2B3042"}`,
+                          width: "22px",
+                          height: "22px",
+                          padding: 0,
+                          borderRadius: "4px",
+                          border: "none",
                           cursor: "pointer",
-                          transition: "all 0.2s",
+                          background: "transparent",
                         }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <strong style={{ fontSize: "0.82rem", color: isSelected ? "#00F0FF" : "#FFF" }}>
-                            {sub.name}
-                          </strong>
-                          {isSelected && (
-                            <span style={{ fontSize: "0.68rem", background: "#00F0FF", color: "#000", padding: "0.1rem 0.4rem", borderRadius: "4px", fontWeight: 800 }}>
-                              Selecionado
-                            </span>
-                          )}
-                        </div>
-                        <span style={{ fontSize: "0.7rem", color: "#94A3B8", display: "block", marginTop: "0.2rem" }}>
-                          {sub.desc}
-                        </span>
-                      </div>
-                    );
-                  })}
+                        title="Cor personalizada de texto"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cor de Destaque / Karaoke (Palavra Ativa falada) */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#94A3B8" }}>Destaque (Karaoke):</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {[
+                        { hex: "#FACC15", name: "Amarelo Vibrante" },
+                        { hex: "#10B981", name: "Verde Neon" },
+                        { hex: "#00F0FF", name: "Ciano Elétrico" },
+                        { hex: "#FF007A", name: "Magenta" },
+                        { hex: "#FB923C", name: "Laranja" },
+                      ].map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            recordHistory({ highlightColor: c.hex });
+                            setHighlightColor(c.hex);
+                          }}
+                          style={{
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            background: c.hex,
+                            border: highlightColor === c.hex ? "2px solid #FFF" : "1px solid #475569",
+                            cursor: "pointer",
+                            transform: highlightColor === c.hex ? "scale(1.2)" : "scale(1)",
+                            transition: "all 0.15s ease",
+                          }}
+                          title={c.name}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={highlightColor}
+                        onChange={(e) => {
+                          recordHistory({ highlightColor: e.target.value });
+                          setHighlightColor(e.target.value);
+                        }}
+                        style={{
+                          width: "22px",
+                          height: "22px",
+                          padding: 0,
+                          borderRadius: "4px",
+                          border: "none",
+                          cursor: "pointer",
+                          background: "transparent",
+                        }}
+                        title="Cor personalizada de destaque"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* 4. POSIÇÃO VERTICAL & TAMANHO DA FONTE */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                  <div>
+                    <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.25rem" }}>
+                      Posição Vertical:
+                    </label>
+                    <select
+                      value={subtitlePosition}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        recordHistory({ subtitlePosition: val });
+                        setSubtitlePosition(val);
+                      }}
+                      style={{
+                        width: "100%",
+                        background: "#151824",
+                        color: "#E2E8F0",
+                        border: "1px solid #282E40",
+                        borderRadius: "6px",
+                        padding: "0.35rem 0.5rem",
+                        fontSize: "0.74rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <option value="bottom">Base (Safe Zone)</option>
+                      <option value="center-bottom">Centro-Inferior</option>
+                      <option value="center">Centro da Tela</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.25rem" }}>
+                      Tamanho do Texto:
+                    </label>
+                    <select
+                      value={subtitleFontSize}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        recordHistory({ subtitleFontSize: val });
+                        setSubtitleFontSize(val);
+                      }}
+                      style={{
+                        width: "100%",
+                        background: "#151824",
+                        color: "#E2E8F0",
+                        border: "1px solid #282E40",
+                        borderRadius: "6px",
+                        padding: "0.35rem 0.5rem",
+                        fontSize: "0.74rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <option value="small">Pequeno (Discreto)</option>
+                      <option value="medium">Médio (Padrão)</option>
+                      <option value="large">Grande (Viral)</option>
+                      <option value="extra">Extra Grande (MrBeast)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 5. EMOJIS CONTEXTUAIS AUTOMÁTICOS */}
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    background: "#151824",
+                    padding: "0.55rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid #282E40",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={enableEmojis}
+                    onChange={(e) => {
+                      recordHistory({ enableEmojis: e.target.checked });
+                      setEnableEmojis(e.target.checked);
+                    }}
+                    style={{ width: "1rem", height: "1rem", accentColor: "#00F0FF", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "0.74rem", color: "#E2E8F0" }}>
+                    Injetar Emojis Automáticos contextuais na fala (🔥, 💰, 🚀, 💡)
+                  </span>
+                </label>
               </div>
             )}
           </div>
@@ -1636,6 +2133,74 @@ export default function ClipEditorModal({
                     currentTime={currentTime}
                     isPlaying={isPlaying}
                   />
+                )}
+
+                {/* Camada Dinâmica de Legendas em Tempo Real (Preview ao Vivo da Tipografia do Sistema Selecionada) */}
+                {showSubtitlePreview && activeSubtitleData && (
+                  <div
+                    className="absolute inset-x-0 pointer-events-none flex justify-center z-30 transition-all duration-150 px-4"
+                    style={{
+                      bottom:
+                        subtitlePosition === "center"
+                          ? "48%"
+                          : subtitlePosition === "center-bottom"
+                          ? "28%"
+                          : "14%",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: subtitleFontSize === "extra" ? "0.6rem" : "0.35rem",
+                        textAlign: "center",
+                        fontFamily: `'${activeSystemFont.fontFamily}', sans-serif`,
+                        fontWeight: 900,
+                        fontSize:
+                          subtitleFontSize === "small"
+                            ? "1.1rem"
+                            : subtitleFontSize === "medium"
+                            ? "1.35rem"
+                            : subtitleFontSize === "extra"
+                            ? "2.1rem"
+                            : "1.7rem",
+                        lineHeight: 1.15,
+                        letterSpacing: "0.02em",
+                        textTransform: "uppercase",
+                        filter: "drop-shadow(0px 4px 10px rgba(0,0,0,0.8))",
+                        maxWidth: "92%",
+                      }}
+                    >
+                      {activeSubtitleData.words.map((item, idx) => {
+                        const isHighlighted = item.isActive;
+                        return (
+                          <span
+                            key={idx}
+                            style={{
+                              color: isHighlighted ? highlightColor : primaryColor,
+                              textShadow:
+                                "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 6px rgba(0,0,0,0.9)",
+                              transform: isHighlighted ? "scale(1.12)" : "scale(1)",
+                              transition: "all 0.1s ease-out",
+                              display: "inline-block",
+                              padding: "0 0.18rem",
+                              borderRadius: "4px",
+                              background:
+                                subtitleStyle === "minimal"
+                                  ? "rgba(0, 0, 0, 0.7)"
+                                  : isHighlighted && subtitleStyle === "beast"
+                                  ? "rgba(0, 0, 0, 0.35)"
+                                  : "transparent",
+                            }}
+                          >
+                            {item.text}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* OVERLAY DE SAFE ZONES DISCRETAS (TIKTOK / REELS / SHORTS) */}

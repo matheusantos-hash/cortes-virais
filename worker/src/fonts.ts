@@ -174,3 +174,45 @@ export async function prepareCustomFont(params: {
     fontsDir: outDir,
   };
 }
+
+/**
+ * Mapeia e localiza uma fonte nativa do sistema em assets/fonts (ex: Poppins, Montserrat, Anton, Bebas Neue).
+ */
+export function resolveSystemFont(nameOrId?: string | null): { family: string; fileName: string; filePath: string } | null {
+  if (!nameOrId) return null;
+  const clean = nameOrId.trim().toLowerCase();
+
+  const map: Array<{ match: (s: string) => boolean; family: string; fileName: string }> = [
+    { match: (s) => s.includes("poppin"), family: "Poppins", fileName: "Poppins-Bold.ttf" },
+    { match: (s) => s.includes("montserrat"), family: "Montserrat", fileName: "Montserrat-Black.ttf" },
+    { match: (s) => s.includes("anton"), family: "Anton", fileName: "Anton-Regular.ttf" },
+    { match: (s) => s.includes("bebas"), family: "Bebas Neue", fileName: "BebasNeue-Regular.ttf" },
+    { match: (s) => s.includes("oswald"), family: "Oswald", fileName: "Oswald-Bold.ttf" },
+    { match: (s) => s.includes("russo"), family: "Russo One", fileName: "RussoOne-Regular.ttf" },
+    { match: (s) => s.includes("inter"), family: "Inter", fileName: "Inter-Black.ttf" },
+    { match: (s) => s.includes("rubik"), family: "Rubik", fileName: "Rubik-Black.ttf" },
+  ];
+
+  const found = map.find((m) => m.match(clean));
+  if (!found) return null;
+
+  const candidateDirs = [
+    path.resolve(process.cwd(), "assets", "fonts"),
+    path.resolve(process.cwd(), "worker", "assets", "fonts"),
+    path.resolve(__dirname, "..", "assets", "fonts"),
+    path.resolve(__dirname, "assets", "fonts"),
+  ];
+
+  for (const dir of candidateDirs) {
+    const fullPath = path.join(dir, found.fileName);
+    if (fs.existsSync(fullPath)) {
+      return {
+        family: found.family,
+        fileName: found.fileName,
+        filePath: fullPath,
+      };
+    }
+  }
+
+  return null;
+}

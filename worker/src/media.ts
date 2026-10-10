@@ -476,10 +476,12 @@ export async function trimClip(opts: {
   trimStartSec: number;
   trimEndSec: number;
   canvasBrolls?: CanvasBroll[];
+  subtitlesPath?: string;
+  fontsDir?: string;
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, trimStartSec, trimEndSec, canvasBrolls, signal, onLog } = opts;
+  const { input, output, trimStartSec, trimEndSec, canvasBrolls, subtitlesPath, fontsDir, signal, onLog } = opts;
   const duration = trimEndSec - trimStartSec;
   if (duration <= 0) {
     throw new Error("Duração do corte ajustado deve ser maior que zero.");
@@ -488,6 +490,22 @@ export async function trimClip(opts: {
   onLog?.(`[TRIM] Recortando trecho [${trimStartSec.toFixed(2)}s a ${trimEndSec.toFixed(2)}s] (${duration.toFixed(2)}s) com re-encode acelerado...`);
 
   const vfFilters: string[] = [];
+
+  // Se houver legendas ASS a serem aplicadas/atualizadas
+  if (subtitlesPath && existsSync(subtitlesPath)) {
+    const safeAssPath = subtitlesPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+    const defaultAssetsFonts = path.resolve(__dirname, "..", "assets", "fonts");
+    const activeFontsDir = (fontsDir && existsSync(fontsDir))
+      ? fontsDir
+      : (existsSync(defaultAssetsFonts) ? defaultAssetsFonts : null);
+
+    if (activeFontsDir) {
+      const safeFontsDir = activeFontsDir.replace(/\\/g, "/").replace(/:/g, "\\:");
+      vfFilters.push(`ass='${safeAssPath}':fontsdir='${safeFontsDir}'`);
+    } else {
+      vfFilters.push(`ass='${safeAssPath}'`);
+    }
+  }
 
   // Se houver overlays de CanvasBroll ativos, compõe filtros de vídeo com precisão milimétrica
   if (canvasBrolls && canvasBrolls.length > 0) {

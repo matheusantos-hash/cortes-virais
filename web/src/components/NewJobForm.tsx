@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
 import { VerticalMode } from "@/lib/types";
+import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
 import {
   LinkIcon,
   UploadIcon,
@@ -176,6 +177,9 @@ export default function NewJobForm({
 
   // Opções de Legendas & Sound Design (Fase 4 & HyperFrames) - Desativados por padrão
   const [subtitleStyle, setSubtitleStyle] = useState<"hormozi" | "apple" | "beast" | "minimal">("hormozi");
+  const [selectedFontName, setSelectedFontName] = useState<string>("Poppins Bold");
+  const [primaryColor, setPrimaryColor] = useState<string>("#FFFFFF");
+  const [highlightColor, setHighlightColor] = useState<string>("#FACC15");
   const [enableEmojis, setEnableEmojis] = useState(false);
   const [enableSfx, setEnableSfx] = useState(false);
 
@@ -340,7 +344,7 @@ export default function NewJobForm({
       reference_path: copyStyle && refSourceType === "custom_video" ? refPath : (copyStyle && refSourceType === "saved" ? (selectedUserRef?.reference_path || null) : null),
       reference_style: copyStyle ? refStyle : null,
       design_instructions: copyStyle ? (designInstructions.trim() || selectedUserRef?.design_instructions || null) : null,
-      custom_font_name: copyStyle && refSourceType === "saved" ? (selectedUserRef?.custom_font_name || null) : null,
+      custom_font_name: copyStyle && refSourceType === "saved" && selectedUserRef?.custom_font_name ? selectedUserRef.custom_font_name : selectedFontName,
       custom_font_path: copyStyle && refSourceType === "saved" ? (selectedUserRef?.custom_font_path || null) : null,
       use_broll: useBroll,
       broll_source: useBroll ? brollSource : "none",
@@ -352,6 +356,13 @@ export default function NewJobForm({
       enable_extended_thinking: enableExtendedThinking,
       manual_adjustments: {
         ...(refManualAdj || {}),
+        subtitles: {
+          style: copyStyle && refSourceType === "saved" && selectedUserRef?.subtitle_style ? selectedUserRef.subtitle_style : subtitleStyle,
+          customFontName: copyStyle && refSourceType === "saved" && selectedUserRef?.custom_font_name ? selectedUserRef.custom_font_name : selectedFontName,
+          primaryColor: copyStyle && refSourceType === "saved" && refManualAdj?.subtitles?.primaryColor ? refManualAdj.subtitles.primaryColor : primaryColor,
+          highlightColor: copyStyle && refSourceType === "saved" && refManualAdj?.subtitles?.highlightColor ? refManualAdj.subtitles.highlightColor : highlightColor,
+          enableEmojis,
+        },
         aiCuration: {
           enableVisualAnalysis,
           enableExtendedThinking,
@@ -980,44 +991,131 @@ export default function NewJobForm({
 
         <div className="grid2" style={{ marginTop: "0.5rem" }}>
           <label>
-            Estilo Visual das Legendas:
+            Tipografia das Legendas (Fontes do Sistema):
+            <select
+              value={selectedFontName}
+              onChange={(e) => setSelectedFontName(e.target.value)}
+              style={{ marginTop: "0.3rem" }}
+            >
+              {SYSTEM_FONTS.map((font) => (
+                <option key={font.id} value={font.name}>
+                  {font.name} {font.id === "poppins" ? "⭐ (Recomendada / Poppins)" : `— ${font.category}`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Estilo de Animação / Preset:
             <select
               value={subtitleStyle}
               onChange={(e) => setSubtitleStyle(e.target.value as any)}
               style={{ marginTop: "0.3rem" }}
             >
-              <option value="hormozi">Hormozi Bold (Amarelo vibrante, contorno preto espesso)</option>
+              <option value="hormozi">Alex Hormozi (Amarelo vibrante, contorno preto espesso)</option>
+              <option value="beast">MrBeast Impact (Cores neon dinâmicas e ritmo ultra-rápido)</option>
               <option value="apple">Apple Minimal (Tipografia limpa, cantos suaves, estilo Apple)</option>
-              <option value="beast">Beast Pop (Cores neon dinâmicas e ritmo ultra-rápido)</option>
-              <option value="minimal">Minimal Podcast (Subtítulo discreto e refinado na base)</option>
+              <option value="minimal">Legenda Clássica (Subtítulo discreto na base com fundo suave)</option>
             </select>
           </label>
+        </div>
 
-          <div className="stack" style={{ gap: "0.5rem", justifyContent: "center" }}>
-            <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
+        {/* Paleta rápida de cores das legendas */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", background: "rgba(0,0,0,0.2)", padding: "0.6rem 0.8rem", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Cor do Texto:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              {[
+                { hex: "#FFFFFF", name: "Branco" },
+                { hex: "#FACC15", name: "Amarelo" },
+                { hex: "#00F0FF", name: "Ciano" },
+              ].map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setPrimaryColor(c.hex)}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    background: c.hex,
+                    border: primaryColor === c.hex ? "2px solid var(--primary)" : "1px solid #475569",
+                    cursor: "pointer",
+                    transform: primaryColor === c.hex ? "scale(1.2)" : "scale(1)",
+                  }}
+                  title={c.name}
+                />
+              ))}
               <input
-                type="checkbox"
-                checked={enableEmojis}
-                onChange={(e) => setEnableEmojis(e.target.checked)}
-                style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                style={{ width: "20px", height: "20px", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                title="Cor personalizada de texto"
               />
-              <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                <SparklesIcon size={14} style={{ color: "var(--primary)" }} /> Injetar Emojis Automáticos na fala
-              </span>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={enableSfx}
-                onChange={(e) => setEnableSfx(e.target.checked)}
-                style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
-              />
-              <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                <Volume2 size={14} style={{ color: "var(--primary)" }} /> Sound Design (Whoosh, Pop e Ding sincronizados)
-              </span>
-            </label>
+            </div>
           </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Destaque (Karaoke):</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              {[
+                { hex: "#FACC15", name: "Amarelo" },
+                { hex: "#10B981", name: "Verde Neon" },
+                { hex: "#00F0FF", name: "Ciano" },
+                { hex: "#FF007A", name: "Magenta" },
+              ].map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setHighlightColor(c.hex)}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    background: c.hex,
+                    border: highlightColor === c.hex ? "2px solid #FFF" : "1px solid #475569",
+                    cursor: "pointer",
+                    transform: highlightColor === c.hex ? "scale(1.2)" : "scale(1)",
+                  }}
+                  title={c.name}
+                />
+              ))}
+              <input
+                type="color"
+                value={highlightColor}
+                onChange={(e) => setHighlightColor(e.target.value)}
+                style={{ width: "20px", height: "20px", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                title="Cor personalizada de destaque"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="stack" style={{ gap: "0.5rem", marginTop: "0.25rem" }}>
+          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={enableEmojis}
+              onChange={(e) => setEnableEmojis(e.target.checked)}
+              style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+            />
+            <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              <SparklesIcon size={14} style={{ color: "var(--primary)" }} /> Injetar Emojis Automáticos contextuais na fala (🔥, 💰, 🚀)
+            </span>
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={enableSfx}
+              onChange={(e) => setEnableSfx(e.target.checked)}
+              style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+            />
+            <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              <Volume2 size={14} style={{ color: "var(--primary)" }} /> Sound Design (Whoosh, Pop e Ding sincronizados)
+            </span>
+          </label>
         </div>
       </div>
 
