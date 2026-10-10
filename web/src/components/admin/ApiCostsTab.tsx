@@ -283,7 +283,7 @@ export default function ApiCostsTab({ jobs, users }: Props) {
           <div className="provider-card-header">
             <div className="provider-info">
               <div className="provider-badge claude-badge">Anthropic</div>
-              <h4 className="provider-name">Claude 3.7 / 3.5 Sonnet</h4>
+              <h4 className="provider-name">Claude Sonnet 5.5 / 5.0</h4>
             </div>
             <div className="provider-status-pill">
               {summary?.keysStatus.anthropic ? (

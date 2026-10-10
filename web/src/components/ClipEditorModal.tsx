@@ -43,6 +43,7 @@ import {
   Type,
   Palette,
 } from "./Icons";
+import ModernColorPicker from "./ModernColorPicker";
 
 interface ClipEditorModalProps {
   clip: Clip;
@@ -2180,107 +2181,39 @@ export default function ClipEditorModal({
                   </div>
 
                   {/* Cor Primária (Texto Falado Padrão) */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                    <span style={{ fontSize: "0.72rem", color: "#94A3B8" }}>Cor do Texto:</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {[
-                        { hex: "#FFFFFF", name: "Branco" },
-                        { hex: "#FACC15", name: "Amarelo" },
-                        { hex: "#00F0FF", name: "Ciano" },
-                        { hex: "#10B981", name: "Verde" },
-                      ].map((c) => (
-                        <button
-                          key={c.hex}
-                          type="button"
-                          onClick={() => {
-                            recordHistory({ primaryColor: c.hex });
-                            setPrimaryColor(c.hex);
-                          }}
-                          style={{
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            background: c.hex,
-                            border: primaryColor === c.hex ? "2px solid #00F0FF" : "1px solid #475569",
-                            cursor: "pointer",
-                            transform: primaryColor === c.hex ? "scale(1.2)" : "scale(1)",
-                            transition: "all 0.15s ease",
-                          }}
-                          title={c.name}
-                        />
-                      ))}
-                      <input
-                        type="color"
-                        value={primaryColor}
-                        onChange={(e) => {
-                          recordHistory({ primaryColor: e.target.value });
-                          setPrimaryColor(e.target.value);
-                        }}
-                        style={{
-                          width: "22px",
-                          height: "22px",
-                          padding: 0,
-                          borderRadius: "4px",
-                          border: "none",
-                          cursor: "pointer",
-                          background: "transparent",
-                        }}
-                        title="Cor personalizada de texto"
-                      />
-                    </div>
-                  </div>
+                  <ModernColorPicker
+                    label="Cor do Texto:"
+                    color={primaryColor}
+                    onChange={(hex) => {
+                      recordHistory({ primaryColor: hex });
+                      setPrimaryColor(hex);
+                    }}
+                    presetColors={[
+                      { color: "#FFFFFF", name: "Branco" },
+                      { color: "#FACC15", name: "Amarelo" },
+                      { color: "#00F0FF", name: "Ciano" },
+                      { color: "#10B981", name: "Verde" },
+                    ]}
+                    compact
+                  />
 
                   {/* Cor de Destaque / Karaoke (Palavra Ativa falada) */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                    <span style={{ fontSize: "0.72rem", color: "#94A3B8" }}>Destaque (Karaoke):</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {[
-                        { hex: "#FACC15", name: "Amarelo Vibrante" },
-                        { hex: "#10B981", name: "Verde Neon" },
-                        { hex: "#00F0FF", name: "Ciano Elétrico" },
-                        { hex: "#FF007A", name: "Magenta" },
-                        { hex: "#FB923C", name: "Laranja" },
-                      ].map((c) => (
-                        <button
-                          key={c.hex}
-                          type="button"
-                          onClick={() => {
-                            recordHistory({ highlightColor: c.hex });
-                            setHighlightColor(c.hex);
-                          }}
-                          style={{
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            background: c.hex,
-                            border: highlightColor === c.hex ? "2px solid #FFF" : "1px solid #475569",
-                            cursor: "pointer",
-                            transform: highlightColor === c.hex ? "scale(1.2)" : "scale(1)",
-                            transition: "all 0.15s ease",
-                          }}
-                          title={c.name}
-                        />
-                      ))}
-                      <input
-                        type="color"
-                        value={highlightColor}
-                        onChange={(e) => {
-                          recordHistory({ highlightColor: e.target.value });
-                          setHighlightColor(e.target.value);
-                        }}
-                        style={{
-                          width: "22px",
-                          height: "22px",
-                          padding: 0,
-                          borderRadius: "4px",
-                          border: "none",
-                          cursor: "pointer",
-                          background: "transparent",
-                        }}
-                        title="Cor personalizada de destaque"
-                      />
-                    </div>
-                  </div>
+                  <ModernColorPicker
+                    label="Destaque (Karaoke):"
+                    color={highlightColor}
+                    onChange={(hex) => {
+                      recordHistory({ highlightColor: hex });
+                      setHighlightColor(hex);
+                    }}
+                    presetColors={[
+                      { color: "#FACC15", name: "Amarelo Vibrante" },
+                      { color: "#10B981", name: "Verde Neon" },
+                      { color: "#00F0FF", name: "Ciano Elétrico" },
+                      { color: "#FF007A", name: "Magenta" },
+                      { color: "#FB923C", name: "Laranja" },
+                    ]}
+                    compact
+                  />
                 </div>
 
                 {/* 4. POSIÇÃO VERTICAL & TAMANHO DA FONTE */}

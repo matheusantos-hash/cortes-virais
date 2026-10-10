@@ -33,6 +33,7 @@ import {
   Check,
   Save,
 } from "./Icons";
+import ModernColorPicker from "./ModernColorPicker";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024; // acima disso, usa envio retomável (TUS)
@@ -1015,76 +1016,34 @@ export default function NewJobForm({
           </label>
         </div>
 
-        {/* Paleta rápida de cores das legendas */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", background: "rgba(0,0,0,0.2)", padding: "0.6rem 0.8rem", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Cor do Texto:</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              {[
-                { hex: "#FFFFFF", name: "Branco" },
-                { hex: "#FACC15", name: "Amarelo" },
-                { hex: "#00F0FF", name: "Ciano" },
-              ].map((c) => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  onClick={() => setPrimaryColor(c.hex)}
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    background: c.hex,
-                    border: primaryColor === c.hex ? "2px solid var(--primary)" : "1px solid #475569",
-                    cursor: "pointer",
-                    transform: primaryColor === c.hex ? "scale(1.2)" : "scale(1)",
-                  }}
-                  title={c.name}
-                />
-              ))}
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                style={{ width: "20px", height: "20px", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
-                title="Cor personalizada de texto"
-              />
-            </div>
-          </div>
+        {/* Paleta rápida de cores das legendas com Swatches SVG redondos e Pizza de Cores */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", background: "rgba(0,0,0,0.22)", padding: "0.75rem 0.9rem", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
+          <ModernColorPicker
+            label="Cor do Texto:"
+            color={primaryColor}
+            onChange={(c) => setPrimaryColor(c)}
+            presetColors={[
+              { color: "#FFFFFF", name: "Branco" },
+              { color: "#FACC15", name: "Amarelo" },
+              { color: "#00F0FF", name: "Ciano" },
+              { color: "#10B981", name: "Verde" },
+            ]}
+            compact
+          />
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Destaque (Karaoke):</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              {[
-                { hex: "#FACC15", name: "Amarelo" },
-                { hex: "#10B981", name: "Verde Neon" },
-                { hex: "#00F0FF", name: "Ciano" },
-                { hex: "#FF007A", name: "Magenta" },
-              ].map((c) => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  onClick={() => setHighlightColor(c.hex)}
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    background: c.hex,
-                    border: highlightColor === c.hex ? "2px solid #FFF" : "1px solid #475569",
-                    cursor: "pointer",
-                    transform: highlightColor === c.hex ? "scale(1.2)" : "scale(1)",
-                  }}
-                  title={c.name}
-                />
-              ))}
-              <input
-                type="color"
-                value={highlightColor}
-                onChange={(e) => setHighlightColor(e.target.value)}
-                style={{ width: "20px", height: "20px", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
-                title="Cor personalizada de destaque"
-              />
-            </div>
-          </div>
+          <ModernColorPicker
+            label="Destaque (Karaoke):"
+            color={highlightColor}
+            onChange={(c) => setHighlightColor(c)}
+            presetColors={[
+              { color: "#FACC15", name: "Amarelo Vibrante" },
+              { color: "#10B981", name: "Verde Neon" },
+              { color: "#00F0FF", name: "Ciano Elétrico" },
+              { color: "#FF007A", name: "Magenta" },
+              { color: "#FB923C", name: "Laranja" },
+            ]}
+            compact
+          />
         </div>
 
         <div className="stack" style={{ gap: "0.5rem", marginTop: "0.25rem" }}>

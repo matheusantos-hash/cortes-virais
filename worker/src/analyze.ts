@@ -186,15 +186,12 @@ export async function findCandidates(
   const modelEnv = process.env.CLAUDE_MODEL?.trim();
   const preferredModel = modelEnv || (useThinking ? "claude-sonnet-5-5" : "claude-sonnet-5-5");
 
-  // Lista de modelos ordenada por preferência para resiliência caso algum retorne 404
+  // Lista de modelos suportados pela Anthropic ordenada por preferência
   const candidateModels = Array.from(
     new Set([
       preferredModel,
       "claude-sonnet-5-5",
       "claude-sonnet-5",
-      "claude-3-7-sonnet-20250219",
-      "claude-3-5-sonnet-20241022",
-      "claude-sonnet-4-5-20250929",
     ])
   ).filter(Boolean);
 

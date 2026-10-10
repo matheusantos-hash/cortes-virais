@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-3-5-haiku-20241022",
+          model: process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-5-5",
           max_tokens: 10,
           messages: [{ role: "user", content: "Ping" }],
         }),
