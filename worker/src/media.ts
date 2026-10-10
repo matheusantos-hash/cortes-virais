@@ -25,13 +25,35 @@ export interface ActiveBroll {
   durationSec: number;
 }
 
+function getSpawnEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (process.platform === "win32" && !env.FONTCONFIG_FILE) {
+    const tempDir = os.tmpdir();
+    const confPath = path.join(tempDir, "cortes_virais_fonts.conf");
+    if (!existsSync(confPath)) {
+      try {
+        const confContent = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>C:/Windows/Fonts</dir>
+</fontconfig>`;
+        writeFileSync(confPath, confContent, "utf8");
+      } catch {}
+    }
+    if (existsSync(confPath)) {
+      env.FONTCONFIG_FILE = confPath;
+    }
+  }
+  return env;
+}
+
 function run(cmd: string, args: string[], signal?: AbortSignal, onLog?: (line: string) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       return reject(new CanceledError());
     }
 
-    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], env: getSpawnEnv() });
     const stderrChunks: string[] = [];
 
     const handleAbort = () => {
@@ -509,6 +531,13 @@ export async function trimClip(opts: {
 
   // Se houver overlays de CanvasBroll ativos, compõe filtros de vídeo com precisão milimétrica
   if (canvasBrolls && canvasBrolls.length > 0) {
+    let fontfileParam = "";
+    const defaultFontPath = path.resolve(__dirname, "..", "assets", "fonts", "Poppins-Bold.ttf");
+    if (existsSync(defaultFontPath)) {
+      const safeFontFile = defaultFontPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+      fontfileParam = `:fontfile='${safeFontFile}'`;
+    }
+
     for (const b of canvasBrolls) {
       const relStart = b.offsetSec - trimStartSec;
       const relEnd = relStart + b.durationSec;
@@ -527,22 +556,25 @@ export async function trimClip(opts: {
           ? "0xA855F7"
           : "0x00F0FF";
 
-      const title = (b.data?.title || "DESTAQUE").replace(/[':\\]/g, "");
-      const val = (b.data?.value || "+300%").replace(/[':\\]/g, "");
+      const title = (b.data?.title || "DESTAQUE").replace(/[':\\]/g, "").replace(/%/g, "\\\\%");
+      const val = (b.data?.value || "+300%").replace(/[':\\]/g, "").replace(/%/g, "\\\\%");
 
       // Posicionamento vertical (Safe Zone)
-      const posY = b.data?.positionY === "center" ? "ih*0.48" : b.data?.positionY === "bottom" ? "ih*0.72" : "ih*0.35";
+      const factor = b.data?.positionY === "center" ? 0.48 : b.data?.positionY === "bottom" ? 0.72 : 0.35;
+      const boxY = `(ih*${factor}-160)`;
+      const titleY = `(h*${factor}-100)`;
+      const valY = `(h*${factor})`;
 
       onLog?.(`[B-ROLL CANVAS] Aplicando overlay "${title}" (${val}) no intervalo [${s}s a ${e}s]...`);
 
       // 1. Fundo do Card com transparência
-      vfFilters.push(`drawbox=x=(w-860)/2:y=${posY}-160:w=860:h=320:color=black@0.85:t=fill:enable='${enableExpr}'`);
+      vfFilters.push(`drawbox=x=(iw-860)/2:y=${boxY}:w=860:h=320:color=black@0.85:t=fill:enable='${enableExpr}'`);
       // 2. Borda Neon estilizada
-      vfFilters.push(`drawbox=x=(w-860)/2:y=${posY}-160:w=860:h=320:color=${colorHex}@0.9:t=6:enable='${enableExpr}'`);
+      vfFilters.push(`drawbox=x=(iw-860)/2:y=${boxY}:w=860:h=320:color=${colorHex}@0.9:t=6:enable='${enableExpr}'`);
       // 3. Título / Categoria
-      vfFilters.push(`drawtext=text='${title}':fontcolor=0x94A3B8:fontsize=36:x=(w-text_w)/2:y=${posY}-100:enable='${enableExpr}'`);
+      vfFilters.push(`drawtext=text='${title}'${fontfileParam}:fontcolor=0x94A3B8:fontsize=36:x=(w-text_w)/2:y=${titleY}:enable='${enableExpr}'`);
       // 4. Métrica / Valor em destaque grande
-      vfFilters.push(`drawtext=text='${val}':fontcolor=${colorHex}:fontsize=100:x=(w-text_w)/2:y=${posY}:enable='${enableExpr}'`);
+      vfFilters.push(`drawtext=text='${val}'${fontfileParam}:fontcolor=${colorHex}:fontsize=100:x=(w-text_w)/2:y=${valY}:enable='${enableExpr}'`);
     }
   }
 

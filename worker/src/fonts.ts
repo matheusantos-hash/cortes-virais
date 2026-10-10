@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Converte arquivo WOFF (Web Open Font Format 1.0) para OpenType/TrueType padrão (SFNT).

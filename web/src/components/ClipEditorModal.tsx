@@ -108,6 +108,7 @@ export default function ClipEditorModal({
   const [subtitleFontSize, setSubtitleFontSize] = useState<"small" | "medium" | "large" | "extra">("large");
   const [enableEmojis, setEnableEmojis] = useState<boolean>(true);
   const [showSubtitlePreview, setShowSubtitlePreview] = useState<boolean>(true);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
 
   // Interface do snapshot do editor para a pilha de histórico
   interface EditorSnapshot {
@@ -870,6 +871,95 @@ export default function ClipEditorModal({
           >
             <SparklesIcon size={13} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
           </button>
+
+          {/* Botão de Exportação com Dropdown de Formatos (MP4, SRT, XML, EDL, Capa) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              className="bg-[#1A1D27] hover:bg-[#252A39] border border-cyan-500/40 text-cyan-400 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title="Exportar mídias, legendas ou timeline do corte"
+            >
+              <DownloadIcon size={13} />
+              <span>Exportar</span>
+              <ChevronDown size={12} className={`transition-transform duration-150 ${isExportMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isExportMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1.5 w-56 bg-[#161924] border border-[#2B3145] rounded-lg shadow-2xl z-50 p-1.5 flex flex-col gap-1"
+                onClick={() => setIsExportMenuOpen(false)}
+              >
+                {videoSrc && (
+                  <a
+                    href={videoSrc}
+                    download={`corte-${String(clip.position).padStart(2, "0")}.mp4`}
+                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
+                  >
+                    <Film size={13} className="text-cyan-400" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold">Baixar Vídeo MP4</span>
+                      <span className="text-[10px] text-gray-400">Vídeo pronto renderizado</span>
+                    </div>
+                  </a>
+                )}
+
+                <a
+                  href={`/api/jobs/${clip.job_id}/export?format=srt&clipId=${clip.id}`}
+                  download={`legendas-corte-${String(clip.position).padStart(2, "0")}.srt`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
+                >
+                  <Subtitles size={13} className="text-yellow-400" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold">Legendas SRT</span>
+                    <span className="text-[10px] text-gray-400">Timestamps palavra por palavra</span>
+                  </div>
+                </a>
+
+                <a
+                  href={`/api/jobs/${clip.job_id}/export?format=xml`}
+                  download={`projeto_premiere_resolve.xml`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
+                >
+                  <Monitor size={13} className="text-indigo-400" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold">Timeline XML (FCP7)</span>
+                    <span className="text-[10px] text-gray-400">Premiere &amp; DaVinci Resolve</span>
+                  </div>
+                </a>
+
+                <a
+                  href={`/api/jobs/${clip.job_id}/export?format=edl`}
+                  download={`timeline.edl`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
+                >
+                  <SlidersHorizontal size={13} className="text-emerald-400" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold">Timeline EDL</span>
+                    <span className="text-[10px] text-gray-400">Padrão CMX3600</span>
+                  </div>
+                </a>
+
+                <div className="h-px bg-[#262B3B] my-0.5" />
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExportMenuOpen(false);
+                    downloadThumbnail();
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors cursor-pointer"
+                >
+                  <Camera size={13} className="text-rose-400" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold">Baixar Capa HD (JPG)</span>
+                    <span className="text-[10px] text-gray-400">Thumbnail com visual viral</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             type="button"
