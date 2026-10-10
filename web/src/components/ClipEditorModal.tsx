@@ -887,139 +887,139 @@ export default function ClipEditorModal({
       }}
     >
       {/* 1. HEADER DO ESTÚDIO COMPACTO (48px) */}
-      <header className="h-12 bg-[#11131B] border-b border-[#212635] flex items-center justify-between px-3 gap-3 z-10 shrink-0">
+      <header className="h-12 bg-[#11131B] border-b border-[#212635] flex items-center justify-between px-3 gap-2 z-10 shrink-0">
         {/* Esquerda: Voltar e Identificação do Corte */}
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 shrink">
           <button
             type="button"
             onClick={onClose}
-            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-200 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-200 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 z-20 shadow-sm"
             title="Voltar para a lista de cortes (Esc)"
           >
             <ArrowLeft size={14} /> Voltar
           </button>
 
-          <div className="h-4 w-px bg-[#2B3142]" />
+          <div className="h-4 w-px bg-[#2B3142] shrink-0" />
 
-          <div className="flex items-center gap-2 truncate">
-            <span className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white px-1.5 py-0.5 rounded text-[11px] font-extrabold tracking-wider shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <span className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wider shrink-0">
               #{clip.position}
             </span>
-            <span className="text-xs font-bold text-gray-200 truncate max-w-[260px] md:max-w-[400px]">
+            <span className="text-xs font-bold text-gray-200 truncate max-w-[120px] sm:max-w-[200px] md:max-w-[300px] lg:max-w-[420px]" title={clip.title}>
               {clip.title}
             </span>
           </div>
         </div>
 
         {/* Centro: Timecode Digital Monospace & Toggles Pequenos */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="bg-[#08090D] border border-[#232733] px-2.5 py-1 rounded-md font-mono text-xs text-cyan-400 font-semibold tracking-wider flex items-center gap-1.5 shadow-inner">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="bg-[#08090D] border border-[#232733] px-2 py-0.5 rounded-md font-mono text-[11px] text-cyan-400 font-semibold tracking-wider flex items-center gap-1 shadow-inner shrink-0">
             <span className="text-white">{formatTimecode(currentTime)}</span>
             <span className="text-gray-500">/</span>
             <span className="text-gray-400">{formatTimecode(duration)}</span>
           </div>
 
           {/* Botões de Desfazer e Refazer (Undo/Redo) */}
-          <div className="flex items-center gap-1 bg-[#151822] border border-[#232838] p-0.5 rounded-md">
+          <div className="flex items-center gap-0.5 bg-[#151822] border border-[#232838] p-0.5 rounded-md shrink-0">
             <button
               type="button"
               onClick={handleUndo}
               disabled={pastStack.length === 0}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-all ${
+              className={`p-1 rounded text-xs flex items-center gap-1 transition-all ${
                 pastStack.length > 0
                   ? "text-gray-200 hover:text-white hover:bg-[#202536] cursor-pointer"
                   : "text-gray-600 cursor-not-allowed"
               }`}
               title="Desfazer alteração (Ctrl+Z ou Ctrl+←)"
             >
-              <Undo size={13} />
+              <Undo size={12} />
             </button>
 
             <button
               type="button"
               onClick={handleRedo}
               disabled={futureStack.length === 0}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-all ${
+              className={`p-1 rounded text-xs flex items-center gap-1 transition-all ${
                 futureStack.length > 0
                   ? "text-gray-200 hover:text-white hover:bg-[#202536] cursor-pointer"
                   : "text-gray-600 cursor-not-allowed"
               }`}
               title="Refazer alteração (Ctrl+Y ou Ctrl+→)"
             >
-              <Redo size={13} />
+              <Redo size={12} />
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => setShowSafeZones(!showSafeZones)}
-            className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 ${
               showSafeZones
                 ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/40"
                 : "bg-[#181B26] text-gray-400 border-[#2B3142] hover:text-gray-300"
             }`}
             title="Alternar Safe Zones de TikTok / Reels / Shorts"
           >
-            {showSafeZones ? <EyeIcon size={12} /> : <EyeOffIcon size={12} />}
+            {showSafeZones ? <EyeIcon size={11} /> : <EyeOffIcon size={11} />}
             Safe Zones
           </button>
 
           <button
             type="button"
             onClick={() => setEnableBrollOverlay(!enableBrollOverlay)}
-            className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border ${
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 ${
               enableBrollOverlay
                 ? "bg-purple-500/15 text-purple-300 border-purple-500/40"
                 : "bg-[#181B26] text-gray-400 border-[#2B3142] hover:text-gray-300"
             }`}
             title="Ativar/Desativar Prévia de Motion Graphics Canvas"
           >
-            <SparklesIcon size={12} /> Overlays
+            <SparklesIcon size={11} /> Overlays
           </button>
         </div>
 
-        {/* Direita: Ações de Salvar e Fechar */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Direita: Ações de Salvar e Fechar Reduzidas */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setIsCloneModalOpen(true)}
-            className="bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/50 text-purple-300 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            className="bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/50 text-purple-300 px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm shrink-0"
             title="Abrir estúdio de clonagem de edição com IA para este corte"
           >
-            <SparklesIcon size={13} /> Clonar Estilo
+            <SparklesIcon size={11} /> Clonar Estilo
           </button>
 
           <button
             type="button"
             onClick={handleSaveBrolls}
             disabled={isSavingBrolls}
-            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-300 px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+            className="bg-[#1A1D27] hover:bg-[#252A39] border border-[#2B3142] text-gray-300 px-1.5 py-0.5 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
             title="Salvar camadas de B-Roll configuradas"
           >
-            <Save size={13} /> {isSavingBrolls ? "..." : "Salvar"}
+            <Save size={11} /> {isSavingBrolls ? "..." : "Salvar"}
           </button>
 
           <button
             type="button"
             onClick={handleSaveTrimAndBrolls}
             disabled={isSavingTrim}
-            className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md disabled:opacity-60"
+            className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md disabled:opacity-60 shrink-0"
             title="Re-renderizar vídeo final com corte e overlays"
           >
-            <SparklesIcon size={13} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
+            <SparklesIcon size={11} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
           </button>
 
           {/* Botão de Exportação com Dropdown de Formatos (MP4, SRT, XML, EDL, Capa) */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setIsExportMenuOpen((prev) => !prev)}
-              className="bg-[#1A1D27] hover:bg-[#252A39] border border-cyan-500/40 text-cyan-400 px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              className="bg-[#1A1D27] hover:bg-[#252A39] border border-cyan-500/40 text-cyan-400 px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
               title="Exportar mídias, legendas ou timeline do corte"
             >
-              <DownloadIcon size={13} />
+              <DownloadIcon size={11} />
               <span>Exportar</span>
-              <ChevronDown size={12} className={`transition-transform duration-150 ${isExportMenuOpen ? "rotate-180" : ""}`} />
+              <ChevronDown size={10} className={`transition-transform duration-150 ${isExportMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isExportMenuOpen && (
@@ -1120,33 +1120,35 @@ export default function ClipEditorModal({
             isFocusMode ? "invisible opacity-0" : "visible opacity-100"
           }`}
         >
-          {/* Navegação por Abas Verticais/Pills estilo CapCut */}
+          {/* Navegação por Abas Verticais/Pills estilo CapCut - 2 Linhas */}
           <div
             style={{
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
               borderBottom: "1px solid #212634",
               background: "#10121A",
-              padding: "0.4rem",
+              padding: "0.35rem",
               gap: "0.3rem",
             }}
           >
+            {/* Linha 1 */}
             <button
               type="button"
               onClick={() => setActiveTab("brolls")}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.3rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.76rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "brolls" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "brolls" ? "#1E2230" : "transparent",
                 color: activeTab === "brolls" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
               <SparklesIcon size={15} />
@@ -1157,19 +1159,19 @@ export default function ClipEditorModal({
               type="button"
               onClick={() => setActiveTab("trim")}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.3rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.76rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "trim" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "trim" ? "#1E2230" : "transparent",
                 color: activeTab === "trim" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
               <Scissors size={15} />
@@ -1183,45 +1185,46 @@ export default function ClipEditorModal({
                 setTimeout(captureFrame, 150);
               }}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.3rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.76rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "thumbnail" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "thumbnail" ? "#1E2230" : "transparent",
                 color: activeTab === "thumbnail" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
               <Camera size={15} />
               <span>Capa</span>
             </button>
 
+            {/* Linha 2 */}
             <button
               type="button"
               onClick={() => setActiveTab("formats")}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.2rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.72rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "formats" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "formats" ? "#1E2230" : "transparent",
                 color: activeTab === "formats" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
-              <Crop size={14} />
+              <Crop size={15} />
               <span>Formatos</span>
             </button>
 
@@ -1229,22 +1232,22 @@ export default function ClipEditorModal({
               type="button"
               onClick={() => setActiveTab("crop")}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.2rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.72rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "crop" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "crop" ? "#1E2230" : "transparent",
                 color: activeTab === "crop" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
-              <SlidersHorizontal size={14} />
+              <SlidersHorizontal size={15} />
               <span>Ângulo</span>
             </button>
 
@@ -1252,22 +1255,22 @@ export default function ClipEditorModal({
               type="button"
               onClick={() => setActiveTab("subtitles")}
               style={{
-                flex: 1,
-                padding: "0.45rem 0.2rem",
+                padding: "0.45rem 0.25rem",
                 borderRadius: "6px",
-                fontSize: "0.72rem",
+                fontSize: "0.74rem",
                 fontWeight: 700,
-                border: "none",
+                border: activeTab === "subtitles" ? "1px solid rgba(0, 240, 255, 0.3)" : "1px solid transparent",
                 cursor: "pointer",
                 background: activeTab === "subtitles" ? "#1E2230" : "transparent",
                 color: activeTab === "subtitles" ? "#00F0FF" : "#94A3B8",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "0.2rem",
+                gap: "0.25rem",
+                transition: "all 0.15s ease",
               }}
             >
-              <Subtitles size={14} />
+              <Subtitles size={15} />
               <span>Legenda</span>
             </button>
           </div>
