@@ -106,9 +106,36 @@ export default function ClipEditorModal({
   const [highlightColor, setHighlightColor] = useState<string>("#FACC15");
   const [subtitlePosition, setSubtitlePosition] = useState<"bottom" | "center-bottom" | "center">("bottom");
   const [subtitleFontSize, setSubtitleFontSize] = useState<"small" | "medium" | "large" | "extra">("large");
+  const [customSubtitleFontSize, setCustomSubtitleFontSize] = useState<number>(28);
   const [enableEmojis, setEnableEmojis] = useState<boolean>(true);
   const [showSubtitlePreview, setShowSubtitlePreview] = useState<boolean>(true);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+
+  // Redimensionamento interativo das seções laterais (Painéis Esquerdo e Direito)
+  const [leftWidth, setLeftWidth] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("clip_editor_left_width");
+      if (saved) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 550) return parsed;
+      }
+    }
+    return 300;
+  });
+
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("clip_editor_right_width");
+      if (saved) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed) && parsed >= 220 && parsed <= 550) return parsed;
+      }
+    }
+    return 280;
+  });
+
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
 
   // Interface do snapshot do editor para a pilha de histórico
   interface EditorSnapshot {
@@ -125,6 +152,7 @@ export default function ClipEditorModal({
     highlightColor: string;
     subtitlePosition: "bottom" | "center-bottom" | "center";
     subtitleFontSize: "small" | "medium" | "large" | "extra";
+    customSubtitleFontSize: number;
     enableEmojis: boolean;
   }
 
@@ -160,6 +188,7 @@ export default function ClipEditorModal({
           highlightColor,
           subtitlePosition,
           subtitleFontSize,
+          customSubtitleFontSize,
           enableEmojis,
           ...overrides,
         },
@@ -180,6 +209,7 @@ export default function ClipEditorModal({
       highlightColor,
       subtitlePosition,
       subtitleFontSize,
+      customSubtitleFontSize,
       enableEmojis,
     ]
   );
@@ -206,6 +236,7 @@ export default function ClipEditorModal({
         highlightColor,
         subtitlePosition,
         subtitleFontSize,
+        customSubtitleFontSize,
         enableEmojis,
       },
       ...f,
@@ -225,6 +256,7 @@ export default function ClipEditorModal({
     if (previous.highlightColor) setHighlightColor(previous.highlightColor);
     if (previous.subtitlePosition) setSubtitlePosition(previous.subtitlePosition);
     if (previous.subtitleFontSize) setSubtitleFontSize(previous.subtitleFontSize);
+    if (typeof previous.customSubtitleFontSize === "number") setCustomSubtitleFontSize(previous.customSubtitleFontSize);
     if (typeof previous.enableEmojis === "boolean") setEnableEmojis(previous.enableEmojis);
 
     setTimeout(() => {
@@ -245,6 +277,7 @@ export default function ClipEditorModal({
     highlightColor,
     subtitlePosition,
     subtitleFontSize,
+    customSubtitleFontSize,
     enableEmojis,
   ]);
 
@@ -271,6 +304,7 @@ export default function ClipEditorModal({
         highlightColor,
         subtitlePosition,
         subtitleFontSize,
+        customSubtitleFontSize,
         enableEmojis,
       },
     ]);
@@ -289,6 +323,7 @@ export default function ClipEditorModal({
     if (next.highlightColor) setHighlightColor(next.highlightColor);
     if (next.subtitlePosition) setSubtitlePosition(next.subtitlePosition);
     if (next.subtitleFontSize) setSubtitleFontSize(next.subtitleFontSize);
+    if (typeof next.customSubtitleFontSize === "number") setCustomSubtitleFontSize(next.customSubtitleFontSize);
     if (typeof next.enableEmojis === "boolean") setEnableEmojis(next.enableEmojis);
 
     setTimeout(() => {
@@ -309,6 +344,7 @@ export default function ClipEditorModal({
     highlightColor,
     subtitlePosition,
     subtitleFontSize,
+    customSubtitleFontSize,
     enableEmojis,
   ]);
 
@@ -416,6 +452,52 @@ export default function ClipEditorModal({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizingTimeline]);
+
+  // Redimensionamento interativo das seções laterais (Painel Esquerdo e Direito)
+  useEffect(() => {
+    if (!isResizingLeft && !isResizingRight) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizingLeft) {
+        const maxW = Math.min(550, Math.floor(window.innerWidth * 0.45));
+        const newW = Math.max(200, Math.min(maxW, e.clientX));
+        setLeftWidth(newW);
+      } else if (isResizingRight) {
+        const maxW = Math.min(550, Math.floor(window.innerWidth * 0.45));
+        const newW = Math.max(220, Math.min(maxW, window.innerWidth - e.clientX));
+        setRightWidth(newW);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingLeft) {
+        setIsResizingLeft(false);
+        try {
+          localStorage.setItem("clip_editor_left_width", String(leftWidth));
+        } catch {}
+      }
+      if (isResizingRight) {
+        setIsResizingRight(false);
+        try {
+          localStorage.setItem("clip_editor_right_width", String(rightWidth));
+        } catch {}
+      }
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizingLeft, isResizingRight, leftWidth, rightWidth]);
 
   const setStartToCurrent = () => {
     if (!videoRef.current) return;
@@ -547,6 +629,7 @@ export default function ClipEditorModal({
         highlightColor,
         subtitlePosition,
         subtitleFontSize,
+        customSubtitleFontSize,
         enableEmojis,
         subtitles: {
           style: subtitleStyle,
@@ -555,6 +638,7 @@ export default function ClipEditorModal({
           highlightColor,
           positionY: subtitlePosition,
           fontSize: subtitleFontSize,
+          fontSizePx: customSubtitleFontSize,
           enableEmojis,
         },
       });
@@ -972,16 +1056,12 @@ export default function ClipEditorModal({
         </div>
       </header>
 
-      {/* 2. ÁREA DE TRABALHO PRINCIPAL (3 COLUNAS: ESQUERDA, PLAYER CENTRAL, DIREITA) */}
-      <div
-        className="flex-1 grid overflow-hidden bg-[#0D0F16] transition-all duration-200"
-        style={{
-          gridTemplateColumns: isFocusMode ? "0px 1fr 0px" : "300px 1fr 280px",
-        }}
-      >
+      {/* 2. ÁREA DE TRABALHO PRINCIPAL (3 SEÇÕES COM DIVISORES REDIMENSIONÁVEIS VIA MOUSE) */}
+      <div className="flex-1 flex overflow-hidden bg-[#0D0F16] relative select-none">
         {/* COLUNA ESQUERDA: BIBLIOTECA DE RECURSOS E ABAS */}
         <aside
-          className={`bg-[#13161F] border-r border-[#212634] flex flex-col overflow-hidden transition-all duration-200 ${
+          style={{ width: isFocusMode ? 0 : `${leftWidth}px` }}
+          className={`bg-[#13161F] border-r border-[#212634] flex flex-col overflow-hidden shrink-0 transition-[width] duration-75 ${
             isFocusMode ? "invisible opacity-0" : "visible opacity-100"
           }`}
         >
@@ -2088,7 +2168,7 @@ export default function ClipEditorModal({
                 </div>
 
                 {/* 4. POSIÇÃO VERTICAL & TAMANHO DA FONTE */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                   <div>
                     <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.25rem" }}>
                       Posição Vertical:
@@ -2117,33 +2197,136 @@ export default function ClipEditorModal({
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ fontSize: "0.72rem", color: "#94A3B8", display: "block", marginBottom: "0.25rem" }}>
-                      Tamanho do Texto:
-                    </label>
-                    <select
-                      value={subtitleFontSize}
-                      onChange={(e) => {
-                        const val = e.target.value as any;
-                        recordHistory({ subtitleFontSize: val });
-                        setSubtitleFontSize(val);
-                      }}
-                      style={{
-                        width: "100%",
-                        background: "#151824",
-                        color: "#E2E8F0",
-                        border: "1px solid #282E40",
-                        borderRadius: "6px",
-                        padding: "0.35rem 0.5rem",
-                        fontSize: "0.74rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <option value="small">Pequeno (Discreto)</option>
-                      <option value="medium">Médio (Padrão)</option>
-                      <option value="large">Grande (Viral)</option>
-                      <option value="extra">Extra Grande (MrBeast)</option>
-                    </select>
+                  <div style={{ background: "#10121B", border: "1px solid #242938", borderRadius: "8px", padding: "0.6rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                      <label style={{ fontSize: "0.72rem", color: "#94A3B8", fontWeight: 600 }}>
+                        Tamanho da Fonte das Legendas:
+                      </label>
+                      <span style={{ fontSize: "0.72rem", color: "#00F0FF", fontWeight: 700, fontFamily: "monospace" }}>
+                        {customSubtitleFontSize}px
+                      </span>
+                    </div>
+
+                    {/* Presets Rápidos */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.3rem", marginBottom: "0.55rem" }}>
+                      {[
+                        { label: "Pequena", size: "small", px: 20 },
+                        { label: "Média", size: "medium", px: 24 },
+                        { label: "Grande", size: "large", px: 28 },
+                        { label: "Extra", size: "extra", px: 36 },
+                      ].map((item) => {
+                        const isSelected = subtitleFontSize === item.size || customSubtitleFontSize === item.px;
+                        return (
+                          <button
+                            key={item.size}
+                            type="button"
+                            onClick={() => {
+                              recordHistory({ subtitleFontSize: item.size as any, customSubtitleFontSize: item.px });
+                              setSubtitleFontSize(item.size as any);
+                              setCustomSubtitleFontSize(item.px);
+                            }}
+                            style={{
+                              padding: "0.25rem 0.2rem",
+                              borderRadius: "4px",
+                              fontSize: "0.68rem",
+                              fontWeight: isSelected ? 700 : 500,
+                              background: isSelected ? "#00F0FF20" : "#181C28",
+                              color: isSelected ? "#00F0FF" : "#94A3B8",
+                              border: isSelected ? "1px solid #00F0FF" : "1px solid #282E40",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Slider Contínuo + Botões de Ajuste Fino (- / +) */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = Math.max(14, customSubtitleFontSize - 2);
+                          const nextPreset = nextVal <= 21 ? "small" : nextVal <= 26 ? "medium" : nextVal <= 32 ? "large" : "extra";
+                          recordHistory({ customSubtitleFontSize: nextVal, subtitleFontSize: nextPreset });
+                          setCustomSubtitleFontSize(nextVal);
+                          setSubtitleFontSize(nextPreset);
+                        }}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "4px",
+                          background: "#1C202E",
+                          border: "1px solid #2A3144",
+                          color: "#E2E8F0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                        }}
+                        title="Diminuir fonte (-2px)"
+                      >
+                        -
+                      </button>
+
+                      <input
+                        type="range"
+                        min="14"
+                        max="54"
+                        step="1"
+                        value={customSubtitleFontSize}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          const nextPreset = val <= 21 ? "small" : val <= 26 ? "medium" : val <= 32 ? "large" : "extra";
+                          setCustomSubtitleFontSize(val);
+                          setSubtitleFontSize(nextPreset);
+                        }}
+                        onMouseUp={() => {
+                          recordHistory({ customSubtitleFontSize, subtitleFontSize });
+                        }}
+                        onTouchEnd={() => {
+                          recordHistory({ customSubtitleFontSize, subtitleFontSize });
+                        }}
+                        style={{
+                          flex: 1,
+                          accentColor: "#00F0FF",
+                          cursor: "pointer",
+                          height: "4px",
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = Math.min(54, customSubtitleFontSize + 2);
+                          const nextPreset = nextVal <= 21 ? "small" : nextVal <= 26 ? "medium" : nextVal <= 32 ? "large" : "extra";
+                          recordHistory({ customSubtitleFontSize: nextVal, subtitleFontSize: nextPreset });
+                          setCustomSubtitleFontSize(nextVal);
+                          setSubtitleFontSize(nextPreset);
+                        }}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "4px",
+                          background: "#1C202E",
+                          border: "1px solid #2A3144",
+                          color: "#E2E8F0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                        }}
+                        title="Aumentar fonte (+2px)"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2178,9 +2361,26 @@ export default function ClipEditorModal({
           </div>
         </aside>
 
+        {/* DIVISOR REDIMENSIONÁVEL ESQUERDO (segurar com o mouse para deixar mais fino ou mais grosso) */}
+        {!isFocusMode && (
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingLeft(true);
+            }}
+            onDoubleClick={() => {
+              setLeftWidth(300);
+              try { localStorage.setItem("clip_editor_left_width", "300"); } catch {}
+            }}
+            className="w-2.5 hover:w-3.5 -mx-1.5 z-40 cursor-col-resize select-none flex items-center justify-center group transition-colors hover:bg-cyan-500/40 active:bg-cyan-400 bg-transparent shrink-0"
+            title="Arraste para redimensionar a seção esquerda (Duplo clique restaura padrão de 300px)"
+          >
+            <div className="w-[2px] h-8 rounded-full bg-gray-600/70 group-hover:bg-cyan-300 group-hover:scale-y-125 group-active:bg-white transition-all pointer-events-none" />
+          </div>
+        )}
+
         {/* COLUNA CENTRAL: PLAYER VIEWPORT COM SAFE ZONES DO TIKTOK */}
-        {/* COLUNA CENTRAL: PLAYER VIEWPORT (PREVIEW GRANDE 9:16) */}
-        <main className="relative flex flex-col items-center justify-center p-3 bg-[#090B10] overflow-hidden min-h-0">
+        <main className="flex-1 min-w-0 relative flex flex-col items-center justify-center p-3 bg-[#090B10] overflow-hidden min-h-0">
           {/* Container do Player Responsivo (9:16, 1:1, 16:9) que ocupa a altura útil */}
           <div
             className={`relative h-full max-h-[calc(100%-48px)] bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center transition-all duration-300 ${
@@ -2244,18 +2444,11 @@ export default function ClipEditorModal({
                         flexWrap: "wrap",
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: subtitleFontSize === "extra" ? "0.6rem" : "0.35rem",
+                        gap: customSubtitleFontSize >= 34 ? "0.6rem" : "0.35rem",
                         textAlign: "center",
                         fontFamily: `'${activeSystemFont.fontFamily}', sans-serif`,
                         fontWeight: 900,
-                        fontSize:
-                          subtitleFontSize === "small"
-                            ? "1.1rem"
-                            : subtitleFontSize === "medium"
-                            ? "1.35rem"
-                            : subtitleFontSize === "extra"
-                            ? "2.1rem"
-                            : "1.7rem",
+                        fontSize: `${(customSubtitleFontSize / 16).toFixed(2)}rem`,
                         lineHeight: 1.15,
                         letterSpacing: "0.02em",
                         textTransform: "uppercase",
@@ -2374,9 +2567,28 @@ export default function ClipEditorModal({
           </div>
         </main>
 
+        {/* DIVISOR REDIMENSIONÁVEL DIREITO (segurar com o mouse para deixar mais fino ou mais grosso) */}
+        {!isFocusMode && (
+          <div
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizingRight(true);
+            }}
+            onDoubleClick={() => {
+              setRightWidth(280);
+              try { localStorage.setItem("clip_editor_right_width", "280"); } catch {}
+            }}
+            className="w-2.5 hover:w-3.5 -mx-1.5 z-40 cursor-col-resize select-none flex items-center justify-center group transition-colors hover:bg-cyan-500/40 active:bg-cyan-400 bg-transparent shrink-0"
+            title="Arraste para redimensionar a seção direita (Duplo clique restaura padrão de 280px)"
+          >
+            <div className="w-[2px] h-8 rounded-full bg-gray-600/70 group-hover:bg-cyan-300 group-hover:scale-y-125 group-active:bg-white transition-all pointer-events-none" />
+          </div>
+        )}
+
         {/* COLUNA DIREITA: ACCORDION COM UM BLOCO ABERTO POR VEZ */}
         <aside
-          className={`bg-[#13161F] border-l border-[#212634] p-3 flex flex-col gap-2 overflow-y-auto transition-all duration-200 ${
+          style={{ width: isFocusMode ? 0 : `${rightWidth}px` }}
+          className={`bg-[#13161F] border-l border-[#212634] p-3 flex flex-col gap-2 overflow-y-auto shrink-0 transition-[width] duration-75 ${
             isFocusMode ? "invisible opacity-0" : "visible opacity-100"
           }`}
         >

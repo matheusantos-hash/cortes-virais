@@ -278,6 +278,20 @@ async function processJob(job: Job) {
               primaryColor: manualAdj?.subtitles?.primaryColor,
               highlightColor: manualAdj?.subtitles?.highlightColor,
               enableEmojis: manualAdj?.subtitles?.enableEmojis !== false,
+              fontSize: manualAdj?.subtitles?.fontSizePx
+                ? Math.round(Number(manualAdj.subtitles.fontSizePx) * 2.1)
+                : manualAdj?.subtitles?.fontSize === "small"
+                ? 44
+                : manualAdj?.subtitles?.fontSize === "medium"
+                ? 56
+                : manualAdj?.subtitles?.fontSize === "extra"
+                ? 80
+                : undefined,
+              marginV: manualAdj?.subtitles?.positionY === "center"
+                ? 880
+                : manualAdj?.subtitles?.positionY === "center-bottom"
+                ? 620
+                : undefined,
             },
           });
           if (generatedAss) {
