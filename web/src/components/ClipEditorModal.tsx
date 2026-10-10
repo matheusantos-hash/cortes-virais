@@ -3422,8 +3422,8 @@ export default function ClipEditorModal({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.78)",
-            backdropFilter: "blur(6px)",
+            background: "rgba(0, 0, 0, 0.8)",
+            backdropFilter: "blur(8px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -3435,12 +3435,16 @@ export default function ClipEditorModal({
           <div
             style={{
               width: "100%",
-              maxWidth: "560px",
+              maxWidth: "640px",
+              maxHeight: "min(92vh, 560px)",
               background: "#12151D",
               border: "1px solid #2B3042",
               borderRadius: "16px",
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8)",
               overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              animation: "fadeIn 0.2s ease-out",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3450,9 +3454,10 @@ export default function ClipEditorModal({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "16px 20px",
+                padding: "14px 20px",
                 borderBottom: "1px solid #222634",
                 background: "rgba(255, 255, 255, 0.02)",
+                flexShrink: 0,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -3466,16 +3471,17 @@ export default function ClipEditorModal({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
                   <Lightbulb size={18} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "0.98rem", fontWeight: 800, color: "#FFFFFF" }}>
+                  <h3 style={{ margin: 0, fontSize: "0.96rem", fontWeight: 800, color: "#FFFFFF" }}>
                     Sugestão de Retenção da IA
                   </h3>
                   <span style={{ fontSize: "0.74rem", color: "#94A3B8" }}>
-                    Segundo <strong style={{ color: "#22D3EE", fontFamily: "monospace" }}>{previewSuggestion.offsetSec}s</strong> do corte
+                    Momento aos <strong style={{ color: "#22D3EE", fontFamily: "monospace" }}>{previewSuggestion.offsetSec}s</strong> do corte
                   </span>
                 </div>
               </div>
@@ -3500,18 +3506,31 @@ export default function ClipEditorModal({
               </button>
             </div>
 
-            {/* Conteúdo: Prévia Visual do Elemento + Explicação Detalhada */}
-            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-              {/* Card com o Elemento Animado em Tempo Real */}
+            {/* Conteúdo com Scroll: Lado a Lado (Prévia 9:16 + Detalhes Explicativos) */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "16px 20px",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "18px",
+                alignItems: "center",
+              }}
+            >
+              {/* Lado Esquerdo: Card com Mockup 9:16 e Animação ao Vivo */}
               <div
                 style={{
-                  borderRadius: "12px",
+                  flex: "0 0 155px",
+                  margin: "0 auto",
+                  borderRadius: "14px",
                   background: "radial-gradient(ellipse at top, #1A2030 0%, #080A10 100%)",
                   border: "1px solid #252B3D",
-                  padding: "12px 14px",
+                  padding: "10px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
                 }}
               >
                 <div
@@ -3520,53 +3539,51 @@ export default function ClipEditorModal({
                     alignItems: "center",
                     justifyContent: "space-between",
                     width: "100%",
-                    marginBottom: "10px",
+                    marginBottom: "8px",
                   }}
                 >
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#38BDF8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Prévia do Elemento em Motion (1080x1920)
+                  <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#38BDF8", textTransform: "uppercase" }}>
+                    Prévia 9:16
                   </span>
                   <span
                     style={{
-                      fontSize: "0.68rem",
-                      padding: "2px 8px",
+                      fontSize: "0.64rem",
+                      padding: "1px 6px",
                       borderRadius: "999px",
                       background: "rgba(16, 185, 129, 0.15)",
                       color: "#10B981",
                       fontWeight: 700,
                     }}
                   >
-                    ● Animando ao vivo
+                    ● Ao vivo
                   </span>
                 </div>
 
-                {/* Container Vertical 9:16 Simulado */}
+                {/* Mockup Vertical com Canvas */}
                 <div
                   style={{
-                    width: "160px",
-                    height: "250px",
-                    borderRadius: "14px",
+                    width: "135px",
+                    height: "215px",
+                    borderRadius: "12px",
                     overflow: "hidden",
                     position: "relative",
                     background: "#05070B",
-                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)",
+                    boxShadow: "0 6px 16px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  {/* Safe zone guide */}
                   <div
                     style={{
                       position: "absolute",
-                      inset: "8px",
+                      inset: "6px",
                       border: "1px dashed rgba(255,255,255,0.08)",
                       borderRadius: "8px",
                       pointerEvents: "none",
                     }}
                   />
 
-                  {/* Canvas do Elemento renderizado ao vivo */}
                   <BrollPreviewCanvas
                     broll={{
                       id: "preview-modal-" + previewSuggestion.template,
@@ -3585,43 +3602,62 @@ export default function ClipEditorModal({
                 </div>
               </div>
 
-              {/* Informações e Explicação de Retenção */}
+              {/* Lado Direito: Informações e Benefício de Retenção */}
               <div
                 style={{
-                  background: "#161922",
-                  border: "1px solid #232736",
-                  borderRadius: "10px",
-                  padding: "12px 14px",
+                  flex: "1 1 280px",
                   display: "flex",
                   flexDirection: "column",
                   gap: "10px",
                 }}
               >
-                {/* Gatilho de fala identificado */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                  <div
+                {/* Gatilho de Fala */}
+                <div
+                  style={{
+                    background: "#161922",
+                    border: "1px solid #232736",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  <span
                     style={{
-                      padding: "3px 8px",
-                      borderRadius: "6px",
+                      padding: "3px 7px",
+                      borderRadius: "5px",
                       background: "rgba(56, 189, 248, 0.15)",
                       color: "#38BDF8",
-                      fontSize: "0.72rem",
+                      fontSize: "0.7rem",
                       fontWeight: 700,
                       fontFamily: "monospace",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    Gatilho na Fala
-                  </div>
-                  <div style={{ fontSize: "0.82rem", color: "#E2E8F0", lineHeight: 1.4 }}>
-                    A IA identificou o termo <strong style={{ color: "#FFE600" }}>&ldquo;{previewSuggestion.word}&rdquo;</strong> aos{" "}
-                    <strong>{previewSuggestion.offsetSec}s</strong> do clipe.
+                    Gatilho de Fala
+                  </span>
+                  <div style={{ fontSize: "0.82rem", color: "#E2E8F0" }}>
+                    Termo <strong style={{ color: "#FFE600" }}>&ldquo;{previewSuggestion.word}&rdquo;</strong> aos{" "}
+                    <strong>{previewSuggestion.offsetSec}s</strong>
                   </div>
                 </div>
 
                 {/* Por que a IA sugeriu */}
-                <div style={{ fontSize: "0.8rem", color: "#94A3B8", lineHeight: 1.45, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
-                  <strong style={{ color: "#F1F5F9" }}>Objetivo de Retenção: </strong>
+                <div
+                  style={{
+                    background: "#161922",
+                    border: "1px solid #232736",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                    fontSize: "0.8rem",
+                    color: "#94A3B8",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <strong style={{ color: "#F1F5F9", display: "block", marginBottom: "3px" }}>
+                    🎯 Por que inserir este elemento:
+                  </strong>
                   {previewSuggestion.template === "metric_counter" &&
                     "Números falados sem apoio visual geram dispersão. Este contador progressivo ancora a atenção e comprova o resultado informado."}
                   {previewSuggestion.template === "growth_chart" &&
@@ -3632,7 +3668,7 @@ export default function ClipEditorModal({
                     "Tags chanfradas marcam o conceito principal do corte e incentivam salvamentos para consulta posterior."}
                 </div>
 
-                {/* Configurações do Elemento */}
+                {/* Configurações em Grade */}
                 <div
                   style={{
                     display: "grid",
@@ -3642,6 +3678,7 @@ export default function ClipEditorModal({
                     padding: "8px 12px",
                     borderRadius: "8px",
                     fontSize: "0.74rem",
+                    border: "1px solid rgba(255,255,255,0.05)",
                   }}
                 >
                   <div>
@@ -3674,13 +3711,14 @@ export default function ClipEditorModal({
                 padding: "12px 20px",
                 borderTop: "1px solid #222634",
                 background: "rgba(0,0,0,0.2)",
+                flexShrink: 0,
               }}
             >
               <button
                 type="button"
                 onClick={() => setPreviewSuggestion(null)}
                 style={{
-                  padding: "0.45rem 0.9rem",
+                  padding: "0.45rem 1rem",
                   borderRadius: "8px",
                   border: "1px solid #33394D",
                   background: "transparent",
@@ -3705,7 +3743,7 @@ export default function ClipEditorModal({
                       setPreviewSuggestion(null);
                     }}
                     style={{
-                      padding: "0.45rem 1.1rem",
+                      padding: "0.45rem 1.2rem",
                       borderRadius: "8px",
                       border: "none",
                       background: isAdded ? "#1E293B" : "var(--primary, #4F46E5)",
