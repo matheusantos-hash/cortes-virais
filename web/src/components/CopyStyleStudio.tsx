@@ -196,6 +196,221 @@ const PRESET_REFERENCES: SavedReference[] = [
   },
 ];
 
+const BASE_COLOR_PRESETS = [
+  { color: "#FFFFFF", name: "Branco Puro" },
+  { color: "#FACC15", name: "Amarelo Neon" },
+  { color: "#38BDF8", name: "Ciano" },
+  { color: "#10B981", name: "Verde" },
+  { color: "#F43F5E", name: "Rosa" },
+  { color: "#000000", name: "Preto" },
+];
+
+const HIGHLIGHT_COLOR_PRESETS = [
+  { color: "#FACC15", name: "Amarelo Neon" },
+  { color: "#10B981", name: "Verde Esmeralda" },
+  { color: "#38BDF8", name: "Ciano" },
+  { color: "#F43F5E", name: "Rosa Vibrante" },
+  { color: "#FFFFFF", name: "Branco" },
+  { color: "#FB923C", name: "Laranja" },
+];
+
+function ModernColorPicker({
+  label,
+  color,
+  onChange,
+  presetColors,
+}: {
+  label: string;
+  color: string;
+  onChange: (color: string) => void;
+  presetColors: { color: string; name: string }[];
+}) {
+  const normalizedColor = color.startsWith("#") ? color.toUpperCase() : `#${color}`.toUpperCase();
+
+  return (
+    <div
+      style={{
+        padding: "0.85rem 1rem",
+        background: "var(--card-bg, #FFFFFF)",
+        borderRadius: "12px",
+        border: "1px solid var(--card-border, #E2E8F0)",
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.65rem" }}>
+        <label className="field-label" style={{ margin: 0, fontWeight: 700, fontSize: "0.88rem", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <Palette size={15} style={{ color: "var(--primary)" }} />
+          {label}
+        </label>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--bg-subtle)", padding: "2px 8px", borderRadius: "6px", border: "1px solid var(--card-border)" }}>
+          <span
+            style={{
+              width: "11px",
+              height: "11px",
+              borderRadius: "50%",
+              background: normalizedColor,
+              display: "inline-block",
+              border: "1px solid rgba(0, 0, 0, 0.15)",
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ fontSize: "0.75rem", color: "var(--text)", fontWeight: 700, fontFamily: "monospace" }}>
+            {normalizedColor}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+        {/* Swatches Redondos com Vetores SVG */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          {presetColors.map((c) => {
+            const isSelected = normalizedColor === c.color.toUpperCase();
+            const isLight = c.color === "#FFFFFF" || c.color === "#FACC15";
+            return (
+              <button
+                key={c.color}
+                type="button"
+                onClick={() => onChange(c.color)}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  minWidth: "32px",
+                  minHeight: "32px",
+                  maxWidth: "32px",
+                  maxHeight: "32px",
+                  aspectRatio: "1 / 1",
+                  borderRadius: "50%",
+                  background: c.color,
+                  border: c.color === "#FFFFFF" ? "1px solid #CBD5E1" : "1px solid transparent",
+                  cursor: "pointer",
+                  padding: 0,
+                  margin: 0,
+                  flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  boxShadow: isSelected
+                    ? "0 0 0 2px var(--card-bg, #FFFFFF), 0 0 0 4px var(--primary, #4F46E5), 0 2px 8px rgba(79, 70, 229, 0.35)"
+                    : "0 1px 3px rgba(0, 0, 0, 0.12)",
+                  transform: isSelected ? "scale(1.08)" : "scale(1)",
+                  transition: "all 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+                title={`${c.name} (${c.color})`}
+              >
+                {isSelected && (
+                  <Check
+                    size={16}
+                    strokeWidth={3}
+                    style={{
+                      color: isLight ? "#0F172A" : "#FFFFFF",
+                      filter: isLight ? "none" : "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Pizza de Cores (Color Wheel Conic Gradient) + Input Hex */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              position: "relative",
+              width: "34px",
+              height: "34px",
+              minWidth: "34px",
+              minHeight: "34px",
+              borderRadius: "50%",
+              aspectRatio: "1 / 1",
+              background:
+                "conic-gradient(from 0deg, #FF0000 0deg, #FF7700 45deg, #FFFF00 90deg, #00FF00 135deg, #00FFFF 180deg, #0055FF 225deg, #9900FF 270deg, #FF0077 315deg, #FF0000 360deg)",
+              boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--card-border, #CBD5E1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              flexShrink: 0,
+              transition: "transform 0.15s ease, box-shadow 0.15s ease",
+            }}
+            title="Pizza de Cores / Roda Cromática - Clique para escolher qualquer cor"
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                background: normalizedColor,
+                border: "2px solid #FFFFFF",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="color"
+              value={normalizedColor}
+              onChange={(e) => onChange(e.target.value.toUpperCase())}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                opacity: 0,
+                cursor: "pointer",
+                borderRadius: "50%",
+                border: "none",
+                padding: 0,
+              }}
+              title="Abrir Roda de Cores Personalizada"
+            />
+          </div>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "var(--card-bg, #FFFFFF)",
+              border: "1px solid var(--card-border, #CBD5E1)",
+              borderRadius: "8px",
+              padding: "3px 8px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+          >
+            <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-muted)", marginRight: "2px" }}>
+              #
+            </span>
+            <input
+              type="text"
+              value={normalizedColor.replace(/^#/, "")}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
+                onChange(`#${val}`.toUpperCase());
+              }}
+              maxLength={6}
+              placeholder="FFFFFF"
+              style={{
+                width: "65px",
+                fontSize: "0.82rem",
+                fontWeight: 700,
+                padding: "2px 0",
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "var(--text)",
+                textAlign: "left",
+                fontFamily: "monospace",
+                textTransform: "uppercase",
+              }}
+              title="Digite o código HEX da cor"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CopyStyleStudio({
   userId,
   projectId,
@@ -2515,164 +2730,20 @@ export default function CopyStyleStudio({
                 </div>
 
                 {/* COR 1: COR PRINCIPAL DO TEXTO (BASE DA LEGENDA) */}
-                <div style={{ padding: "0.5rem", background: "var(--bg-subtle)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                    <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
-                      Cor Principal do Texto (Base):
-                    </label>
-                    <span style={{ fontSize: "0.72rem", color: primaryColor, fontWeight: 700, fontFamily: "monospace" }}>
-                      {primaryColor}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-                      {[
-                        { color: "#FFFFFF", name: "Branco Puro" },
-                        { color: "#FACC15", name: "Amarelo Neon" },
-                        { color: "#38BDF8", name: "Ciano" },
-                        { color: "#10B981", name: "Verde" },
-                        { color: "#F43F5E", name: "Rosa" },
-                        { color: "#000000", name: "Preto" },
-                      ].map((c) => {
-                        const isSelected = primaryColor.toUpperCase() === c.color.toUpperCase();
-                        return (
-                          <button
-                            key={c.color}
-                            type="button"
-                            onClick={() => setPrimaryColor(c.color)}
-                            style={{
-                              width: "26px",
-                              height: "26px",
-                              borderRadius: "50%",
-                              background: c.color,
-                              border: isSelected ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                              cursor: "pointer",
-                              outline: isSelected ? "2px solid var(--primary)" : "none",
-                              boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
-                              transition: "all 0.15s ease",
-                            }}
-                            title={`${c.name} (${c.color})`}
-                          />
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <input
-                        type="color"
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
-                        style={{
-                          width: "28px",
-                          height: "26px",
-                          padding: 0,
-                          border: "1px solid var(--card-border)",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          background: "transparent",
-                        }}
-                        title="Escolher cor personalizada"
-                      />
-                      <input
-                        type="text"
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
-                        style={{
-                          width: "80px",
-                          fontSize: "0.75rem",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          border: "1px solid var(--card-border)",
-                          background: "var(--input-bg)",
-                          color: "var(--text)",
-                          textAlign: "center",
-                          fontFamily: "monospace",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ModernColorPicker
+                  label="Cor Principal do Texto (Base):"
+                  color={primaryColor}
+                  onChange={setPrimaryColor}
+                  presetColors={BASE_COLOR_PRESETS}
+                />
 
                 {/* COR 2: COR DO DESTAQUE (KARAOKÊ / PALAVRA ATIVA) */}
-                <div style={{ padding: "0.5rem", background: "var(--bg-subtle)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                    <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
-                      Cor do Destaque (Karaokê):
-                    </label>
-                    <span style={{ fontSize: "0.72rem", color: highlightColor, fontWeight: 700, fontFamily: "monospace" }}>
-                      {highlightColor}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-                      {[
-                        { color: "#FACC15", name: "Amarelo Neon" },
-                        { color: "#10B981", name: "Verde Esmeralda" },
-                        { color: "#38BDF8", name: "Ciano" },
-                        { color: "#F43F5E", name: "Rosa Vibrante" },
-                        { color: "#FFFFFF", name: "Branco" },
-                        { color: "#FB923C", name: "Laranja" },
-                      ].map((c) => {
-                        const isSelected = highlightColor.toUpperCase() === c.color.toUpperCase();
-                        return (
-                          <button
-                            key={c.color}
-                            type="button"
-                            onClick={() => setHighlightColor(c.color)}
-                            style={{
-                              width: "26px",
-                              height: "26px",
-                              borderRadius: "50%",
-                              background: c.color,
-                              border: isSelected ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                              cursor: "pointer",
-                              outline: isSelected ? "2px solid var(--primary)" : "none",
-                              boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
-                              transition: "all 0.15s ease",
-                            }}
-                            title={`${c.name} (${c.color})`}
-                          />
-                        );
-                      })}
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <input
-                        type="color"
-                        value={highlightColor}
-                        onChange={(e) => setHighlightColor(e.target.value.toUpperCase())}
-                        style={{
-                          width: "28px",
-                          height: "26px",
-                          padding: 0,
-                          border: "1px solid var(--card-border)",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          background: "transparent",
-                        }}
-                        title="Escolher cor personalizada"
-                      />
-                      <input
-                        type="text"
-                        value={highlightColor}
-                        onChange={(e) => setHighlightColor(e.target.value.toUpperCase())}
-                        style={{
-                          width: "80px",
-                          fontSize: "0.75rem",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          border: "1px solid var(--card-border)",
-                          background: "var(--input-bg)",
-                          color: "var(--text)",
-                          textAlign: "center",
-                          fontFamily: "monospace",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <ModernColorPicker
+                  label="Cor do Destaque (Karaokê):"
+                  color={highlightColor}
+                  onChange={setHighlightColor}
+                  presetColors={HIGHLIGHT_COLOR_PRESETS}
+                />
 
                 <label className="checkbox-row">
                   <input
