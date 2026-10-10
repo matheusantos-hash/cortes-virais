@@ -430,19 +430,21 @@ export default function CustomVideoPlayer({
           type="button"
           onClick={togglePlay}
           aria-label="Reproduzir vídeo"
-          className="absolute z-10 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+          className="player-icon-btn absolute z-10 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
           style={{
             width: "60px",
             height: "60px",
+            padding: 0,
             borderRadius: "50%",
             background: "linear-gradient(135deg, var(--primary, #6366F1), #4338CA)",
             color: "#FFFFFF",
             boxShadow: "0 10px 25px -5px rgba(99, 102, 241, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2)",
             cursor: "pointer",
             border: "none",
+            flexShrink: 0,
           }}
         >
-          <Play size={26} style={{ fill: "#FFF", marginLeft: "3px" }} />
+          <Play size={26} fill="currentColor" color="#FFFFFF" strokeWidth={2} style={{ marginLeft: "3px", flexShrink: 0 }} />
         </button>
       )}
 
@@ -538,25 +540,29 @@ export default function CustomVideoPlayer({
               type="button"
               onClick={togglePlay}
               aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-              className="hover:scale-105 active:scale-95 transition-transform"
+              className="player-icon-btn hover:scale-105 active:scale-95 transition-transform"
               style={{
-                background: "rgba(255, 255, 255, 0.1)",
+                background: "rgba(255, 255, 255, 0.12)",
                 border: "none",
+                padding: 0,
                 color: "#FFFFFF",
                 width: "34px",
                 height: "34px",
+                minWidth: "34px",
+                minHeight: "34px",
                 borderRadius: "8px",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
                 backdropFilter: "blur(4px)",
+                flexShrink: 0,
               }}
             >
               {isPlaying ? (
-                <Pause size={17} style={{ fill: "#FFF" }} />
+                <Pause size={18} fill="currentColor" color="#FFFFFF" strokeWidth={2} style={{ flexShrink: 0 }} />
               ) : (
-                <Play size={17} style={{ fill: "#FFF", marginLeft: "2px" }} />
+                <Play size={18} fill="currentColor" color="#FFFFFF" strokeWidth={2} style={{ marginLeft: "2px", flexShrink: 0 }} />
               )}
             </button>
 
@@ -566,18 +572,22 @@ export default function CustomVideoPlayer({
                 type="button"
                 onClick={toggleMute}
                 aria-label={isMuted ? "Ativar som" : "Desativar som"}
-                className="hover:text-indigo-400 transition-colors"
+                className="player-icon-btn hover:text-indigo-400 transition-colors"
                 style={{
                   background: "none",
                   border: "none",
+                  padding: 0,
+                  width: "28px",
+                  height: "28px",
                   color: isMuted ? "var(--text-muted, #94A3B8)" : "#FFFFFF",
                   cursor: "pointer",
-                  display: "flex",
+                  display: "inline-flex",
                   alignItems: "center",
-                  padding: "4px",
+                  justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                {isMuted || volume === 0 ? <VolumeX size={18} style={{ flexShrink: 0 }} /> : <Volume2 size={18} style={{ flexShrink: 0 }} />}
               </button>
 
               <div className="w-0 overflow-hidden group-hover/vol:w-16 transition-all duration-200 flex items-center">
@@ -659,22 +669,26 @@ export default function CustomVideoPlayer({
                 }}
                 aria-label="Mais opções"
                 title="Opções do player"
-                className="hover:scale-105 active:scale-95 transition-transform"
+                className="player-icon-btn hover:scale-105 active:scale-95 transition-transform"
                 style={{
-                  background: showOptionsMenu ? "rgba(99, 102, 241, 0.3)" : "rgba(255, 255, 255, 0.1)",
+                  background: showOptionsMenu ? "rgba(99, 102, 241, 0.3)" : "rgba(255, 255, 255, 0.12)",
                   border: showOptionsMenu ? "1px solid var(--primary, #6366F1)" : "1px solid transparent",
+                  padding: 0,
                   color: "#FFFFFF",
                   width: "32px",
                   height: "32px",
+                  minWidth: "32px",
+                  minHeight: "32px",
                   borderRadius: "8px",
-                  display: "flex",
+                  display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
                   backdropFilter: "blur(4px)",
+                  flexShrink: 0,
                 }}
               >
-                <MoreVertical size={16} />
+                <MoreVertical size={16} style={{ flexShrink: 0 }} />
               </button>
 
               {/* Menu Dropdown de Opções estilizado para o projeto */}
@@ -795,22 +809,26 @@ export default function CustomVideoPlayer({
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
               title={isFullscreen ? "Sair da tela cheia (F)" : "Tela cheia (F)"}
-              className="hover:scale-105 active:scale-95 transition-transform"
+              className="player-icon-btn hover:scale-105 active:scale-95 transition-transform"
               style={{
-                background: "rgba(255, 255, 255, 0.1)",
+                background: "rgba(255, 255, 255, 0.12)",
                 border: "none",
+                padding: 0,
                 color: "#FFFFFF",
                 width: "32px",
                 height: "32px",
+                minWidth: "32px",
+                minHeight: "32px",
                 borderRadius: "8px",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
                 backdropFilter: "blur(4px)",
+                flexShrink: 0,
               }}
             >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {isFullscreen ? <Minimize2 size={16} style={{ flexShrink: 0 }} /> : <Maximize2 size={16} style={{ flexShrink: 0 }} />}
             </button>
           </div>
         </div>

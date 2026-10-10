@@ -2497,3 +2497,19 @@ button:disabled, .button:disabled {
     opacity: 0;
   }
 }
+
+/* Player de vídeo customizado - isolamento de botões contra padding global */
+.player-icon-btn {
+  padding: 0 !important;
+  gap: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+
+.player-icon-btn svg {
+  flex-shrink: 0 !important;
+  display: block !important;
+}
