@@ -2718,12 +2718,12 @@ export default function ClipEditorModal({
         {/* COLUNA DIREITA: ACCORDION COM UM BLOCO ABERTO POR VEZ */}
         <aside
           style={{ width: isFocusMode ? 0 : `${rightWidth}px` }}
-          className={`bg-[#13161F] border-l border-[#212634] p-3 flex flex-col gap-2 overflow-y-auto shrink-0 transition-[width] duration-75 ${
+          className={`bg-[#13161F] border-l border-[#212634] p-3 pb-8 flex flex-col gap-2.5 overflow-y-auto shrink-0 transition-[width] duration-75 ${
             isFocusMode ? "invisible opacity-0" : "visible opacity-100"
           }`}
         >
           {/* 1. SEÇÃO ACCORDION: INSPETOR DE ELEMENTOS */}
-          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924]">
+          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924] shrink-0">
             <button
               type="button"
               onClick={() => setRightAccordionOpen(rightAccordionOpen === "inspector" ? "hook" : "inspector")}
@@ -2902,7 +2902,7 @@ export default function ClipEditorModal({
           </div>
 
           {/* 2. SEÇÃO ACCORDION: GANCHO EDITORIAL */}
-          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924]">
+          <div className="border border-[#262B3B] rounded-lg overflow-hidden bg-[#161924] shrink-0">
             <button
               type="button"
               onClick={() => setRightAccordionOpen(rightAccordionOpen === "hook" ? "inspector" : "hook")}
@@ -2931,7 +2931,7 @@ export default function ClipEditorModal({
           </div>
 
           {/* 3. SEÇÃO ACCORDION: CLONAGEM DE ESTILO COM IA */}
-          <div className="border border-purple-500/30 rounded-lg overflow-hidden bg-[#181528] mt-auto">
+          <div className="border border-purple-500/30 rounded-lg overflow-hidden bg-[#181528] mt-auto shrink-0 shadow-md">
             <button
               type="button"
               onClick={() => setRightAccordionOpen(rightAccordionOpen === "clone" ? "inspector" : "clone")}
@@ -2945,14 +2945,14 @@ export default function ClipEditorModal({
             </button>
 
             {rightAccordionOpen === "clone" && (
-              <div className="p-3 flex flex-col gap-2">
-                <p className="text-xs text-purple-200/80 m-0 leading-relaxed">
+              <div className="p-2.5 flex flex-col gap-2">
+                <p className="text-[11px] text-purple-200/80 m-0 leading-relaxed">
                   Importe ou clone cortes de referências virais, ritmos de transição e paleta de cores para este corte.
                 </p>
                 <button
                   type="button"
                   onClick={() => setIsCloneModalOpen(true)}
-                  className="w-full mt-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  className="w-full mt-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
                   title="Abrir o estúdio completo de clonagem de edição com IA"
                 >
                   <SparklesIcon size={14} className="text-purple-200" />

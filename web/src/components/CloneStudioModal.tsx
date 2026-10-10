@@ -59,7 +59,7 @@ export default function CloneStudioModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "1.25rem",
+        padding: "0.75rem",
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -70,8 +70,9 @@ export default function CloneStudioModal({
         style={{
           width: "100%",
           maxWidth: "1180px",
-          height: "90vh",
-          maxHeight: "92vh",
+          height: "92vh",
+          maxHeight: "calc(100vh - 1.5rem)",
+          minHeight: 0,
           background: "#0E111C",
           border: "1px solid rgba(168, 85, 247, 0.38)",
           borderRadius: "16px",
