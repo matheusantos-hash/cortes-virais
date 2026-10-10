@@ -200,8 +200,9 @@ export async function processVideo(args: {
   for (const [i, c] of clips.entries()) {
     await hooks?.checkCanceled?.();
     const progressVal = Math.round(60 + (i / clips.length) * 35);
-    await hooks?.onStage?.("cutting", progressVal);
-    const file = path.join(workDir, `clip-${String(i + 1).padStart(2, "0")}-${slug(c.title)}.mp4`);
+    const isProRes = opts.exportSettings?.codec === "prores422";
+    const clipExt = isProRes ? "mov" : "mp4";
+    const file = path.join(workDir, `clip-${String(i + 1).padStart(2, "0")}-${slug(c.title)}.${clipExt}`);
     
     await hooks?.onLog?.(`[Render ${i + 1}/${clips.length}] Cortando [${fmt(c.start)} - ${fmt(c.end)}] -> ${path.basename(file)}`);
     console.log(`  ${path.basename(file)}`);
@@ -393,6 +394,7 @@ export async function processVideo(args: {
         dynamicPacingSec: dynamicPacing,
         colorGrade: shouldColorGrade,
         sfxEvents,
+        exportSettings: opts.exportSettings,
         signal: hooks?.signal,
         onLog: hooks?.onLog,
       });

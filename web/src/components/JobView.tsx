@@ -170,7 +170,8 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   async function download(clip: Clip) {
     if (!clip.file_path) return;
     setDownloading(clip.id);
-    const name = `corte-${String(clip.position).padStart(2, "0")}.mp4`;
+    const ext = clip.file_path.endsWith(".mov") ? "mov" : "mp4";
+    const name = `corte-${String(clip.position).padStart(2, "0")}.${ext}`;
     const { data, error } = await supabase.storage.from("clips").createSignedUrl(clip.file_path, 300, { download: name });
     setDownloading(null);
     if (error || !data?.signedUrl) {

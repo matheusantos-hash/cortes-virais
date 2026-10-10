@@ -1026,12 +1026,14 @@ export default function ClipEditorModal({
                 {videoSrc && (
                   <a
                     href={videoSrc}
-                    download={`corte-${String(clip.position).padStart(2, "0")}.mp4`}
+                    download={`corte-${String(clip.position).padStart(2, "0")}.${clip.file_path?.endsWith(".mov") ? "mov" : "mp4"}`}
                     className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
                   >
                     <Film size={13} className="text-cyan-400" />
                     <div className="flex flex-col">
-                      <span className="font-semibold">Baixar Vídeo MP4</span>
+                      <span className="font-semibold">
+                        {clip.file_path?.endsWith(".mov") ? "Baixar Vídeo ProRes (MOV)" : "Baixar Vídeo (MP4)"}
+                      </span>
                       <span className="text-[10px] text-gray-400">Vídeo pronto renderizado</span>
                     </div>
                   </a>

@@ -3,7 +3,7 @@ import path from "node:path";
 import { execSync } from "node:child_process";
 import { resolveSystemFont, prepareCustomFont } from "./fonts.js";
 import { generateViralAssSubtitles } from "./subtitles.js";
-import { trimClip } from "./media.js";
+import { trimClip, cutClip, buildEncodingArgs } from "./media.js";
 import type { Clip, Job, CanvasBroll } from "../../web/src/lib/types.js";
 import { buildTimelineProject } from "../../web/src/lib/export/timeline.js";
 import { generateFcp7Xml } from "../../web/src/lib/export/fcp7xml.js";
@@ -256,6 +256,67 @@ async function runSimulation() {
 
   const previewAt1_3s = simulateSubtitlePreview(1.3); // 11.3s absoluto
   assert(previewAt1_3s.activeWord === "ACREDITAR", "Detectou a palavra ativa 'ACREDITAR' no segundo 1.3");
+
+  // -------------------------------------------------------------
+  // TESTE 6: Exportação Profissional no FFmpeg (HEVC, ProRes 422, EBU R128)
+  // -------------------------------------------------------------
+  console.log("\n👉 ETAPA 6: Testando Motor de Exportação Profissional (Codecs, Bitrates, EBU R128)...");
+
+  // 6.1 Argumentos ProRes 422
+  const proresArgs = buildEncodingArgs({
+    duration: 10,
+    exportSettings: { codec: "prores422", fps: 24 },
+    output: "output.mov",
+  });
+  assert(proresArgs.includes("prores_ks"), "Gera codec prores_ks para Apple ProRes 422");
+  assert(proresArgs.includes("yuv422p10le"), "Gera formato de pixel 10-bit yuv422p10le");
+  assert(proresArgs.includes("-r") && proresArgs.includes("24"), "Define taxa de quadros de 24 FPS");
+
+  // 6.2 Argumentos HEVC (H.265) Master Bitrate
+  const hevcArgs = buildEncodingArgs({
+    duration: 10,
+    exportSettings: { codec: "hevc", bitrate: "master", fps: 60 },
+    output: "output.mp4",
+  });
+  assert(hevcArgs.includes("libx265"), "Gera codec libx265 para H.265 / HEVC");
+  assert(hevcArgs.includes("hvc1"), "Aplica tag hvc1 para compatibilidade Apple / QuickTime");
+  assert(hevcArgs.includes("25M"), "Aplica taxa de dados Master de 25 Mbps");
+  assert(hevcArgs.includes("-r") && hevcArgs.includes("60"), "Define taxa de quadros de 60 FPS");
+
+  // 6.3 Render real de clipe em ProRes 422 e EBU R128
+  const proresOut = path.join(testDir, "test_prores_master.mov");
+  console.log("  Testando render real de clipe em Apple ProRes 422 e EBU R128...");
+  await trimClip({
+    input: rawVideoPath,
+    output: proresOut,
+    trimStartSec: 0.5,
+    trimEndSec: 2.0,
+    exportSettings: {
+      codec: "prores422",
+      fps: 24,
+      audioNormalization: true,
+    },
+    onLog: (line) => console.log(`    [FFmpeg ProRes] ${line}`),
+  });
+  assert(existsSync(proresOut), "Vídeo ProRes 422 master exportado com sucesso");
+
+  // 6.4 Render real de clipe em H.265 / HEVC com normalização de áudio
+  const hevcOut = path.join(testDir, "test_hevc_high.mp4");
+  console.log("  Testando render real de clipe em H.265 / HEVC com EBU R128...");
+  await trimClip({
+    input: rawVideoPath,
+    output: hevcOut,
+    trimStartSec: 1.0,
+    trimEndSec: 2.5,
+    exportSettings: {
+      codec: "hevc",
+      fps: 30,
+      bitrate: "high",
+      audioNormalization: true,
+    },
+    onLog: (line) => console.log(`    [FFmpeg HEVC] ${line}`),
+  });
+  assert(existsSync(hevcOut), "Vídeo HEVC H.265 com EBU R128 exportado com sucesso");
 
   // Limpeza
   rmSync(testDir, { recursive: true, force: true });

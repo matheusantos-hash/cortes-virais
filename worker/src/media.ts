@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ensureSfxAssets, type SfxEvent } from "./sfx.js";
-import type { Orientation, VerticalMode, CanvasBroll } from "./types.js";
+import type { Orientation, VerticalMode, CanvasBroll, ExportSettings } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -124,6 +124,95 @@ function videoRateArgs(durationSec: number): string[] {
   const kbps = Math.floor((maxMb * 8192) / durationSec - AUDIO_KBPS);
   const video = Math.min(8000, Math.max(1500, kbps));
   return ["-maxrate", `${video}k`, "-bufsize", `${video * 2}k`];
+}
+
+/**
+ * Constrói argumentos de codificação de áudio e vídeo respeitando os parâmetros profissionais
+ * (Codec H.264 / HEVC / ProRes 422, FPS 24/30/60, Bitrate Master/High/Standard).
+ */
+export function buildEncodingArgs(opts: {
+  duration: number;
+  exportSettings?: ExportSettings;
+  output: string;
+}): string[] {
+  const { duration, exportSettings, output } = opts;
+  const codec = exportSettings?.codec ?? "h264";
+  const fps = exportSettings?.fps;
+  const bitratePreset = exportSettings?.bitrate;
+
+  const args: string[] = [];
+
+  // FPS configurável (24, 30, 60)
+  if (fps && [24, 30, 60].includes(fps)) {
+    args.push("-r", String(fps));
+  }
+
+  if (codec === "prores422") {
+    // Apple ProRes 422 Standard (Profile 2), áudio AAC de 320k, formato QuickTime
+    args.push(
+      "-c:v", "prores_ks",
+      "-profile:v", "2",
+      "-pix_fmt", "yuv422p10le",
+      "-c:a", "aac",
+      "-b:a", "320k",
+      "-avoid_negative_ts", "make_zero",
+      "-f", "mov"
+    );
+  } else if (codec === "hevc") {
+    // H.265 / HEVC com tag hvc1 para máxima compatibilidade Apple/iOS/macOS/QuickTime
+    args.push(
+      "-c:v", "libx265",
+      "-preset", "veryfast",
+      "-tag:v", "hvc1",
+      "-pix_fmt", "yuv420p"
+    );
+
+    if (bitratePreset === "master") {
+      args.push("-b:v", "25M", "-maxrate", "30M", "-bufsize", "50M");
+    } else if (bitratePreset === "high") {
+      args.push("-b:v", "12M", "-maxrate", "15M", "-bufsize", "24M");
+    } else if (bitratePreset === "standard") {
+      args.push("-b:v", "6M", "-maxrate", "8M", "-bufsize", "12M");
+    } else {
+      args.push("-crf", "23", ...videoRateArgs(duration));
+    }
+
+    args.push(
+      "-c:a", "aac",
+      "-b:a", `${AUDIO_KBPS}k`,
+      "-avoid_negative_ts", "make_zero",
+      "-movflags", "+faststart"
+    );
+  } else {
+    // Padrão H.264
+    args.push(
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-pix_fmt", "yuv420p",
+      "-threads", "1",
+      "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0"
+    );
+
+    if (bitratePreset === "master") {
+      args.push("-b:v", "25M", "-maxrate", "30M", "-bufsize", "50M");
+    } else if (bitratePreset === "high") {
+      args.push("-b:v", "12M", "-maxrate", "15M", "-bufsize", "24M");
+    } else if (bitratePreset === "standard") {
+      args.push("-b:v", "6M", "-maxrate", "8M", "-bufsize", "12M");
+    } else {
+      args.push("-crf", "20", ...videoRateArgs(duration));
+    }
+
+    args.push(
+      "-c:a", "aac",
+      "-b:a", `${AUDIO_KBPS}k`,
+      "-avoid_negative_ts", "make_zero",
+      "-movflags", "+faststart"
+    );
+  }
+
+  args.push(output);
+  return args;
 }
 
 const DIRECT_TYPES = /^(video\/|application\/(octet-stream|mp4)|binary\/octet-stream)/i;
@@ -500,10 +589,11 @@ export async function trimClip(opts: {
   canvasBrolls?: CanvasBroll[];
   subtitlesPath?: string;
   fontsDir?: string;
+  exportSettings?: ExportSettings;
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<void> {
-  const { input, output, trimStartSec, trimEndSec, canvasBrolls, subtitlesPath, fontsDir, signal, onLog } = opts;
+  const { input, output, trimStartSec, trimEndSec, canvasBrolls, subtitlesPath, fontsDir, exportSettings, signal, onLog } = opts;
   const duration = trimEndSec - trimStartSec;
   if (duration <= 0) {
     throw new Error("Duração do corte ajustado deve ser maior que zero.");
@@ -590,14 +680,12 @@ export async function trimClip(opts: {
     args.push("-vf", vfFilters.join(","));
   }
 
-  args.push(
-    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-    "-threads", "1",
-    "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
-    "-c:a", "aac", "-b:a", "160k",
-    "-avoid_negative_ts", "make_zero",
-    output
-  );
+  if (exportSettings?.audioNormalization === true) {
+    args.push("-af", "loudnorm=I=-14:LRA=11:TP=-1.5");
+  }
+
+  const encodeArgs = buildEncodingArgs({ duration, exportSettings, output });
+  args.push(...encodeArgs);
 
   await run("ffmpeg", args, signal, onLog);
   onLog?.(`[TRIM] Re-renderização milimétrica do corte concluída.`);
@@ -626,6 +714,7 @@ export async function cutClip(opts: {
   dynamicPacingSec?: number;
   colorGrade?: boolean;
   sfxEvents?: SfxEvent[];
+  exportSettings?: ExportSettings;
   signal?: AbortSignal;
   onLog?: (line: string) => void;
 }): Promise<CutResult> {
@@ -643,11 +732,43 @@ export async function cutClip(opts: {
     dynamicPacingSec,
     colorGrade = false,
     sfxEvents = [],
+    exportSettings,
     signal,
     onLog,
   } = opts;
   const duration = end - start;
   const result: CutResult = { cropX };
+
+  let targetWidth = orientation === "vertical" ? 1080 : 1920;
+  let targetHeight = orientation === "vertical" ? 1920 : 1080;
+
+  if (exportSettings?.resolution) {
+    if (exportSettings.resolution === "2160x3840") {
+      targetWidth = 2160;
+      targetHeight = 3840;
+    } else if (exportSettings.resolution === "1080x1080") {
+      targetWidth = 1080;
+      targetHeight = 1080;
+    } else if (exportSettings.resolution === "1920x1080") {
+      targetWidth = 1920;
+      targetHeight = 1080;
+    } else if (exportSettings.resolution === "1080x1920") {
+      targetWidth = 1080;
+      targetHeight = 1920;
+    }
+  }
+
+  if (exportSettings) {
+    const details: string[] = [];
+    if (exportSettings.codec) details.push(`Codec: ${exportSettings.codec.toUpperCase()}`);
+    if (exportSettings.resolution) details.push(`Resolução: ${targetWidth}x${targetHeight}`);
+    if (exportSettings.fps) details.push(`FPS: ${exportSettings.fps}`);
+    if (exportSettings.bitrate) details.push(`Bitrate: ${exportSettings.bitrate}`);
+    if (exportSettings.audioNormalization) details.push(`Normalização: EBU R128 (-14 LUFS)`);
+    if (details.length > 0) {
+      onLog?.(`[EXPORTAÇÃO PRO] Configurações de render: ${details.join(" | ")}`);
+    }
+  }
 
   const validBrolls = brolls.filter((b) => b.filePath && b.durationSec > 0 && b.offsetSec < duration);
 
@@ -667,19 +788,7 @@ export async function cutClip(opts: {
     brollInputs.push("-threads", "1", "-stream_loop", "-1", "-i", b.filePath);
   }
 
-  const encode = [
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-    "-threads", "1",
-    "-x264-params", "threads=1:lookahead-threads=1:sync-lookahead=0",
-    ...videoRateArgs(duration),
-    "-c:a", "aac", "-b:a", `${AUDIO_KBPS}k`,
-    "-avoid_negative_ts", "make_zero",
-    "-movflags", "+faststart",
-    output,
-  ];
-
-  const targetWidth = orientation === "vertical" ? 1080 : 1920;
-  const targetHeight = orientation === "vertical" ? 1920 : 1080;
+  const encode = buildEncodingArgs({ duration, exportSettings, output });
 
   let effectiveCropX = cropX;
   let effectiveCropExpr = `${effectiveCropX}`;
@@ -720,10 +829,10 @@ export async function cutClip(opts: {
           result.cropKeyframes = distinctSteps.map((k) => ({ t: k.t, x: k.x }));
           onLog?.(`[ROSTOS IA] Enquadramento dinâmico ativado com ${distinctSteps.length} transições suaves.`);
         } else {
-          onLog?.(`[ROSTOS IA] Câmera vertical 9:16 estabilizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+          onLog?.(`[ROSTOS IA] Câmera vertical centralizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
         }
       } else {
-        onLog?.(`[ROSTOS IA] Câmera vertical 9:16 centralizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+        onLog?.(`[ROSTOS IA] Câmera vertical centralizada no orador (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
       }
       result.cropX = effectiveCropX;
     } else if (verticalMode === "split_face") {
@@ -736,44 +845,55 @@ export async function cutClip(opts: {
     result.splitCenters = { top: splitLeftX, bottom: splitRightX };
   }
 
-  // Filtro de corte vertical seguro com suporte a coordenadas temporais dinâmicas
-  const cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(1080-iw)/2:(1920-ih)/2,setsar=1`;
+  // Filtro de corte vertical ou quadrado seguro com suporte a coordenadas temporais dinâmicas
+  let cropVf = "";
+  if (targetWidth === targetHeight) {
+    cropVf = `crop=w=min(iw\\,ih):h=min(ih\\,iw):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(${targetWidth}-iw)/2:(${targetHeight}-ih)/2,setsar=1`;
+  } else if (orientation === "horizontal") {
+    cropVf = `scale=-2:min(${targetHeight}\\,ih),setsar=1`;
+  } else {
+    cropVf = `crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(${targetWidth}-iw)/2:(${targetHeight}-ih)/2,setsar=1`;
+  }
 
   // 1. Gera o filtro base para o vídeo do orador (com suporte a cortes dinâmicos de câmera / punch-in zooms)
   let baseFilter = "";
   if (orientation === "horizontal") {
-    baseFilter = `[0:v]scale=-2:min(1080\\,ih),setsar=1[base_v]`;
+    baseFilter = `[0:v]scale=-2:min(${targetHeight}\\,ih),setsar=1[base_v]`;
   } else if ((verticalMode === "crop" || verticalMode === "face_tracking") && dynamicPacingSec && dynamicPacingSec > 0) {
     const pSec = Math.max(1.8, Math.min(5.0, dynamicPacingSec)).toFixed(2);
     result.zoomPacingSec = Number(pSec);
     onLog?.(`[EDIÇÃO DINÂMICA] Ativando cortes de câmera / punch zoom a cada ${pSec}s (ritmo clonado da referência).`);
+    const aspectW = targetWidth === targetHeight ? "min(iw\\,ih)" : "min(iw\\,ih*9/16)";
+    const aspectH = targetWidth === targetHeight ? "min(ih\\,iw)" : "min(ih\\,iw*16/9)";
     baseFilter =
       `[0:v]split=2[v_wide_in][v_zoom_in];` +
-      `[v_wide_in]crop=w=min(iw\\,ih*9/16):h=min(ih\\,iw*16/9):x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920,setsar=1[w_out];` +
-      `[v_zoom_in]crop=w=min(iw\\,ih*9/16)*0.82:h=min(ih\\,iw*16/9)*0.82:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=1080:1920,setsar=1[z_out];` +
+      `[v_wide_in]crop=w=${aspectW}:h=${aspectH}:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight},setsar=1[w_out];` +
+      `[v_zoom_in]crop=w=${aspectW}*0.82:h=${aspectH}*0.82:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight},setsar=1[z_out];` +
       `[w_out][z_out]overlay=enable='mod(floor(t/${pSec})\\,2)'[base_v]`;
   } else if (verticalMode === "crop" || verticalMode === "face_tracking") {
     baseFilter = `[0:v]${cropVf}[base_v]`;
   } else if (verticalMode === "split") {
+    const halfH = Math.round(targetHeight / 2);
     baseFilter =
       "[0:v]split=2[top_in][bot_in];" +
-      "[top_in]crop=iw/2:ih:0:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[top];" +
-      "[bot_in]crop=iw/2:ih:iw/2:0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[bot];" +
+      `[top_in]crop=iw/2:ih:0:0,scale=${targetWidth}:${halfH}:force_original_aspect_ratio=increase,crop=${targetWidth}:${halfH},setsar=1[top];` +
+      `[bot_in]crop=iw/2:ih:iw/2:0,scale=${targetWidth}:${halfH}:force_original_aspect_ratio=increase,crop=${targetWidth}:${halfH},setsar=1[bot];` +
       "[top][bot]vstack[base_v]";
   } else if (verticalMode === "split_face") {
+    const halfH = Math.round(targetHeight / 2);
     const cropTopX = `max(0\\,min(iw-iw*9/16\\,iw*${splitLeftX}-iw*9/32))`;
     const cropBotX = `max(0\\,min(iw-iw*9/16\\,iw*${splitRightX}-iw*9/32))`;
     baseFilter =
       "[0:v]split=2[top_in][bot_in];" +
-      `[top_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropTopX}:y=0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[top];` +
-      `[bot_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropBotX}:y=0,scale=1080:960:force_original_aspect_ratio=increase,crop=1080:960,setsar=1[bot];` +
+      `[top_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropTopX}:y=0,scale=${targetWidth}:${halfH}:force_original_aspect_ratio=increase,crop=${targetWidth}:${halfH},setsar=1[top];` +
+      `[bot_in]crop=w=min(iw\\,ih*9/8):h=ih:x=${cropBotX}:y=0,scale=${targetWidth}:${halfH}:force_original_aspect_ratio=increase,crop=${targetWidth}:${halfH},setsar=1[bot];` +
       "[top][bot]vstack[base_v]";
   } else {
     // "blur"
     baseFilter =
       "[0:v]split=2[bg][fg];" +
-      "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,setsar=1[bgb];" +
-      "[fg]scale=1080:-2:force_original_aspect_ratio=decrease,setsar=1[fgs];" +
+      `[bg]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight},boxblur=20:5,setsar=1[bgb];` +
+      `[fg]scale=${targetWidth}:-2:force_original_aspect_ratio=decrease,setsar=1[fgs];` +
       "[bgb][fgs]overlay=(W-w)/2:(H-h)/2[base_v]";
   }
 
@@ -825,10 +945,11 @@ export async function cutClip(opts: {
     currentLayer = subbedLayer;
   }
 
-  // 5. Configuração e mixagem de Sound Design (SFX)
+  // 5. Configuração e mixagem de Sound Design (SFX) e Normalização EBU R128
   const validSfx = sfxEvents.filter((ev) => ev.timeSec >= 0 && ev.timeSec < duration);
   const sfxInputs: string[] = [];
   let audioMapArg = "-map 0:a?";
+  const applyAudioNorm = exportSettings?.audioNormalization === true;
 
   if (validSfx.length > 0) {
     onLog?.(`[SOUND DESIGN] Mixando ${validSfx.length} efeito(s) sonoro(s) sincronizado(s) no clipe...`);
@@ -851,14 +972,25 @@ export async function cutClip(opts: {
     for (let i = 0; i < validSfx.length; i++) {
       mixInputs.push(`[sfx_a_${i}]`);
     }
-    filterParts.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2[final_a]`);
+
+    if (applyAudioNorm) {
+      onLog?.(`[ÁUDIO EBU R128] Aplicando normalização -14 LUFS para redes sociais...`);
+      filterParts.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2[mixed_sfx_a]`);
+      filterParts.push(`[mixed_sfx_a]loudnorm=I=-14:LRA=11:TP=-1.5[final_a]`);
+    } else {
+      filterParts.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2[final_a]`);
+    }
+    audioMapArg = "-map [final_a]";
+  } else if (applyAudioNorm) {
+    onLog?.(`[ÁUDIO EBU R128] Aplicando normalização -14 LUFS para redes sociais...`);
+    filterParts.push(`[0:a]loudnorm=I=-14:LRA=11:TP=-1.5[final_a]`);
     audioMapArg = "-map [final_a]";
   }
 
-  // Se não houver B-rolls, nem grading, nem legendas, nem zoom, nem SFX, atalho simples:
-  if (!validBrolls.length && !colorGrade && !subtitlesPath && (!dynamicPacingSec || dynamicPacingSec <= 0) && !validSfx.length) {
+  // Se não houver B-rolls, nem grading, nem legendas, nem zoom, nem SFX, nem normalização de áudio, atalho simples:
+  if (!validBrolls.length && !colorGrade && !subtitlesPath && (!dynamicPacingSec || dynamicPacingSec <= 0) && !validSfx.length && !applyAudioNorm) {
     if (orientation === "horizontal") {
-      await run("ffmpeg", [...baseInputs, "-vf", "scale=-2:min(1080\\,ih),setsar=1", ...encode], signal, onLog);
+      await run("ffmpeg", [...baseInputs, "-vf", `scale=-2:min(${targetHeight}\\,ih),setsar=1`, ...encode], signal, onLog);
       return result;
     }
     if (verticalMode === "crop" || verticalMode === "face_tracking") {
@@ -876,9 +1008,10 @@ export async function cutClip(opts: {
     if (signal?.aborted) throw err;
     onLog?.(`[AVISO] Renderização com efeitos avançados encontrou instabilidade (${err?.message}). Ativando modo de segurança compatível...`);
     const fallbackVf = orientation === "horizontal"
-      ? "scale=-2:min(1080\\,ih),setsar=1"
+      ? `scale=-2:min(${targetHeight}\\,ih),setsar=1`
       : cropVf;
-    await run("ffmpeg", [...baseInputs, "-vf", fallbackVf, "-map", "0:v:0", "-map", "0:a?", ...encode], signal, onLog);
+    const fallbackAudioArgs = applyAudioNorm ? ["-af", "loudnorm=I=-14:LRA=11:TP=-1.5"] : [];
+    await run("ffmpeg", [...baseInputs, "-vf", fallbackVf, "-map", "0:v:0", "-map", "0:a?", ...fallbackAudioArgs, ...encode], signal, onLog);
     onLog?.(`[SUCESSO] Clipe renderizado e protegido via modo compatível.`);
   }
 

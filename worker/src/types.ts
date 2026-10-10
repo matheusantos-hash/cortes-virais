@@ -99,8 +99,18 @@ export interface Options {
   enableExtendedThinking?: boolean;
   thinkingBudgetTokens?: number;
   visualHighlights?: VisualHighlight[];
+  exportSettings?: ExportSettings;
   force: boolean;
   dryRun: boolean;
+}
+
+export interface ExportSettings {
+  resolution?: "1080x1920" | "2160x3840" | "1920x1080" | "1080x1080";
+  codec?: "h264" | "hevc" | "prores422";
+  fps?: 24 | 30 | 60;
+  bitrate?: "master" | "high" | "standard";
+  audioNormalization?: boolean; // EBU R128 (-14 LUFS)
+  generateNleTimeline?: boolean; // XML / EDL
 }
 
 /** Metadados técnicos do arquivo-fonte (via ffprobe). Base para precisão de frame e relink no NLE. */

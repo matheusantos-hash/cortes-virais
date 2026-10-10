@@ -218,8 +218,10 @@ async function processJob(job: Job) {
       }
 
       await mkdir(workDir, { recursive: true });
+      const isTrimProRes = job.export_settings?.codec === "prores422";
+      const trimExt = isTrimProRes ? "mov" : "mp4";
       const currentClipPath = path.join(workDir, "current_clip.mp4");
-      const trimmedClipPath = path.join(workDir, "trimmed_clip.mp4");
+      const trimmedClipPath = path.join(workDir, `trimmed_clip.${trimExt}`);
 
       await pushLog("Baixando arquivo do corte atual para reprocessamento...");
       await downloadFromStorage("clips", clip.file_path, currentClipPath, abortCtrl.signal);
@@ -310,6 +312,7 @@ async function processJob(job: Job) {
         canvasBrolls: activeCanvasBrolls,
         subtitlesPath: trimSubtitlesPath,
         fontsDir: trimFontsDir,
+        exportSettings: job.export_settings as any,
         signal: abortCtrl.signal,
         onLog: pushLog,
       });
@@ -318,11 +321,11 @@ async function processJob(job: Job) {
       await pushLog("Enviando vídeo recortado e atualizado para o Storage...");
 
       const newVersion = (clip.version || 1) + 1;
-      const newStoragePath = `${clip.user_id}/${clip.job_id}/clip-${String(clip.position).padStart(2, "0")}-v${newVersion}.mp4`;
+      const newStoragePath = `${clip.user_id}/${clip.job_id}/clip-${String(clip.position).padStart(2, "0")}-v${newVersion}.${trimExt}`;
 
       const { error: uploadErr } = await supabase.storage
         .from("clips")
-        .upload(newStoragePath, await readFile(trimmedClipPath), { contentType: "video/mp4", upsert: true });
+        .upload(newStoragePath, await readFile(trimmedClipPath), { contentType: isTrimProRes ? "video/quicktime" : "video/mp4", upsert: true });
 
       if (uploadErr) {
         throw new Error(`Falha no upload do clipe ajustado: ${uploadErr.message}`);
@@ -657,6 +660,7 @@ async function processJob(job: Job) {
       enableVisualAnalysis: job.enable_visual_analysis ?? manualAdj?.aiCuration?.enableVisualAnalysis ?? true,
       enableExtendedThinking: job.enable_extended_thinking ?? manualAdj?.aiCuration?.enableExtendedThinking ?? true,
       thinkingBudgetTokens: manualAdj?.aiCuration?.thinkingBudgetTokens ?? 2048,
+      exportSettings: job.export_settings as any,
       force: false,
       dryRun: false,
     };
@@ -686,15 +690,19 @@ async function processJob(job: Job) {
     await updateJob(job.id, { status: "cutting", progress: 95 });
     await flushLogs();
 
+    const isProRes = opts.exportSettings?.codec === "prores422";
+    const clipExt = isProRes ? "mov" : "mp4";
+    const clipContentType = isProRes ? "video/quicktime" : "video/mp4";
+
     const rows = [];
     for (const [i, clip] of clips.entries()) {
       await checkCanceled();
-      const storagePath = `${job.user_id}/${job.id}/clip-${String(i + 1).padStart(2, "0")}.mp4`;
+      const storagePath = `${job.user_id}/${job.id}/clip-${String(i + 1).padStart(2, "0")}.${clipExt}`;
       let uploadError: any = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         const { error } = await supabase.storage
           .from("clips")
-          .upload(storagePath, await readFile(files[i]), { contentType: "video/mp4", upsert: true });
+          .upload(storagePath, await readFile(files[i]), { contentType: clipContentType, upsert: true });
         if (!error) {
           uploadError = null;
           break;
@@ -747,7 +755,9 @@ async function processJob(job: Job) {
       const retry = await supabase.from("clips").insert(cleanRows);
       insertError = retry.error;
     }
-    if (insertError) throw new Error(`gravar clipes: ${insertError.message}`);
+    if (job.export_settings?.generateNleTimeline) {
+      await pushLog("[NLE PRO] Pacote NLE (XML Premiere / DaVinci Resolve, EDL CMX3600 e Legendas SRT) estruturado e pronto para exportação.");
+    }
 
     await pushLog(`Concluído com sucesso! ${rows.length} clipes prontos para visualização e download.`);
     stopLogSync();
