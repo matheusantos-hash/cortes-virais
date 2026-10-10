@@ -5,14 +5,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { cancelJob, deleteUserJob, deleteUserClip, deleteProjectAction } from "@/app/actions";
 import { fmtClock, fmtDate, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { getSignedUrlsCached } from "@/lib/signedUrlCache";
 import type { Clip, Job, JobStatus, Project } from "@/lib/types";
 import NewJobForm from "./NewJobForm";
-import CopyStyleStudio from "./CopyStyleStudio";
+import dynamic from "next/dynamic";
+const CopyStyleStudio = dynamic(() => import("./CopyStyleStudio"), { ssr: false });
 import ModeSelectorCards, { DashboardMode } from "./ModeSelectorCards";
 import StatusBadge from "./StatusBadge";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
 import CustomVideoPlayer from "./CustomVideoPlayer";
+import ClipCard from "./ClipCard";
 import JobProgressCard, { getStageDescription } from "./JobProgressCard";
 import {
   DownloadIcon,
@@ -97,11 +100,14 @@ export default function Dashboard({
     } catch {}
   }
 
-  // Links temporários para reproduzir os clipes (bucket privado)
+  // Links temporários para reproduzir os clipes (com cache em memória/sessão)
   useEffect(() => {
     const allPaths: string[] = [];
     jobs.forEach((j) => {
       j.clips?.forEach((c) => {
+        if (c.thumbnail_url && !urls[c.thumbnail_url] && !allPaths.includes(c.thumbnail_url)) {
+          allPaths.push(c.thumbnail_url);
+        }
         if (c.file_path && !urls[c.file_path] && !allPaths.includes(c.file_path)) {
           allPaths.push(c.file_path);
         }
@@ -114,9 +120,10 @@ export default function Dashboard({
       const projJobs = proj.jobs || [];
       for (const j of projJobs) {
         if (j.clips && j.clips.length > 0) {
-          const found = j.clips.find((c: any) => Boolean(c.file_path));
-          if (found?.file_path && !urls[found.file_path] && !allPaths.includes(found.file_path)) {
-            allPaths.push(found.file_path);
+          const withThumb = j.clips.find((c: any) => Boolean(c.thumbnail_url));
+          const target = withThumb?.thumbnail_url || j.clips.find((c: any) => Boolean(c.file_path))?.file_path;
+          if (target && !urls[target] && !allPaths.includes(target)) {
+            allPaths.push(target);
             break;
           }
         }
@@ -125,19 +132,9 @@ export default function Dashboard({
 
     if (allPaths.length === 0) return;
 
-    supabase.storage
-      .from("clips")
-      .createSignedUrls(allPaths, 3600)
-      .then(({ data }) => {
-        if (!data) return;
-        setUrls((current) => {
-          const next = { ...current };
-          data.forEach((d) => {
-            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
-          });
-          return next;
-        });
-      });
+    getSignedUrlsCached(supabase, "clips", allPaths).then((signedMap) => {
+      setUrls((current) => ({ ...current, ...signedMap }));
+    });
   }, [jobs, projects, supabase, urls]);
 
   async function handleCancel(jobId: string) {
@@ -587,104 +584,22 @@ export default function Dashboard({
                     </div>
 
                     <div className="clips-grid">
-                      {jobClips.map((clip) => {
-                        const videoSrc = clip.file_path ? urls[clip.file_path] : undefined;
-                        const durationSec = Math.round(Number(clip.end_seconds) - Number(clip.start_seconds));
-
-                        return (
-                          <div key={clip.id} className="clip-card">
-                            {/* Player Estilizado */}
-                            {videoSrc ? (
-                              <CustomVideoPlayer
-                                src={videoSrc}
-                                playsInline
-                                aspectRatio={vertical ? "9/16" : "16/9"}
-                                downloadFileName={`${clip.title || "clipe"}.mp4`}
-                                style={{ width: "100%", maxHeight: "480px" }}
-                              />
-                            ) : (
-                              <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>
-                                Carregando player…
-                              </div>
-                            )}
-
-                            {/* Informações e Badge de Viralidade */}
-                            <div className="row" style={{ marginTop: "0.2rem" }}>
-                              <span className="badge-viral">
-                                <TrendingUpIcon size={14} />
-                                {clip.score ?? 95}/100
-                              </span>
-                              <span className="muted small">
-                                {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
-                              </span>
-                            </div>
-
-                            {/* Título do Corte */}
-                            <h4 style={{ fontSize: "1rem", lineHeight: 1.35, margin: 0, fontWeight: 700 }}>
-                              {clip.position}. {clip.title}
-                            </h4>
-
-                            {/* Gancho Forte (Hook) */}
-                            {clip.hook && (
-                              <p className="clip-hook" title="Gancho inicial forte detectado pela IA">
-                                <strong>Gancho:</strong> &ldquo;{clip.hook}&rdquo;
-                              </p>
-                            )}
-
-                            {/* Justificativa / Por que é viral (Claude AI) */}
-                            {clip.reason && (
-                              <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
-                                <strong>Por que viraliza:</strong> {clip.reason}
-                              </p>
-                            )}
-
-                            {/* Botões de Ação do Corte */}
-                            <div className="row" style={{ marginTop: "auto", gap: "0.4rem", flexWrap: "wrap" }}>
-                              <button
-                                type="button"
-                                className="btn-cta"
-                                style={{ flex: 1, minWidth: "105px", padding: "0.6rem 0.75rem", fontSize: "0.85rem" }}
-                                onClick={() => download(clip)}
-                                disabled={downloadingId === clip.id}
-                              >
-                                <DownloadIcon size={16} />
-                                <span>{downloadingId === clip.id ? "Preparando…" : "Baixar MP4"}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                style={{
-                                  padding: "0.6rem 0.75rem",
-                                  fontSize: "0.85rem",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "0.35rem",
-                                  background: "rgba(139, 92, 246, 0.15)",
-                                  color: "#c084fc",
-                                  border: "1px solid rgba(139, 92, 246, 0.35)",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => handleCloneClip(clip, job)}
-                                title="Clonar estilo deste clipe no Clone Studio"
-                              >
-                                <SparklesIcon size={14} />
-                                <span>Clonar</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-danger-outline"
-                                style={{ padding: "0.6rem 0.65rem", fontSize: "0.85rem" }}
-                                onClick={() => handleDeleteClip(clip.id, job.id)}
-                                disabled={deletingClipId === clip.id}
-                                title="Excluir este clipe permanentemente"
-                              >
-                                <TrashIcon size={15} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {jobClips.map((clip) => (
+                        <ClipCard
+                          key={clip.id}
+                          clip={clip}
+                          videoSrc={clip.file_path ? urls[clip.file_path] : undefined}
+                          posterSrc={clip.thumbnail_url ? urls[clip.thumbnail_url] : undefined}
+                          vertical={vertical}
+                          jobId={job.id}
+                          orientation={job.orientation}
+                          verticalMode={job.vertical_mode}
+                          onDownload={download}
+                          onDelete={(clipId) => handleDeleteClip(clipId, job.id)}
+                          isDownloading={downloadingId === clip.id}
+                          isDeleting={deletingClipId === clip.id}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}

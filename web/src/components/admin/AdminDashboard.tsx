@@ -3,11 +3,12 @@
 import { useState } from "react";
 import type { AdminUsuario, AdminStats } from "@/app/admin/page";
 import type { Job, Clip } from "@/lib/types";
-import UsersTab from "./UsersTab";
-import ResourcesTab from "./ResourcesTab";
-import PerformanceTab from "./PerformanceTab";
-import ClipsTab from "./ClipsTab";
-import ApiCostsTab from "./ApiCostsTab";
+import dynamic from "next/dynamic";
+const UsersTab = dynamic(() => import("./UsersTab"));
+const ResourcesTab = dynamic(() => import("./ResourcesTab"));
+const PerformanceTab = dynamic(() => import("./PerformanceTab"));
+const ClipsTab = dynamic(() => import("./ClipsTab"));
+const ApiCostsTab = dynamic(() => import("./ApiCostsTab"));
 import { UsersIcon, CpuIcon, BarChartIcon, ShieldIcon, FilmIcon, Coins } from "@/components/Icons";
 
 interface Props {

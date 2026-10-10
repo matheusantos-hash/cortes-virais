@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import type { SavedReference } from "@/lib/types";
+import Modal from "./ui/Modal";
 import {
   Bookmark,
   Sparkles,
@@ -49,74 +50,18 @@ export default function SavedReferencesModal({
   );
 
   return (
-    <div
-      className="modal-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 10100,
-        background: "rgba(15, 23, 42, 0.65)",
-        backdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "1rem",
-      }}
-      onClick={onClose}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Biblioteca de Referências Salvas"
+      subtitle="Selecione uma referência salva anteriormente para aplicar o estilo instantaneamente"
+      maxWidth="680px"
+      footer={
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Fechar
+        </button>
+      }
     >
-      <div
-        className="card"
-        style={{
-          width: "100%",
-          maxWidth: "680px",
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-          padding: "1.5rem",
-          overflow: "hidden",
-          boxShadow: "var(--card-shadow-lg)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Cabeçalho */}
-        <div className="row" style={{ marginBottom: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "var(--primary-light)",
-                color: "var(--primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Bookmark size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.15rem" }}>Biblioteca de Referências Salvas</h3>
-              <p className="muted small" style={{ margin: 0 }}>
-                Selecione uma referência salva anteriormente para aplicar o estilo instantaneamente
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: "0.3rem",
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
 
         {/* Campo de Busca */}
         <div style={{ marginBottom: "1rem" }}>
@@ -360,13 +305,6 @@ export default function SavedReferencesModal({
           )}
         </div>
 
-        {/* Rodapé do Modal */}
-        <div style={{ marginTop: "1.2rem", paddingTop: "0.85rem", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "flex-end" }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

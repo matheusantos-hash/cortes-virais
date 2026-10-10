@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getSignedUrlsCached } from "@/lib/signedUrlCache";
 import { updateProjectAction, deleteUserClip, cancelJob, requestClipTrimAction, saveClipCanvasBrollsAction } from "@/app/actions";
 import type { Project, Job, Clip, CanvasBroll } from "@/lib/types";
 import { fmtDate, isFinal, fmtClock } from "@/lib/format";
-import ClipEditorModal from "./ClipEditorModal";
+import dynamic from "next/dynamic";
+const ClipEditorModal = dynamic(() => import("./ClipEditorModal"), { ssr: false });
+const CopyStyleStudio = dynamic(() => import("./CopyStyleStudio"), { ssr: false });
 import StatusBadge from "./StatusBadge";
 import NewJobForm from "./NewJobForm";
-import CopyStyleStudio from "./CopyStyleStudio";
 import JobProgressCard from "./JobProgressCard";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
@@ -109,30 +111,23 @@ export default function ProjectWorkspace({
     }
   }, [supabase, project.id]);
 
-  // Carregar URLs assinadas
+  // Carregar URLs assinadas (com cache em memória/sessão)
   useEffect(() => {
     const pathsToSign: string[] = [];
     clips.forEach((c) => {
-      if (c.file_path && !urls[c.file_path]) {
+      if (c.thumbnail_url && !urls[c.thumbnail_url] && !pathsToSign.includes(c.thumbnail_url)) {
+        pathsToSign.push(c.thumbnail_url);
+      }
+      if (c.file_path && !urls[c.file_path] && !pathsToSign.includes(c.file_path)) {
         pathsToSign.push(c.file_path);
       }
     });
 
     if (pathsToSign.length === 0) return;
 
-    supabase.storage
-      .from("clips")
-      .createSignedUrls(pathsToSign, 3600)
-      .then(({ data }) => {
-        if (!data) return;
-        setUrls((prev) => {
-          const next = { ...prev };
-          data.forEach((d) => {
-            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
-          });
-          return next;
-        });
-      });
+    getSignedUrlsCached(supabase, "clips", pathsToSign).then((signedMap) => {
+      setUrls((prev) => ({ ...prev, ...signedMap }));
+    });
   }, [clips, supabase, urls]);
 
   // Realtime subscription para clipes gerados deste projeto
@@ -392,6 +387,7 @@ export default function ProjectWorkspace({
                       {videoUrl ? (
                         <CustomVideoPlayer
                           src={videoUrl}
+                          poster={clip.thumbnail_url ? urls[clip.thumbnail_url] : undefined}
                           playsInline
                           onLoadedMetadata={(e) => {
                             const v = e.currentTarget;

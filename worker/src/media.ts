@@ -1129,3 +1129,49 @@ export async function streamDownloadVideo(url: string, destPath: string, signal?
   }
   await pipeline(Readable.fromWeb(res.body as any), createWriteStream(destPath), { signal });
 }
+
+/**
+ * Extrai um frame do vídeo com FFmpeg em formato WebP ultraleve (~15-30KB)
+ * para servir de thumbnail/poster instantâneo no frontend.
+ */
+export function generateThumbnail(
+  videoPath: string,
+  outThumbPath: string,
+  seekSec = 1.0
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-y",
+      "-ss", String(Math.max(0.1, seekSec)),
+      "-i", videoPath,
+      "-vframes", "1",
+      "-vf", "scale='min(480,iw)':-2",
+      "-c:v", "libwebp",
+      "-quality", "80",
+      outThumbPath,
+    ];
+
+    execFile("ffmpeg", args, (err) => {
+      if (!err && existsSync(outThumbPath)) {
+        return resolve(outThumbPath);
+      }
+      // Fallback para jpeg caso libwebp não esteja disponível no ffmpeg instalado
+      const fallbackPath = outThumbPath.replace(/\.webp$/i, ".jpg");
+      const fallbackArgs = [
+        "-y",
+        "-ss", String(Math.max(0.1, seekSec)),
+        "-i", videoPath,
+        "-vframes", "1",
+        "-vf", "scale='min(480,iw)':-2",
+        "-q:v", "3",
+        fallbackPath,
+      ];
+      execFile("ffmpeg", fallbackArgs, (fErr) => {
+        if (fErr || !existsSync(fallbackPath)) {
+          return reject(fErr || new Error("Falha ao gerar thumbnail"));
+        }
+        resolve(fallbackPath);
+      });
+    });
+  });
+}

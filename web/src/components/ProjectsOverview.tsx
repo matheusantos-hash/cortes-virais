@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getSignedUrlsCached } from "@/lib/signedUrlCache";
 import { deleteProjectAction, cancelJob } from "@/app/actions";
 import type { Project, Job } from "@/lib/types";
 import { isFinal } from "@/lib/format";
@@ -34,19 +35,20 @@ export default function ProjectsOverview({
   const [search, setSearch] = useState("");
   const [urls, setUrls] = useState<Record<string, string>>({});
 
-  // Carregar URLs assinadas das miniaturas dos projetos
+  // Carregar URLs assinadas das miniaturas dos projetos (com cache)
   useEffect(() => {
     const pathsToSign: string[] = [];
     projects.forEach((proj: any) => {
-      // Se o projeto já tiver thumbnail_url personalizada externa ou pública, não precisa assinar
       if (proj.thumbnail_url) return;
 
       const projJobs = proj.jobs || [];
       for (const j of projJobs) {
         if (j.clips && j.clips.length > 0) {
-          const found = j.clips.find((c: any) => Boolean(c.file_path));
-          if (found?.file_path && !urls[found.file_path] && !pathsToSign.includes(found.file_path)) {
-            pathsToSign.push(found.file_path);
+          // Prioriza thumbnail leve se disponível
+          const withThumb = j.clips.find((c: any) => Boolean(c.thumbnail_url));
+          const targetPath = withThumb?.thumbnail_url || j.clips.find((c: any) => Boolean(c.file_path))?.file_path;
+          if (targetPath && !urls[targetPath] && !pathsToSign.includes(targetPath)) {
+            pathsToSign.push(targetPath);
             break;
           }
         }
@@ -55,19 +57,9 @@ export default function ProjectsOverview({
 
     if (pathsToSign.length === 0) return;
 
-    supabase.storage
-      .from("clips")
-      .createSignedUrls(pathsToSign, 3600)
-      .then(({ data }) => {
-        if (!data) return;
-        setUrls((prev) => {
-          const next = { ...prev };
-          data.forEach((d) => {
-            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
-          });
-          return next;
-        });
-      });
+    getSignedUrlsCached(supabase, "clips", pathsToSign).then((signedMap) => {
+      setUrls((prev) => ({ ...prev, ...signedMap }));
+    });
   }, [projects, supabase, urls]);
 
   const refreshData = useCallback(async () => {
@@ -310,16 +302,21 @@ export default function ProjectsOverview({
 
         {/* Lista de Projetos */}
         {filteredProjects.map((proj: any) => {
-          const projJobs = (proj.jobs || []) as { id: string; clips?: { id: string; file_path: string }[] }[];
+          const projJobs = (proj.jobs || []) as { id: string; clips?: { id: string; file_path: string; thumbnail_url?: string | null }[] }[];
           let totalClips = 0;
           let firstClipPath: string | null = null;
           projJobs.forEach((pj) => {
             if (pj.clips && pj.clips.length > 0) {
               totalClips += pj.clips.length;
               if (!firstClipPath) {
-                const found = pj.clips.find((c: any) => Boolean(c.file_path));
-                if (found?.file_path) {
-                  firstClipPath = found.file_path;
+                const withThumb = pj.clips.find((c: any) => Boolean(c.thumbnail_url));
+                if (withThumb?.thumbnail_url) {
+                  firstClipPath = withThumb.thumbnail_url;
+                } else {
+                  const found = pj.clips.find((c: any) => Boolean(c.file_path));
+                  if (found?.file_path) {
+                    firstClipPath = found.file_path;
+                  }
                 }
               }
             }

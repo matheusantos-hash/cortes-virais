@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { CanceledError, downloadVideo, isBoxUrl, probeDuration, probeSource, resolveBoxDirectUrl, trimClip, tryDirectDownload } from "./media.js";
+import { CanceledError, downloadVideo, generateThumbnail, isBoxUrl, probeDuration, probeSource, resolveBoxDirectUrl, trimClip, tryDirectDownload } from "./media.js";
 import { processVideo } from "./pipeline.js";
 import { prepareCustomFont, resolveSystemFont } from "./fonts.js";
 import { generateViralAssSubtitles } from "./subtitles.js";
@@ -335,16 +335,39 @@ async function processJob(job: Job) {
       const newAbsStart = Number(clip.start_seconds) + trimStart;
       const newAbsEnd = Number(clip.start_seconds) + trimEnd;
 
+      // Gera nova miniatura leve para o clipe trimado
+      let trimmedThumbPath: string | null = null;
+      try {
+        const tThumbLocal = path.join(workDir, `trimmed_thumb.webp`);
+        const genThumb = await generateThumbnail(trimmedClipPath, tThumbLocal, 0.5).catch(() => null);
+        if (genThumb && existsSync(genThumb)) {
+          const tExt = path.extname(genThumb).replace(".", "") || "webp";
+          const tPath = `${clip.user_id}/${clip.job_id}/clip-${String(clip.position).padStart(2, "0")}-v${newVersion}-thumb.${tExt}`;
+          const { error: tErr } = await supabase.storage
+            .from("clips")
+            .upload(tPath, await readFile(genThumb), {
+              contentType: tExt === "webp" ? "image/webp" : "image/jpeg",
+              upsert: true,
+            });
+          if (!tErr) trimmedThumbPath = tPath;
+        }
+      } catch {}
+
+      const clipUpdateData: any = {
+        file_path: newStoragePath,
+        version: newVersion,
+        start_seconds: newAbsStart,
+        end_seconds: newAbsEnd,
+        canvas_brolls: activeCanvasBrolls,
+        is_trimming: false,
+      };
+      if (trimmedThumbPath) {
+        clipUpdateData.thumbnail_url = trimmedThumbPath;
+      }
+
       const { error: updateClipErr } = await supabase
         .from("clips")
-        .update({
-          file_path: newStoragePath,
-          version: newVersion,
-          start_seconds: newAbsStart,
-          end_seconds: newAbsEnd,
-          canvas_brolls: activeCanvasBrolls,
-          is_trimming: false,
-        })
+        .update(clipUpdateData)
         .eq("id", clip.id);
 
       if (updateClipErr) {
@@ -732,6 +755,28 @@ async function processJob(job: Job) {
         }
       }
 
+      // Gera miniatura leve (WebP / JPEG ~15KB) para exibição instantânea no frontend
+      let thumbStoragePath: string | null = null;
+      try {
+        const thumbLocalPath = path.join(workDir, `clip-${String(i + 1).padStart(2, "0")}-thumb.webp`);
+        const generatedThumb = await generateThumbnail(files[i], thumbLocalPath, 1.0).catch(() => null);
+        if (generatedThumb && existsSync(generatedThumb)) {
+          const thumbExt = path.extname(generatedThumb).replace(".", "") || "webp";
+          const tPath = `${job.user_id}/${job.id}/clip-${String(i + 1).padStart(2, "0")}-thumb.${thumbExt}`;
+          const { error: thumbErr } = await supabase.storage
+            .from("clips")
+            .upload(tPath, await readFile(generatedThumb), {
+              contentType: thumbExt === "webp" ? "image/webp" : "image/jpeg",
+              upsert: true,
+            });
+          if (!thumbErr) {
+            thumbStoragePath = tPath;
+          }
+        }
+      } catch (tErr) {
+        console.warn(`[${job.id}] Aviso ao gerar thumbnail do clipe ${i + 1}:`, tErr);
+      }
+
       rows.push({
         job_id: job.id,
         user_id: job.user_id,
@@ -744,6 +789,7 @@ async function processJob(job: Job) {
         start_seconds: clip.start,
         end_seconds: clip.end,
         file_path: storagePath,
+        thumbnail_url: thumbStoragePath,
         edit_decisions: clipDecision ?? null,
       });
     }

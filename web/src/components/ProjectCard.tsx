@@ -22,9 +22,7 @@ export default function ProjectCard({
   onDelete,
 }: ProjectCardProps) {
   const [mediaError, setMediaError] = useState(false);
-  const [isFrameReady, setIsFrameReady] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const isVideo = Boolean(
@@ -32,39 +30,7 @@ export default function ProjectCard({
     (thumbnailUrl.includes(".mp4") || thumbnailUrl.includes("/clips/") || thumbnailUrl.includes("video"))
   );
 
-  // Manipulador quando metadados do vídeo carregam: busca o segundo 1.0 para exibir frame nítido com imagem
-  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const vid = e.currentTarget;
-    try {
-      const seekTime = vid.duration > 2 ? 1.0 : Math.max(0.2, (vid.duration || 1) / 2);
-      vid.currentTime = seekTime;
-    } catch {
-      setIsFrameReady(true);
-    }
-  };
 
-  // Quando o seek é concluído, o navegador decodificou o frame
-  const handleSeeked = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    setIsFrameReady(true);
-    const vid = e.currentTarget;
-    try {
-      if (vid.videoWidth && vid.videoHeight && !posterUrl) {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.min(vid.videoWidth, 480);
-        canvas.height = Math.round((canvas.width * vid.videoHeight) / vid.videoWidth);
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-          const data = canvas.toDataURL("image/jpeg", 0.85);
-          if (data && data.startsWith("data:image")) {
-            setPosterUrl(data);
-          }
-        }
-      }
-    } catch {
-      // Ignora se bloqueado por CORS, a tag video renderiza normalmente o frame seekado
-    }
-  };
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -131,42 +97,25 @@ export default function ProjectCard({
             zIndex: 0,
           }}
         >
-          {posterUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={posterUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          ) : (
-            <>
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "14px",
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: project.color_tag || "var(--primary)",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-                }}
-              >
-                <Film size={24} />
-              </div>
-              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                {project.name}
-              </span>
-            </>
-          )}
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "14px",
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: project.color_tag || "var(--primary)",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <Film size={24} />
+          </div>
+          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>
+            {project.name}
+          </span>
         </div>
 
         {/* Camada 2: Vídeo ou Imagem real */}
@@ -175,12 +124,10 @@ export default function ProjectCard({
             <video
               ref={videoRef}
               src={thumbnailUrl}
-              preload="auto"
+              preload="none"
               muted
               playsInline
               loop
-              onLoadedMetadata={handleLoadedMetadata}
-              onSeeked={handleSeeked}
               onError={() => setMediaError(true)}
               style={{
                 position: "absolute",
@@ -190,8 +137,8 @@ export default function ProjectCard({
                 height: "100%",
                 objectFit: "cover",
                 pointerEvents: "none",
-                opacity: isFrameReady || isHovered ? 1 : 0,
-                transition: "opacity 0.35s ease",
+                opacity: isHovered ? 1 : 0,
+                transition: "opacity 0.25s ease",
                 zIndex: 1,
               }}
             />
@@ -200,6 +147,7 @@ export default function ProjectCard({
             <img
               src={thumbnailUrl}
               alt=""
+              loading="lazy"
               onError={() => setMediaError(true)}
               style={{
                 position: "absolute",
@@ -215,7 +163,7 @@ export default function ProjectCard({
         )}
 
         {/* Badge Flutuante de Prévia em Execução (Hover) */}
-        {isHovered && isVideo && isFrameReady && (
+        {isHovered && isVideo && (
           <div
             style={{
               position: "absolute",

@@ -5,10 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { cancelJob, deleteUserClip, requestClipTrimAction, saveClipCanvasBrollsAction } from "@/app/actions";
 import { fmtClock, isFinal, jobTitle } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { getSignedUrlsCached } from "@/lib/signedUrlCache";
 import type { Clip, Job } from "@/lib/types";
 import PowerShellTerminal from "./PowerShellTerminal";
+import dynamic from "next/dynamic";
 import StatusBadge from "./StatusBadge";
-import ClipEditorModal from "./ClipEditorModal";
+const ClipEditorModal = dynamic(() => import("./ClipEditorModal"), { ssr: false });
+import ClipCard from "./ClipCard";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
   DownloadIcon,
@@ -126,23 +129,23 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
     }
   }
 
-  // Links temporários para reproduzir os clipes (bucket privado)
+  // Links temporários para reproduzir os clipes (com cache em memória/sessão)
   useEffect(() => {
-    const paths = clips.map((c) => c.file_path).filter((p): p is string => !!p && !urls[p]);
+    const paths: string[] = [];
+    clips.forEach((c) => {
+      if (c.thumbnail_url && !urls[c.thumbnail_url] && !paths.includes(c.thumbnail_url)) {
+        paths.push(c.thumbnail_url);
+      }
+      if (c.file_path && !urls[c.file_path] && !paths.includes(c.file_path)) {
+        paths.push(c.file_path);
+      }
+    });
+
     if (!paths.length) return;
-    supabase.storage
-      .from("clips")
-      .createSignedUrls(paths, 3600)
-      .then(({ data }) => {
-        if (!data) return;
-        setUrls((prev) => {
-          const next = { ...prev };
-          data.forEach((d) => {
-            if (d.path && d.signedUrl) next[d.path] = d.signedUrl;
-          });
-          return next;
-        });
-      });
+
+    getSignedUrlsCached(supabase, "clips", paths).then((signedMap) => {
+      setUrls((prev) => ({ ...prev, ...signedMap }));
+    });
   }, [clips, supabase, urls]);
 
   // Pausar todos os vídeos em reprodução ao abrir o editor
@@ -338,149 +341,23 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           </div>
 
           <div className="clips-grid">
-            {clips.map((clip) => {
-              const src = clip.file_path ? urls[clip.file_path] : undefined;
-              const durationSec = Math.round(Number(clip.end_seconds) - Number(clip.start_seconds));
-
-              return (
-                <div key={clip.id} className="clip-card">
-                  {src ? (
-                    <CustomVideoPlayer
-                      src={src}
-                      playsInline
-                      aspectRatio={vertical ? "9/16" : "16/9"}
-                      downloadFileName={`${clip.title || "clipe"}.mp4`}
-                      style={{ width: "100%", maxHeight: "480px" }}
-                    />
-                  ) : (
-                    <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>Carregando vídeo…</div>
-                  )}
-
-                  <div className="row" style={{ marginTop: "0.2rem" }}>
-                    <span className="badge-viral">
-                      <TrendingUpIcon size={14} />
-                      {clip.score ?? 95}/100
-                    </span>
-                    <span className="muted small">
-                      {fmtClock(clip.start_seconds)}–{fmtClock(clip.end_seconds)} ({durationSec}s)
-                    </span>
-                    {clip.is_trimming && (
-                      <span
-                        className="badge"
-                        style={{
-                          background: "rgba(245, 158, 11, 0.15)",
-                          color: "#f59e0b",
-                          border: "1px solid rgba(245, 158, 11, 0.3)",
-                          fontSize: "0.75rem",
-                          padding: "0.15rem 0.5rem",
-                          fontWeight: 600,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.3rem",
-                        }}
-                      >
-                        <Clock size={12} /> Re-renderizando corte...
-                      </span>
-                    )}
-                  </div>
-
-                  <h4 style={{ fontSize: "1rem", lineHeight: 1.35, margin: 0, fontWeight: 700 }}>
-                    {clip.position}. {clip.title}
-                  </h4>
-
-                  {clip.hook && (
-                    <p className="clip-hook" title="Gancho inicial forte detectado pela IA">
-                      <strong>Gancho:</strong> &ldquo;{clip.hook}&rdquo;
-                    </p>
-                  )}
-
-                  {clip.reason && (
-                    <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
-                      <strong>Por que viraliza:</strong> {clip.reason}
-                    </p>
-                  )}
-
-                  {clip.visual_context && (
-                    <p style={{ fontSize: "0.8rem", color: "var(--primary)", margin: 0, lineHeight: 1.35, display: "flex", alignItems: "flex-start", gap: "0.35rem" }}>
-                      <SparklesIcon size={13} style={{ flexShrink: 0, marginTop: "0.15rem" }} />
-                      <span><strong>Impacto visual:</strong> {clip.visual_context}</span>
-                    </p>
-                  )}
-
-                  <div style={{ display: "flex", gap: "0.4rem", marginTop: "auto", flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ flex: 1, minWidth: "90px", padding: "0.55rem 0.4rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}
-                      onClick={() => handleOpenEditor(clip)}
-                      title="Ajustar tempo de corte no CapCut Studio e criar capa personalizada"
-                    >
-                      <Pencil size={13} /> Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{
-                        padding: "0.55rem 0.5rem",
-                        fontSize: "0.82rem",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.25rem",
-                        border: "1px solid rgba(0, 240, 255, 0.4)",
-                        color: "var(--accent-cyan, #00F0FF)",
-                      }}
-                      onClick={() => {
-                        const clipData = {
-                          id: clip.id,
-                          title: clip.title,
-                          path: clip.file_path,
-                          url: clip.file_path ? urls[clip.file_path] : undefined,
-                          position: clip.position,
-                          orientation: job.orientation,
-                          verticalMode: job.vertical_mode,
-                        };
-                        try {
-                          sessionStorage.setItem("clone_source_clip", JSON.stringify(clipData));
-                        } catch {}
-                        window.location.href = "/?mode=copiar_estilo&fromClip=1";
-                      }}
-                      title="Enviar este corte para o Clone Studio (aplicar estilo e ritmo de referência com IA)"
-                    >
-                      <SparklesIcon size={13} /> Clonar
-                    </button>
-                    <a
-                      href={`/api/jobs/${job.id}/export?format=srt&clipId=${clip.id}`}
-                      download
-                      className="btn btn-secondary"
-                      style={{ padding: "0.55rem 0.5rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                      title="Baixar legenda SRT sincronizada deste clipe específico"
-                    >
-                      <Subtitles size={13} /> SRT
-                    </a>
-                    <button
-                      type="button"
-                      className="btn-cta"
-                      style={{ flex: 1, minWidth: "90px", padding: "0.55rem 0.4rem", fontSize: "0.82rem" }}
-                      onClick={() => download(clip)}
-                      disabled={downloading === clip.id}
-                    >
-                      <DownloadIcon size={15} />
-                      <span>{downloading === clip.id ? "…" : "Baixar"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: "0.55rem 0.6rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--danger)" }}
-                      onClick={() => handleDeleteClip(clip.id)}
-                      disabled={deletingClipId === clip.id}
-                      title="Excluir este corte permanentemente"
-                    >
-                      <TrashIcon size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {clips.map((clip) => (
+              <ClipCard
+                key={clip.id}
+                clip={clip}
+                videoSrc={clip.file_path ? urls[clip.file_path] : undefined}
+                posterSrc={clip.thumbnail_url ? urls[clip.thumbnail_url] : undefined}
+                vertical={vertical}
+                jobId={job.id}
+                orientation={job.orientation}
+                verticalMode={job.vertical_mode}
+                onEdit={handleOpenEditor}
+                onDownload={download}
+                onDelete={handleDeleteClip}
+                isDownloading={downloading === clip.id}
+                isDeleting={deletingClipId === clip.id}
+              />
+            ))}
           </div>
         </section>
       )}

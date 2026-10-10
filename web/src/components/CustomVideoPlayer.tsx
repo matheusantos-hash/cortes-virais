@@ -28,6 +28,7 @@ export interface CustomVideoPlayerProps {
   style?: React.CSSProperties;
   aspectRatio?: string;
   downloadFileName?: string;
+  preload?: "auto" | "metadata" | "none";
   onLoadedMetadata?: (e: React.SyntheticEvent<HTMLVideoElement>) => void;
   onEnded?: () => void;
 }
@@ -45,6 +46,7 @@ export default function CustomVideoPlayer({
   style = {},
   aspectRatio,
   downloadFileName = "clipe.mp4",
+  preload,
   onLoadedMetadata,
   onEnded,
 }: CustomVideoPlayerProps) {
@@ -371,6 +373,7 @@ export default function CustomVideoPlayer({
         ref={videoRef}
         src={src}
         poster={poster}
+        preload={preload || (poster ? "none" : "metadata")}
         autoPlay={autoPlay}
         playsInline={playsInline}
         loop={isLooping}
