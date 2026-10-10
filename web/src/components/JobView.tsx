@@ -144,6 +144,29 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       });
   }, [clips, supabase, urls]);
 
+  // Pausar todos os vídeos em reprodução ao abrir o editor
+  const handleOpenEditor = (clip: Clip) => {
+    document.querySelectorAll("video").forEach((v) => {
+      try {
+        v.pause();
+      } catch {}
+    });
+    setEditingClip(clip);
+  };
+
+  // Garante que nenhum vídeo de preview continue tocando enquanto o modal estiver aberto
+  useEffect(() => {
+    if (editingClip) {
+      document.querySelectorAll("video").forEach((v) => {
+        if (!v.closest(".clip-editor-modal") && !v.closest("[data-editor-modal]")) {
+          try {
+            v.pause();
+          } catch {}
+        }
+      });
+    }
+  }, [editingClip]);
+
   async function download(clip: Clip) {
     if (!clip.file_path) return;
     setDownloading(clip.id);
@@ -381,7 +404,7 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                       type="button"
                       className="btn btn-secondary"
                       style={{ flex: 1, minWidth: "90px", padding: "0.55rem 0.4rem", fontSize: "0.82rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}
-                      onClick={() => setEditingClip(clip)}
+                      onClick={() => handleOpenEditor(clip)}
                       title="Ajustar tempo de corte no CapCut Studio e criar capa personalizada"
                     >
                       <Pencil size={13} /> Editar
@@ -461,6 +484,11 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
           userId={job.user_id}
           projectId={job.project_id || undefined}
+          initialAspectRatio={
+            editingClip.edit_decisions?.orientation === "horizontal" || job.orientation === "horizontal"
+              ? "16:9"
+              : "9:16"
+          }
           onClose={() => setEditingClip(null)}
           onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls, adjustments) => {
             const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls, adjustments);

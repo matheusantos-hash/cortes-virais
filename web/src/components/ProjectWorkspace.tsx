@@ -58,6 +58,32 @@ export default function ProjectWorkspace({
   // URLs assinadas dos clipes para streaming seguro
   const [urls, setUrls] = useState<Record<string, string>>({});
 
+  // Cache de aspect ratio detectado dos vídeos dos clipes
+  const [clipAspectMap, setClipAspectMap] = useState<Record<string, "16:9" | "9:16">>({});
+
+  // Pausar todos os players de vídeo ao abrir o editor
+  const handleOpenEditor = (clip: Clip) => {
+    document.querySelectorAll("video").forEach((v) => {
+      try {
+        v.pause();
+      } catch {}
+    });
+    setEditingClip(clip);
+  };
+
+  // Garante que nenhum vídeo de preview continue tocando enquanto o modal estiver aberto
+  useEffect(() => {
+    if (editingClip) {
+      document.querySelectorAll("video").forEach((v) => {
+        if (!v.closest(".clip-editor-modal") && !v.closest("[data-editor-modal]")) {
+          try {
+            v.pause();
+          } catch {}
+        }
+      });
+    }
+  }, [editingClip]);
+
   const refreshProjectData = useCallback(async () => {
     // 1. Atualizar projeto
     const { data: p } = await supabase.from("projects").select("*").eq("id", project.id).single();
@@ -330,6 +356,11 @@ export default function ProjectWorkspace({
               {clips.map((clip) => {
                 const videoUrl = clip.file_path ? urls[clip.file_path] : undefined;
                 const duration = Math.max(1, Math.round(Number(clip.end_seconds) - Number(clip.start_seconds)));
+                const clipJob = jobs.find((j) => j.id === clip.job_id);
+                const isHorizontal =
+                  clipAspectMap[clip.id] === "16:9" ||
+                  (!clipAspectMap[clip.id] &&
+                    (clip.edit_decisions?.orientation === "horizontal" || clipJob?.orientation === "horizontal"));
 
                 return (
                   <div
@@ -345,13 +376,34 @@ export default function ProjectWorkspace({
                     }}
                   >
                     {/* Player de Prévia */}
-                    <div style={{ position: "relative", width: "100%", background: "#000", aspectRatio: "9/16", maxHeight: "420px" }}>
+                    <div
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        background: "#000",
+                        aspectRatio: isHorizontal ? "16/9" : "9/16",
+                        maxHeight: isHorizontal ? "260px" : "420px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
                       {videoUrl ? (
                         <video
                           src={videoUrl}
                           controls
                           playsInline
                           preload="metadata"
+                          onLoadedMetadata={(e) => {
+                            const v = e.currentTarget;
+                            if (v.videoWidth && v.videoHeight) {
+                              if (v.videoWidth > v.videoHeight * 1.15) {
+                                setClipAspectMap((prev) => (prev[clip.id] === "16:9" ? prev : { ...prev, [clip.id]: "16:9" }));
+                              } else if (v.videoHeight > v.videoWidth * 1.15) {
+                                setClipAspectMap((prev) => (prev[clip.id] === "9:16" ? prev : { ...prev, [clip.id]: "9:16" }));
+                              }
+                            }
+                          }}
                           style={{ width: "100%", height: "100%", objectFit: "contain" }}
                         />
                       ) : (
@@ -425,7 +477,7 @@ export default function ProjectWorkspace({
                         <button
                           type="button"
                           className="btn btn-secondary btn-small"
-                          onClick={() => setEditingClip(clip)}
+                          onClick={() => handleOpenEditor(clip)}
                           style={{ flex: 1, justifyContent: "center", fontSize: "0.76rem" }}
                         >
                           <Scissors size={13} style={{ marginRight: "4px" }} />
@@ -523,6 +575,13 @@ export default function ProjectWorkspace({
           videoSrc={editingClip.file_path ? urls[editingClip.file_path] : undefined}
           userId={userId}
           projectId={project.id}
+          initialAspectRatio={
+            clipAspectMap[editingClip.id] ||
+            (editingClip.edit_decisions?.orientation === "horizontal" ||
+            jobs.find((j) => j.id === editingClip.job_id)?.orientation === "horizontal"
+              ? "16:9"
+              : "9:16")
+          }
           onClose={() => setEditingClip(null)}
           onUpdateClipTime={async (clipId, trimStart, trimEnd, canvasBrolls, adjustments) => {
             const res = await requestClipTrimAction(clipId, trimStart, trimEnd, canvasBrolls, adjustments);

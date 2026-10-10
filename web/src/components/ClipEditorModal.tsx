@@ -48,6 +48,8 @@ interface ClipEditorModalProps {
   videoSrc?: string;
   userId?: string;
   projectId?: string;
+  initialAspectRatio?: "9:16" | "1:1" | "16:9";
+  initialOrientation?: "vertical" | "horizontal";
   onClose: () => void;
   onUpdateClipTime?: (
     clipId: string,
@@ -77,6 +79,8 @@ export default function ClipEditorModal({
   videoSrc,
   userId,
   projectId,
+  initialAspectRatio,
+  initialOrientation,
   onClose,
   onUpdateClipTime,
   onSaveCanvasBrolls,
@@ -94,8 +98,45 @@ export default function ClipEditorModal({
   const [isSavingTrim, setIsSavingTrim] = useState(false);
   const [isSavingBrolls, setIsSavingBrolls] = useState(false);
 
+  // Determinação inteligente de aspecto inicial (16:9 para vídeos horizontais, 9:16 para verticais)
+  const userChangedAspectRef = useRef(false);
+
+  const determineInitialAspectRatio = (): "9:16" | "1:1" | "16:9" => {
+    if (initialAspectRatio) return initialAspectRatio;
+    if (initialOrientation === "horizontal") return "16:9";
+    if (initialOrientation === "vertical") return "9:16";
+    if (clip.edit_decisions?.orientation === "horizontal") return "16:9";
+    if (clip.edit_decisions?.orientation === "vertical") return "9:16";
+    return "9:16";
+  };
+
   // Estados de Formato, Enquadramento e Legendas
-  const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">("9:16");
+  const [aspectRatio, setAspectRatio] = useState<"9:16" | "1:1" | "16:9">(determineInitialAspectRatio);
+
+  // Ao abrir o editor, pausa qualquer vídeo em reprodução no fundo da página
+  useEffect(() => {
+    document.querySelectorAll("video").forEach((v) => {
+      if (v !== videoRef.current) {
+        try {
+          v.pause();
+        } catch {}
+      }
+    });
+  }, []);
+
+  // Detecta proporção real do arquivo quando o vídeo carregar os metadados (se o usuário ainda não alterou manualmente)
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const vid = e.currentTarget;
+    if (!userChangedAspectRef.current && vid.videoWidth && vid.videoHeight) {
+      if (vid.videoWidth > vid.videoHeight * 1.15) {
+        setAspectRatio("16:9");
+      } else if (vid.videoHeight > vid.videoWidth * 1.15) {
+        setAspectRatio("9:16");
+      } else if (Math.abs(vid.videoWidth - vid.videoHeight) / Math.max(vid.videoWidth, vid.videoHeight) < 0.15) {
+        setAspectRatio("1:1");
+      }
+    }
+  };
   const [verticalMode, setVerticalMode] = useState<VerticalMode>("crop");
   const [cropX, setCropX] = useState<number>(0.5); // 0.0 (esquerda) a 1.0 (direita), 0.5 (centro)
   const [subtitleStyle, setSubtitleStyle] = useState<SubtitleStyle>("hormozi");
@@ -732,21 +773,26 @@ export default function ClipEditorModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    canvas.width = 1080;
-    canvas.height = 1920;
+    const isWidescreen = aspectRatio === "16:9";
+    const isSquare = aspectRatio === "1:1";
+    const targetW = isWidescreen ? 1920 : 1080;
+    const targetH = isWidescreen ? 1080 : isSquare ? 1080 : 1920;
 
-    ctx.drawImage(video, 0, 0, 1080, 1920);
+    canvas.width = targetW;
+    canvas.height = targetH;
 
-    const grad = ctx.createLinearGradient(0, 0, 0, 1920);
+    ctx.drawImage(video, 0, 0, targetW, targetH);
+
+    const grad = ctx.createLinearGradient(0, 0, 0, targetH);
     grad.addColorStop(0, "rgba(0, 0, 0, 0.65)");
     grad.addColorStop(0.25, "rgba(0, 0, 0, 0)");
     grad.addColorStop(0.65, "rgba(0, 0, 0, 0)");
     grad.addColorStop(1, "rgba(0, 0, 0, 0.85)");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1080, 1920);
+    ctx.fillRect(0, 0, targetW, targetH);
 
     const text = thumbTitle.toUpperCase();
-    ctx.font = "900 68px Arial, sans-serif";
+    ctx.font = isWidescreen ? "900 58px Arial, sans-serif" : "900 68px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -764,7 +810,7 @@ export default function ClipEditorModal({
 
     for (const w of words) {
       const testLine = currentLine ? `${currentLine} ${w}` : w;
-      if (testLine.length > 22) {
+      if (testLine.length > (isWidescreen ? 36 : 22)) {
         lines.push(currentLine);
         currentLine = w;
       } else {
@@ -773,22 +819,23 @@ export default function ClipEditorModal({
     }
     if (currentLine) lines.push(currentLine);
 
-    const startY = 320;
+    const centerX = targetW / 2;
+    const startY = isWidescreen ? 240 : 320;
     lines.forEach((line, idx) => {
       const y = startY + idx * 82;
-      ctx.strokeText(line, 540, y);
+      ctx.strokeText(line, centerX, y);
       ctx.fillStyle = fillHex;
-      ctx.fillText(line, 540, y);
+      ctx.fillText(line, centerX, y);
     });
 
     ctx.fillStyle = "#6366F1";
     ctx.beginPath();
-    ctx.roundRect(400, 168, 280, 56, 28);
+    ctx.roundRect(centerX - 140, isWidescreen ? 110 : 168, 280, 56, 28);
     ctx.fill();
 
     ctx.font = "800 24px Arial, sans-serif";
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText("★ TOP VIRAL", 540, 204);
+    ctx.fillText("★ TOP VIRAL", centerX, isWidescreen ? 138 : 204);
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
     setCapturedThumbUrl(dataUrl);
@@ -821,6 +868,8 @@ export default function ClipEditorModal({
 
   return (
     <div
+      data-editor-modal="true"
+      className="clip-editor-modal"
       style={{
         position: "fixed",
         inset: 0,
@@ -1676,6 +1725,7 @@ export default function ClipEditorModal({
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   <div
                     onClick={() => {
+                      userChangedAspectRef.current = true;
                       recordHistory({ aspectRatio: "9:16" });
                       setAspectRatio("9:16");
                     }}
@@ -1699,6 +1749,7 @@ export default function ClipEditorModal({
 
                   <div
                     onClick={() => {
+                      userChangedAspectRef.current = true;
                       recordHistory({ aspectRatio: "1:1" });
                       setAspectRatio("1:1");
                     }}
@@ -1722,6 +1773,7 @@ export default function ClipEditorModal({
 
                   <div
                     onClick={() => {
+                      userChangedAspectRef.current = true;
                       recordHistory({ aspectRatio: "16:9" });
                       setAspectRatio("16:9");
                     }}
@@ -2383,9 +2435,16 @@ export default function ClipEditorModal({
         <main className="flex-1 min-w-0 relative flex flex-col items-center justify-center p-3 bg-[#090B10] overflow-hidden min-h-0">
           {/* Container do Player Responsivo (9:16, 1:1, 16:9) que ocupa a altura útil */}
           <div
-            className={`relative h-full max-h-[calc(100%-48px)] bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center transition-all duration-300 ${
-              aspectRatio === "9:16" ? "aspect-[9/16]" : aspectRatio === "1:1" ? "aspect-square" : "aspect-video max-w-full"
+            className={`relative bg-black rounded-xl overflow-hidden border border-[#202534] shadow-2xl flex items-center justify-center transition-all duration-300 ${
+              aspectRatio === "9:16"
+                ? "h-full max-h-[calc(100%-48px)] aspect-[9/16] w-auto max-w-full"
+                : aspectRatio === "1:1"
+                ? "h-full max-h-[calc(100%-48px)] aspect-square w-auto max-w-full"
+                : "w-full max-w-full h-auto max-h-[calc(100%-48px)] aspect-video"
             }`}
+            style={{
+              aspectRatio: aspectRatio === "9:16" ? "9 / 16" : aspectRatio === "1:1" ? "1 / 1" : "16 / 9",
+            }}
           >
             {videoSrc ? (
               <>
@@ -2403,16 +2462,21 @@ export default function ClipEditorModal({
                   ref={videoRef}
                   src={videoSrc}
                   playsInline
+                  onLoadedMetadata={handleLoadedMetadata}
                   onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   onEnded={() => setIsPlaying(false)}
                   onClick={togglePlay}
                   style={{
-                    objectPosition: `${cropX * 100}% 50%`,
+                    objectPosition: aspectRatio === "9:16" ? `${cropX * 100}% 50%` : "50% 50%",
                   }}
                   className={`w-full h-full relative z-10 cursor-pointer ${
-                    aspectRatio === "9:16" && verticalMode === "blur" ? "object-contain" : "object-cover"
+                    aspectRatio === "16:9"
+                      ? "object-contain"
+                      : aspectRatio === "9:16" && verticalMode === "blur"
+                      ? "object-contain"
+                      : "object-cover"
                   }`}
                 />
 
@@ -2435,6 +2499,8 @@ export default function ClipEditorModal({
                           ? "48%"
                           : subtitlePosition === "center-bottom"
                           ? "28%"
+                          : aspectRatio === "16:9"
+                          ? "8%"
                           : "14%",
                     }}
                   >
@@ -2486,8 +2552,8 @@ export default function ClipEditorModal({
                   </div>
                 )}
 
-                {/* OVERLAY DE SAFE ZONES DISCRETAS (TIKTOK / REELS / SHORTS) */}
-                {showSafeZones && (
+                {/* OVERLAY DE SAFE ZONES DISCRETAS (APENAS EM MODO 9:16 VERTICAL - TIKTOK / REELS / SHORTS) */}
+                {showSafeZones && aspectRatio === "9:16" && (
                   <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 z-20">
                     {/* Top Bar Safe Margin Discreta */}
                     <div className="h-10 border-b border-dashed border-white/20 flex items-center justify-center">
