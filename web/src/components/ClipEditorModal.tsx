@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { Clip, CanvasBroll, CanvasBrollTemplate, SubtitleStyle, VerticalMode } from "@/lib/types";
 import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
-import CanvasBrollOverlay from "./CanvasBrollOverlay";
+import CanvasBrollOverlay, { BrollPreviewCanvas } from "./CanvasBrollOverlay";
 import { detectBrollTriggers, type BrollTriggerSuggestion } from "@/lib/detectBrollTriggers";
 import CloneStudioModal from "./CloneStudioModal";
 import {
   DownloadIcon,
   SparklesIcon,
   XIcon,
+  Info,
   Film,
   Scissors,
   Camera,
@@ -406,6 +407,9 @@ export default function ClipEditorModal({
   const suggestions = useMemo<BrollTriggerSuggestion[]>(() => {
     return detectBrollTriggers(clip.edit_decisions?.words, clip.start_seconds, clip.end_seconds);
   }, [clip.edit_decisions?.words, clip.start_seconds, clip.end_seconds]);
+
+  // Modal explicativo e prévia de sugestão selecionada
+  const [previewSuggestion, setPreviewSuggestion] = useState<BrollTriggerSuggestion | null>(null);
 
   // Sincroniza tempo atual do player
   const handleTimeUpdate = () => {
@@ -1285,21 +1289,76 @@ export default function ClipEditorModal({
                         return (
                           <div
                             key={idx}
-                            className="flex justify-between items-center bg-[#0E1017] p-2 rounded border border-[#212634] text-xs"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "8px",
+                              background: "#0E1017",
+                              padding: "6px 8px",
+                              borderRadius: "8px",
+                              border: "1px solid #212634",
+                            }}
                           >
-                            <div className="overflow-hidden text-ellipsis whitespace-nowrap max-w-[170px]">
-                              <strong className="text-cyan-400 font-mono">{s.offsetSec}s</strong>: {s.suggestedTitle}
+                            <div style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.74rem" }}>
+                              <strong style={{ color: "#22D3EE", fontFamily: "monospace", marginRight: "4px" }}>{s.offsetSec}s</strong>
+                              <span style={{ color: "#E2E8F0" }} title={s.suggestedTitle}>{s.suggestedTitle}</span>
                             </div>
-                            <button
-                              type="button"
-                              disabled={isAdded}
-                              onClick={() => addFromSuggestion(s)}
-                              className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-colors ${
-                                isAdded ? "bg-gray-800 text-gray-500 cursor-default" : "bg-indigo-600 hover:bg-indigo-500 text-white"
-                              }`}
-                            >
-                              {isAdded ? "Ativo" : "+ Add"}
-                            </button>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
+                              {/* Botão "i" para abrir modal com detalhes e prévia animada */}
+                              <button
+                                type="button"
+                                onClick={() => setPreviewSuggestion(s)}
+                                title="Ver explicação e prévia deste elemento"
+                                style={{
+                                  padding: 0,
+                                  width: "22px",
+                                  height: "22px",
+                                  minWidth: "22px",
+                                  minHeight: "22px",
+                                  borderRadius: "6px",
+                                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                                  background: "rgba(255, 255, 255, 0.08)",
+                                  color: "#38BDF8",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  transition: "all 0.15s",
+                                }}
+                                className="hover:border-cyan-400 hover:bg-cyan-500/20 active:scale-95"
+                              >
+                                <Info size={12} />
+                              </button>
+
+                              {/* Botão compacto Add */}
+                              <button
+                                type="button"
+                                disabled={isAdded}
+                                onClick={() => addFromSuggestion(s)}
+                                title={isAdded ? "Elemento já adicionado à timeline" : "Adicionar elemento à timeline"}
+                                style={{
+                                  padding: "0 8px",
+                                  height: "22px",
+                                  minHeight: "22px",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  borderRadius: "6px",
+                                  border: "none",
+                                  cursor: isAdded ? "default" : "pointer",
+                                  background: isAdded ? "#1E293B" : "var(--primary, #4F46E5)",
+                                  color: isAdded ? "#64748B" : "#FFFFFF",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  transition: "all 0.15s",
+                                }}
+                                className={isAdded ? "" : "hover:brightness-110 active:scale-95"}
+                              >
+                                {isAdded ? "Ativo" : "+ Add"}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -3355,6 +3414,318 @@ export default function ClipEditorModal({
             setIsCloneModalOpen(false);
           }}
         />
+      )}
+
+      {/* Modal Explicativo e Prévia do Elemento da Sugestão da IA */}
+      {previewSuggestion && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.78)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 99999,
+            padding: "16px",
+          }}
+          onClick={() => setPreviewSuggestion(null)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "560px",
+              background: "#12151D",
+              border: "1px solid #2B3042",
+              borderRadius: "16px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8)",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderBottom: "1px solid #222634",
+                background: "rgba(255, 255, 255, 0.02)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "8px",
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "#F59E0B",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Lightbulb size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "0.98rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    Sugestão de Retenção da IA
+                  </h3>
+                  <span style={{ fontSize: "0.74rem", color: "#94A3B8" }}>
+                    Segundo <strong style={{ color: "#22D3EE", fontFamily: "monospace" }}>{previewSuggestion.offsetSec}s</strong> do corte
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPreviewSuggestion(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#94A3B8",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                className="hover:text-white hover:bg-white/10"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Conteúdo: Prévia Visual do Elemento + Explicação Detalhada */}
+            <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* Card com o Elemento Animado em Tempo Real */}
+              <div
+                style={{
+                  borderRadius: "12px",
+                  background: "radial-gradient(ellipse at top, #1A2030 0%, #080A10 100%)",
+                  border: "1px solid #252B3D",
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#38BDF8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Prévia do Elemento em Motion (1080x1920)
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.68rem",
+                      padding: "2px 8px",
+                      borderRadius: "999px",
+                      background: "rgba(16, 185, 129, 0.15)",
+                      color: "#10B981",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ● Animando ao vivo
+                  </span>
+                </div>
+
+                {/* Container Vertical 9:16 Simulado */}
+                <div
+                  style={{
+                    width: "160px",
+                    height: "250px",
+                    borderRadius: "14px",
+                    overflow: "hidden",
+                    position: "relative",
+                    background: "#05070B",
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {/* Safe zone guide */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: "8px",
+                      border: "1px dashed rgba(255,255,255,0.08)",
+                      borderRadius: "8px",
+                      pointerEvents: "none",
+                    }}
+                  />
+
+                  {/* Canvas do Elemento renderizado ao vivo */}
+                  <BrollPreviewCanvas
+                    broll={{
+                      id: "preview-modal-" + previewSuggestion.template,
+                      offsetSec: 0,
+                      durationSec: previewSuggestion.durationSec || 3.0,
+                      template: previewSuggestion.template,
+                      data: {
+                        title: previewSuggestion.suggestedTitle,
+                        value: previewSuggestion.suggestedValue,
+                        subtitle: previewSuggestion.suggestedSubtitle,
+                        color: previewSuggestion.suggestedColor,
+                        positionY: "top",
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Informações e Explicação de Retenção */}
+              <div
+                style={{
+                  background: "#161922",
+                  border: "1px solid #232736",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {/* Gatilho de fala identificado */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <div
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      background: "rgba(56, 189, 248, 0.15)",
+                      color: "#38BDF8",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      fontFamily: "monospace",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Gatilho na Fala
+                  </div>
+                  <div style={{ fontSize: "0.82rem", color: "#E2E8F0", lineHeight: 1.4 }}>
+                    A IA identificou o termo <strong style={{ color: "#FFE600" }}>&ldquo;{previewSuggestion.word}&rdquo;</strong> aos{" "}
+                    <strong>{previewSuggestion.offsetSec}s</strong> do clipe.
+                  </div>
+                </div>
+
+                {/* Por que a IA sugeriu */}
+                <div style={{ fontSize: "0.8rem", color: "#94A3B8", lineHeight: 1.45, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
+                  <strong style={{ color: "#F1F5F9" }}>Objetivo de Retenção: </strong>
+                  {previewSuggestion.template === "metric_counter" &&
+                    "Números falados sem apoio visual geram dispersão. Este contador progressivo ancora a atenção e comprova o resultado informado."}
+                  {previewSuggestion.template === "growth_chart" &&
+                    "Momentos de escalada e evolução causam pico de dopamina quando acompanhados de uma curva ascendente em neon."}
+                  {previewSuggestion.template === "glass_alert" &&
+                    "O alerta glassmorphism cria um choque visual de alta relevância, garantindo que o espectador não perca o aviso crucial."}
+                  {previewSuggestion.template === "viral_tag" &&
+                    "Tags chanfradas marcam o conceito principal do corte e incentivam salvamentos para consulta posterior."}
+                </div>
+
+                {/* Configurações do Elemento */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "6px 12px",
+                    background: "rgba(0,0,0,0.25)",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    fontSize: "0.74rem",
+                  }}
+                >
+                  <div>
+                    <span style={{ color: "#64748B" }}>Template: </span>
+                    <strong style={{ color: "#FFF" }}>{previewSuggestion.template}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748B" }}>Duração: </span>
+                    <strong style={{ color: "#FFF" }}>{previewSuggestion.durationSec}s</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748B" }}>Título: </span>
+                    <strong style={{ color: "#FFF" }}>{previewSuggestion.suggestedTitle}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748B" }}>Destaque: </span>
+                    <strong style={{ color: "#22D3EE" }}>{previewSuggestion.suggestedValue}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé com botões de ação */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "10px",
+                padding: "12px 20px",
+                borderTop: "1px solid #222634",
+                background: "rgba(0,0,0,0.2)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewSuggestion(null)}
+                style={{
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: "8px",
+                  border: "1px solid #33394D",
+                  background: "transparent",
+                  color: "#94A3B8",
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+                className="hover:text-white hover:bg-white/5"
+              >
+                Fechar
+              </button>
+
+              {(() => {
+                const isAdded = canvasBrolls.some((b) => Math.abs(b.offsetSec - previewSuggestion.offsetSec) < 0.5);
+                return (
+                  <button
+                    type="button"
+                    disabled={isAdded}
+                    onClick={() => {
+                      addFromSuggestion(previewSuggestion);
+                      setPreviewSuggestion(null);
+                    }}
+                    style={{
+                      padding: "0.45rem 1.1rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: isAdded ? "#1E293B" : "var(--primary, #4F46E5)",
+                      color: isAdded ? "#64748B" : "#FFFFFF",
+                      cursor: isAdded ? "default" : "pointer",
+                      fontSize: "0.8rem",
+                      fontWeight: 700,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                    className={isAdded ? "" : "hover:brightness-110 active:scale-95"}
+                  >
+                    {isAdded ? "Já Adicionado" : "+ Adicionar ao Vídeo"}
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

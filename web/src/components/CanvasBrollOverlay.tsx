@@ -346,3 +346,57 @@ function drawViralTag(
   ctx.textBaseline = "middle";
   ctx.fillText(text, W / 2, centerY);
 }
+
+/** Componente de prévia isolada e animada de um elemento B-Roll */
+export function BrollPreviewCanvas({
+  broll,
+  className,
+  style,
+}: {
+  broll: CanvasBroll;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const W = 1080;
+    const H = 1920;
+    canvas.width = W;
+    canvas.height = H;
+
+    let animFrame: number;
+    const start = performance.now();
+    const durationMs = Math.max(1.5, broll.durationSec || 3.0) * 1000;
+
+    const render = (now: number) => {
+      const elapsed = (now - start) % durationMs;
+      const progress = elapsed / durationMs;
+      ctx.clearRect(0, 0, W, H);
+      drawTemplate(ctx, broll, progress, W, H);
+      animFrame = requestAnimationFrame(render);
+    };
+
+    animFrame = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animFrame);
+  }, [broll]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={className}
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "block",
+        objectFit: "contain",
+        ...style,
+      }}
+    />
+  );
+}
