@@ -21,6 +21,7 @@ import {
   ZapIcon,
 } from "@/components/Icons";
 import { HardDrive } from "lucide-react";
+import CustomVideoPlayer from "@/components/CustomVideoPlayer";
 
 interface Props {
   clips: Clip[];
@@ -632,12 +633,12 @@ export default function ClipsTab({ clips, users, jobs }: Props) {
                 </div>
               ) : previewUrl ? (
                 <div style={{ borderRadius: 12, overflow: "hidden", background: "#000" }}>
-                  <video
+                  <CustomVideoPlayer
                     src={previewUrl}
-                    controls
                     autoPlay
                     playsInline
-                    style={{ width: "100%", maxHeight: "65vh", display: "block" }}
+                    downloadFileName={`${previewClip.title || "clipe"}.mp4`}
+                    style={{ width: "100%", maxHeight: "65vh" }}
                   />
                 </div>
               ) : (

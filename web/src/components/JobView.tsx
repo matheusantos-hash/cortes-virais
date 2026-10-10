@@ -9,6 +9,7 @@ import type { Clip, Job } from "@/lib/types";
 import PowerShellTerminal from "./PowerShellTerminal";
 import StatusBadge from "./StatusBadge";
 import ClipEditorModal from "./ClipEditorModal";
+import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
   DownloadIcon,
   TrashIcon,
@@ -344,7 +345,13 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
               return (
                 <div key={clip.id} className="clip-card">
                   {src ? (
-                    <video src={src} controls preload="metadata" className={vertical ? "vid vertical" : "vid"} />
+                    <CustomVideoPlayer
+                      src={src}
+                      playsInline
+                      aspectRatio={vertical ? "9/16" : "16/9"}
+                      downloadFileName={`${clip.title || "clipe"}.mp4`}
+                      style={{ width: "100%", maxHeight: "480px" }}
+                    />
                   ) : (
                     <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>Carregando vídeo…</div>
                   )}

@@ -12,6 +12,7 @@ import ModeSelectorCards, { DashboardMode } from "./ModeSelectorCards";
 import StatusBadge from "./StatusBadge";
 import ProjectCard from "./ProjectCard";
 import CreateProjectModal from "./CreateProjectModal";
+import CustomVideoPlayer from "./CustomVideoPlayer";
 import JobProgressCard, { getStageDescription } from "./JobProgressCard";
 import {
   DownloadIcon,
@@ -592,13 +593,14 @@ export default function Dashboard({
 
                         return (
                           <div key={clip.id} className="clip-card">
-                            {/* Player HTML5 */}
+                            {/* Player Estilizado */}
                             {videoSrc ? (
-                              <video
+                              <CustomVideoPlayer
                                 src={videoSrc}
-                                controls
-                                preload="metadata"
-                                className={vertical ? "vid vertical" : "vid"}
+                                playsInline
+                                aspectRatio={vertical ? "9/16" : "16/9"}
+                                downloadFileName={`${clip.title || "clipe"}.mp4`}
+                                style={{ width: "100%", maxHeight: "480px" }}
                               />
                             ) : (
                               <div className={vertical ? "vid vertical placeholder" : "vid placeholder"}>

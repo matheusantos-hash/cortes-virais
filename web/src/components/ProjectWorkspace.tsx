@@ -11,6 +11,7 @@ import StatusBadge from "./StatusBadge";
 import NewJobForm from "./NewJobForm";
 import CopyStyleStudio from "./CopyStyleStudio";
 import JobProgressCard from "./JobProgressCard";
+import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
   ArrowLeft,
   Film,
@@ -389,11 +390,9 @@ export default function ProjectWorkspace({
                       }}
                     >
                       {videoUrl ? (
-                        <video
+                        <CustomVideoPlayer
                           src={videoUrl}
-                          controls
                           playsInline
-                          preload="metadata"
                           onLoadedMetadata={(e) => {
                             const v = e.currentTarget;
                             if (v.videoWidth && v.videoHeight) {
@@ -404,7 +403,8 @@ export default function ProjectWorkspace({
                               }
                             }
                           }}
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                          downloadFileName={`${clip.title || "clipe"}.mp4`}
+                          style={{ width: "100%", height: "100%" }}
                         />
                       ) : (
                         <div
