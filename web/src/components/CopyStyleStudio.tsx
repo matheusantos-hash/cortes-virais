@@ -1339,23 +1339,47 @@ export default function CopyStyleStudio({
           : undefined
       }
     >
-      <div className="studio-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div className="studio-header-icon">
-            <Copy size={24} />
+      <div
+        className="studio-header"
+        style={
+          isModal
+            ? {
+                position: "sticky",
+                top: 0,
+                zIndex: 20,
+                background: "var(--card-bg, #FFFFFF)",
+                paddingTop: "0.25rem",
+                paddingBottom: "1rem",
+                marginBottom: "0.75rem",
+              }
+            : undefined
+        }
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+          <div className="studio-header-icon" style={{ flexShrink: 0 }}>
+            <Sparkles size={22} />
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <h2 style={{ fontSize: "1.25rem", margin: 0 }}>Clone Studio &amp; Copiar Edição</h2>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0, color: "var(--text)" }}>
+                Clone Studio &amp; Copiar Edição
+              </h2>
               <span className="badge badge-accent">PRO</span>
             </div>
-            <p className="muted small" style={{ margin: 0 }}>
-              Replique a estrutura de um vídeo de referência com ajustes finos e exportação profissional
+            <p className="muted small" style={{ margin: "2px 0 0", fontSize: "0.8rem" }}>
+              {initialClip ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                  <Film size={12} style={{ color: "var(--primary)" }} />
+                  Aplicando estilo ao corte: <strong style={{ color: "var(--text)" }}>{initialClip.title}</strong>
+                </span>
+              ) : (
+                "Replique a estrutura de um vídeo de referência com ajustes finos e exportação profissional"
+              )}
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
           <button
             type="button"
             className="btn btn-secondary btn-small"
@@ -1363,7 +1387,7 @@ export default function CopyStyleStudio({
             title="Ver referências salvas e presets de sucesso"
           >
             <Bookmark size={15} style={{ marginRight: "4px" }} />
-            Biblioteca de Referências ({savedRefs.length})
+            Biblioteca ({savedRefs.length})
           </button>
           {onClose && isModal && (
             <button
@@ -1519,7 +1543,7 @@ export default function CopyStyleStudio({
               </div>
 
               {/* UPLOAD 1: ARQUIVOS DE LEGENDA (.SRT, .ASS, .VTT, .JSON) */}
-              <div className="control-box" style={{ background: "rgba(15, 23, 42, 0.4)" }}>
+              <div className="control-box">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <Subtitles size={16} style={{ color: "var(--primary)" }} />
@@ -1581,7 +1605,7 @@ export default function CopyStyleStudio({
               </div>
 
               {/* UPLOAD 2: VÍDEOS PRONTOS DE REFERÊNCIA (.MP4, .MOV, .MKV) */}
-              <div className="control-box" style={{ background: "rgba(15, 23, 42, 0.4)" }}>
+              <div className="control-box">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <Video size={16} style={{ color: "var(--primary)" }} />
@@ -1908,7 +1932,7 @@ export default function CopyStyleStudio({
                         <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
                           <Monitor size={12} style={{ color: "var(--primary)" }} /> Formato de Saída deste Clone:
                         </span>
-                        <div style={{ display: "inline-flex", background: "rgba(15, 23, 42, 0.4)", borderRadius: "6px", padding: "2px", border: "1px solid var(--card-border)" }}>
+                        <div style={{ display: "inline-flex", background: "var(--bg-subtle)", borderRadius: "6px", padding: "2px", border: "1px solid var(--card-border)" }}>
                           <button
                             type="button"
                             onClick={() => setResolution("1080x1920")}
@@ -2491,7 +2515,7 @@ export default function CopyStyleStudio({
                 </div>
 
                 {/* COR 1: COR PRINCIPAL DO TEXTO (BASE DA LEGENDA) */}
-                <div style={{ padding: "0.5rem", background: "rgba(15, 23, 42, 0.3)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                <div style={{ padding: "0.5rem", background: "var(--bg-subtle)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
                     <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
                       Cor Principal do Texto (Base):
@@ -2522,7 +2546,7 @@ export default function CopyStyleStudio({
                               height: "26px",
                               borderRadius: "50%",
                               background: c.color,
-                              border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
+                              border: isSelected ? "2px solid var(--primary)" : "1px solid var(--card-border)",
                               cursor: "pointer",
                               outline: isSelected ? "2px solid var(--primary)" : "none",
                               boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
@@ -2571,7 +2595,7 @@ export default function CopyStyleStudio({
                 </div>
 
                 {/* COR 2: COR DO DESTAQUE (KARAOKÊ / PALAVRA ATIVA) */}
-                <div style={{ padding: "0.5rem", background: "rgba(15, 23, 42, 0.3)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                <div style={{ padding: "0.5rem", background: "var(--bg-subtle)", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
                     <label className="field-label" style={{ margin: 0, fontWeight: 600 }}>
                       Cor do Destaque (Karaokê):
@@ -2602,7 +2626,7 @@ export default function CopyStyleStudio({
                               height: "26px",
                               borderRadius: "50%",
                               background: c.color,
-                              border: isSelected ? "2px solid #fff" : "1px solid rgba(255,255,255,0.2)",
+                              border: isSelected ? "2px solid var(--primary)" : "1px solid var(--card-border)",
                               cursor: "pointer",
                               outline: isSelected ? "2px solid var(--primary)" : "none",
                               boxShadow: isSelected ? "0 0 8px rgba(139, 92, 246, 0.6)" : "none",
