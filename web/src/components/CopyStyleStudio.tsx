@@ -251,6 +251,7 @@ export default function CopyStyleStudio({
   // Modal de Edição de Estilo (Renomear & Adicionar Vídeos de Treino)
   const [editingReference, setEditingReference] = useState<SavedReference | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
 
   // 2. VÍDEO PRINCIPAL A SER EDITADO
   const [sourceClip, setSourceClip] = useState<{
@@ -460,6 +461,7 @@ export default function CopyStyleStudio({
     setAppliedRef(ref);
     setReferenceName(ref.name);
     setStyleSourceType("saved");
+    setSaveReference(false);
     setRefFile(null);
     setRefUrl("");
     if (ref.reference_type === "link" && ref.reference_url) {
@@ -616,6 +618,8 @@ export default function CopyStyleStudio({
           reference_url: finalRef.reference_url,
           style_category: finalRef.style_category,
           subtitle_style: finalRef.subtitle_style,
+          custom_font_name: finalRef.custom_font_name,
+          custom_font_path: finalRef.custom_font_path,
           design_instructions: finalRef.design_instructions,
           manual_adjustments: finalRef.manual_adjustments,
           export_settings: finalRef.export_settings,
@@ -632,6 +636,9 @@ export default function CopyStyleStudio({
           .from("saved_references")
           .update({
             name: finalRef.name,
+            subtitle_style: finalRef.subtitle_style,
+            custom_font_name: finalRef.custom_font_name,
+            custom_font_path: finalRef.custom_font_path,
             design_instructions: finalRef.design_instructions,
             learning_status: finalRef.learning_status || "ready",
             learning_metrics: finalRef.learning_metrics,
@@ -687,6 +694,76 @@ export default function CopyStyleStudio({
     const accuracyScore = finalRef.learning_metrics?.accuracyScore ?? 92;
     setSuccessMsg(`Estilo "${finalRef.name}" atualizado com sucesso! Acurácia calibrada para ${accuracyScore}%.`);
     setTimeout(() => setSuccessMsg(null), 4000);
+  }
+
+  // Salvar ajustes manuais feitos em tela diretamente no estilo selecionado
+  async function handleSaveCurrentStyleAdjustments() {
+    if (!selectedRefId || selectedRefId.startsWith("preset-")) return;
+    const existing = savedRefs.find((r) => r.id === selectedRefId);
+    if (!existing) return;
+
+    setIsSavingAdjustments(true);
+    try {
+      const manualAdjustmentsPayload: ManualAdjustments = {
+        subtitles: {
+          style: subtitleStyle,
+          fontSize,
+          primaryColor,
+          highlightColor,
+          positionY,
+          enableEmojis,
+          karaokeHighlight,
+          customFontPath,
+          customFontName,
+        },
+        keyMoments: {
+          hookSensitivity,
+          cutPacing,
+          removeSilences,
+          smartPunchInZoom,
+        },
+        soundDesign: {
+          enableSfx: false,
+          backgroundMusicDucking: false,
+          sfxVolume,
+        },
+        brolls: {
+          enabled: useBroll,
+          source: brollSource,
+          frequency: "medium",
+        },
+        camera: {
+          verticalMode,
+          dynamicZoom: smartPunchInZoom,
+        },
+      };
+
+      const exportSettingsPayload: ExportSettings = {
+        resolution,
+        codec,
+        fps,
+        bitrate,
+        audioNormalization,
+        generateNleTimeline,
+      };
+
+      const updated: SavedReference = {
+        ...existing,
+        name: referenceName.trim() || existing.name,
+        design_instructions: designInstructions.trim() || existing.design_instructions,
+        subtitle_style: subtitleStyle,
+        custom_font_name: customFontName,
+        custom_font_path: customFontPath,
+        manual_adjustments: manualAdjustmentsPayload,
+        export_settings: exportSettingsPayload,
+      };
+
+      await handleUpdateSavedRef(updated);
+      setSuccessMsg(`Alterações de edição e tipografia salvas com sucesso no estilo "${updated.name}"!`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } finally {
+      setIsSavingAdjustments(false);
+    }
   }
 
   // Leitura e análise de arquivos de legenda (.srt, .vtt, .ass, .json)
@@ -1061,7 +1138,8 @@ export default function CopyStyleStudio({
         generateNleTimeline,
       };
 
-      if (saveReference) {
+      // Salva como novo estilo na biblioteca apenas se o usuário subiu/linkou um vídeo avulso e marcou a opção
+      if (styleSourceType === "custom_video" && saveReference) {
         const finalRefName = referenceName.trim() || `Estilo Clonado ${new Date().toLocaleDateString("pt-BR")}`;
         const newSavedRef: SavedReference = {
           id: crypto.randomUUID(),
@@ -1892,7 +1970,28 @@ export default function CopyStyleStudio({
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {!selectedRefId?.startsWith("preset-") && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={handleSaveCurrentStyleAdjustments}
+                          disabled={isSavingAdjustments}
+                          title="Salvar todas as alterações (fonte, cores, enquadramento) diretamente neste estilo"
+                          style={{
+                            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                            borderColor: "#10b981",
+                            color: "#fff",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Save size={13} />
+                          {isSavingAdjustments ? "Salvando…" : "Salvar Alterações no Estilo"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
