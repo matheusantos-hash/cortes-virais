@@ -1,6 +1,4 @@
-import { createWriteStream } from "node:fs";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { streamDownloadVideo } from "./media.js";
 
 interface MediaOutput {
   url: string;
@@ -162,11 +160,7 @@ export class HiggsfieldClient {
    * Baixa o arquivo do vídeo gerado diretamente para o disco.
    */
   async downloadVideo(videoUrl: string, destPath: string, signal?: AbortSignal): Promise<void> {
-    const res = await fetch(videoUrl, { signal });
-    if (!res.ok || !res.body) {
-      throw new Error(`Falha ao baixar vídeo gerado do Higgsfield: HTTP ${res.status}`);
-    }
-    await pipeline(Readable.fromWeb(res.body as any), createWriteStream(destPath), { signal });
+    await streamDownloadVideo(videoUrl, destPath, signal);
   }
 }
 

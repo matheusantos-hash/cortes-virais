@@ -41,3 +41,20 @@ export function jobTitle(job: Job): string {
   }
   return "Vídeo";
 }
+
+import type { Period } from "./types";
+
+export function safeName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .slice(-80);
+}
+
+export function periodStart(p: Period): Date | null {
+  if (p === "all") return null;
+  const d = new Date();
+  d.setDate(d.getDate() - { "7d": 7, "30d": 30, "90d": 90 }[p]);
+  return d;
+}

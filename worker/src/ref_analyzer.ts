@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { probeDuration } from "./media.js";
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -8,19 +9,6 @@ import type { StyleBlueprint } from "./types.js";
 /**
  * Executa ffprobe para obter a duração do vídeo.
  */
-function probeVideoDuration(filePath: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      "ffprobe",
-      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath],
-      (err, stdout) => {
-        if (err) return reject(err);
-        const sec = parseFloat(stdout.trim());
-        Number.isFinite(sec) ? resolve(sec) : reject(new Error("Duração inválida"));
-      }
-    );
-  });
-}
 
 /**
  * Detecta cortes de cena com FFmpeg para medir o ritmo de edição (tempo médio entre cortes).
@@ -134,7 +122,7 @@ export async function extractReferenceStyle(params: {
 
   try {
     onLog?.("[CLONE ESTILO] Iniciando análise técnica e visual do vídeo de referência...");
-    const duration = await probeVideoDuration(referenceVideoPath).catch(() => 30);
+    const duration = await probeDuration(referenceVideoPath).catch(() => 30);
     onLog?.(`[CLONE ESTILO] Duração da referência: ${duration.toFixed(1)}s. Detectando ritmo de corte...`);
 
     // 1. Detectar cortes de cena com FFmpeg

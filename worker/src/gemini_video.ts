@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { waitForActiveFile } from "./gemini_utils.js";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -66,34 +67,7 @@ async function generatePreviewVideo(
   });
 }
 
-/**
- * Aguarda o arquivo de vídeo mudar de 'PROCESSING' para 'ACTIVE' nos servidores Google AI.
- */
-async function waitForActiveFile(
-  ai: GoogleGenAI,
-  fileName: string,
-  maxWaitMs = 180_000,
-  onLog?: (msg: string) => void
-): Promise<void> {
-  const start = Date.now();
-  let lastLoggedSec = 0;
 
-  while (Date.now() - start < maxWaitMs) {
-    const file = await ai.files.get({ name: fileName });
-    if (file.state === "ACTIVE") return;
-    if (file.state === "FAILED") throw new Error(`O processamento do vídeo no Google Gemini falhou: ${fileName}`);
-
-    const elapsedSec = Math.floor((Date.now() - start) / 1000);
-    if (elapsedSec - lastLoggedSec >= 15) {
-      lastLoggedSec = elapsedSec;
-      onLog?.(`[GEMINI VISION] Indexando e preparando vídeo nos servidores Google AI (${elapsedSec}s)...`);
-    }
-
-    await new Promise((r) => setTimeout(r, 3000));
-  }
-
-  throw new Error("Tempo limite excedido aguardando processamento do vídeo no Google Gemini.");
-}
 
 /**
  * Executa a análise visual do vídeo via Gemini com capacidade Agentic Video Understanding.

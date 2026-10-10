@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { waitForActiveFile } from "./gemini_utils.js";
 import { existsSync } from "node:fs";
 import type { Word } from "./types.js";
 
@@ -13,18 +14,7 @@ export interface GeminiTranscriptionResult {
   audioTags?: AudioTag[];
 }
 
-/**
- * Aguarda o arquivo processar no Google AI Files se necessário.
- */
-async function waitForActiveFile(ai: GoogleGenAI, fileName: string, maxWaitMs = 120_000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    const file = await ai.files.get({ name: fileName });
-    if (file.state === "ACTIVE") return;
-    if (file.state === "FAILED") throw new Error(`Processamento do arquivo falhou no Gemini: ${fileName}`);
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-}
+
 
 /**
  * Transcreve áudio com timestamps milimétricos e extrai tags de áudio usando o Google Gemini Pro.

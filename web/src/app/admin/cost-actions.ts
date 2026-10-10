@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, checkAdmin } from "@/lib/supabase/server";
 
 export interface ApiCostConfig {
   usdToBrlRate: number;
@@ -107,28 +107,7 @@ export interface ApiCostSummary {
   };
 }
 
-/** Helper para verificar se usuário logado é admin */
-async function checkAdmin(supabase: any): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
 
-  const { data: me } = await supabase
-    .from("usuarios")
-    .select("is_xandao, xandao")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (me?.is_xandao === true || me?.xandao === 1) return true;
-
-  try {
-    const { data: rpcAdmin } = await supabase.rpc("is_admin");
-    if (rpcAdmin === true) return true;
-  } catch {}
-
-  return false;
-}
 
 /**
  * Calcula os custos de API com base nos jobs reais e regras oficiais de pricing.

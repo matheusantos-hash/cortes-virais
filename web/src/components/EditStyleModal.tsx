@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import type { SavedReference } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
+import { safeName } from "@/lib/format";
 import {
   Pencil,
   X,
@@ -34,13 +35,7 @@ import {
 
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024;
 
-function safeName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .slice(-80);
-}
+
 
 interface EditStyleModalProps {
   isOpen: boolean;

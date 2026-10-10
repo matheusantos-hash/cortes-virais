@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
+import { safeName } from "@/lib/format";
 import type { ExportSettings, ManualAdjustments, SavedReference, SubtitleStyle } from "@/lib/types";
 import SavedReferencesModal from "./SavedReferencesModal";
 import EditStyleModal from "./EditStyleModal";
@@ -53,13 +54,7 @@ import {
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024;
 
-function safeName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .slice(-80);
-}
+
 
 const PRESET_REFERENCES: SavedReference[] = [
   {

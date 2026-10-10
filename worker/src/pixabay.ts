@@ -1,6 +1,4 @@
-import { createWriteStream } from "node:fs";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { streamDownloadVideo } from "./media.js";
 
 interface PixabayVideoFile {
   url: string;
@@ -121,13 +119,7 @@ export async function fetchPixabayBroll(params: {
       `[B-ROLL] Baixando clipe B-roll do Pixabay (${chosen.file.width}x${chosen.file.height}, ~${chosen.video.duration}s)...`
     );
 
-    const downloadRes = await fetch(chosen.file.url, { signal });
-    if (!downloadRes.ok || !downloadRes.body) {
-      onLog?.("[B-ROLL] Falha ao baixar stream de vídeo do Pixabay.");
-      return null;
-    }
-
-    await pipeline(Readable.fromWeb(downloadRes.body as any), createWriteStream(outPath), { signal });
+    await streamDownloadVideo(chosen.file.url, outPath, signal);
     onLog?.(`[B-ROLL] Vídeo do Pixabay baixado com sucesso: ${outPath}`);
     return outPath;
   } catch (err: any) {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { fmtClock as fmt } from "./format.js";
 import { buildBlocks, findCandidates, selectClips } from "./analyze.js";
 import { analyzeVideoVisuals } from "./gemini_video.js";
 import { fetchHiggsfieldBroll } from "./higgsfield.js";
@@ -34,10 +35,7 @@ export const slug = (s: string) =>
     .replace(/^-|-$/g, "")
     .slice(0, 50);
 
-const fmt = (sec: number) => {
-  const s = Math.floor(sec);
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-};
+
 
 /**
  * Do vídeo já em disco até os clipes prontos:

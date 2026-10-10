@@ -7,16 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { supabaseUrl, supabaseServiceRoleKey } from "@/lib/supabase/env";
 
-function getServiceClient(fallbackClient: any) {
-  try {
-    const key = supabaseServiceRoleKey();
-    return createAdminClient(supabaseUrl(), key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  } catch {
-    return fallbackClient;
-  }
-}
+import { getAdminClient } from "@/lib/supabase/admin";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -75,7 +66,7 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; erro
   }
 
   // 3. Fallback: Se houver chave Service Role no ambiente, usa client com bypass de RLS
-  const clientToUse = getServiceClient(supabase);
+  const clientToUse = getAdminClient(supabase);
 
   const now = new Date().toISOString();
   let { error: updateError } = await clientToUse
@@ -123,7 +114,7 @@ export async function deleteUserJob(jobId: string): Promise<{ success: boolean; 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autenticado" };
 
-  const clientToUse = getServiceClient(supabase);
+  const clientToUse = getAdminClient(supabase);
 
   // Busca dados de arquivos para limpeza prévia do Storage
   const { data: job } = await clientToUse
@@ -162,16 +153,7 @@ export async function deleteUserJob(jobId: string): Promise<{ success: boolean; 
   return { success: true };
 }
 
-/** Só admin (usuarios.xandao = 1). O RLS também barra quem não for. */
-export async function deleteJob(formData: FormData) {
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-  const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("is_admin");
-  if (isAdmin !== true) throw new Error("Sem permissão");
-  await supabase.from("jobs").delete().eq("id", id);
-  revalidatePath("/admin");
-}
+
 
 /** Exclui um clipe individual pertencente ao usuário autenticado (ou por admin). Remove do Storage e da tabela clips. */
 export async function deleteUserClip(clipId: string): Promise<{ success: boolean; error?: string }> {
@@ -182,7 +164,7 @@ export async function deleteUserClip(clipId: string): Promise<{ success: boolean
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Não autenticado." };
 
-  const clientToUse = getServiceClient(supabase);
+  const clientToUse = getAdminClient(supabase);
 
   try {
     // 1. Busca clipe para verificar se pertence ao usuário (ou se usuário é admin)

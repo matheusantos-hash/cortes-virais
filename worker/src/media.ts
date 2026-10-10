@@ -1117,3 +1117,15 @@ export function probeSource(file: string, fileName: string): Promise<import("./t
     );
   });
 }
+
+
+/**
+ * Baixa um arquivo de vídeo (ou áudio) via stream HTTP e salva no disco.
+ */
+export async function streamDownloadVideo(url: string, destPath: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(url, { signal });
+  if (!res.ok || !res.body) {
+    throw new Error(`Falha ao baixar arquivo remoto: HTTP ${res.status} ${res.statusText}`);
+  }
+  await pipeline(Readable.fromWeb(res.body as any), createWriteStream(destPath), { signal });
+}

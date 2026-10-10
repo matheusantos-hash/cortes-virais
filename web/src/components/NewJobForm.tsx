@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadResumable } from "@/lib/upload";
+import { safeName } from "@/lib/format";
 import { VerticalMode } from "@/lib/types";
 import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
 import {
@@ -36,13 +37,7 @@ import {
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024; // acima disso, usa envio retomável (TUS)
 
-function safeName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .slice(-80);
-}
+
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";

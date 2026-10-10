@@ -1,6 +1,4 @@
-import { createWriteStream } from "node:fs";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { streamDownloadVideo } from "./media.js";
 
 interface PexelsVideoFile {
   id: number;
@@ -88,13 +86,7 @@ export async function fetchPexelsBroll(params: {
     const chosenFile = mp4Files[0];
     onLog?.(`[B-ROLL] Baixando clipe B-roll do Pexels (${chosenFile.width}x${chosenFile.height}, ~${video.duration}s)...`);
 
-    const downloadRes = await fetch(chosenFile.link, { signal });
-    if (!downloadRes.ok || !downloadRes.body) {
-      onLog?.("[B-ROLL] Falha ao baixar stream de vídeo do Pexels.");
-      return null;
-    }
-
-    await pipeline(Readable.fromWeb(downloadRes.body as any), createWriteStream(outPath), { signal });
+    await streamDownloadVideo(chosenFile.link, outPath, signal);
     onLog?.(`[B-ROLL] Vídeo do Pexels baixado com sucesso: ${outPath}`);
     return outPath;
   } catch (err: any) {

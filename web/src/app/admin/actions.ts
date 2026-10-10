@@ -1,61 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, checkAdmin } from "@/lib/supabase/server";
 
-/** Helper para verificar permissão de administrador via tabela usuarios e RPC */
-async function checkAdmin(supabase: any): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
 
-  const { data: me } = await supabase
-    .from("usuarios")
-    .select("is_xandao, xandao")
-    .eq("id", user.id)
-    .maybeSingle();
 
-  if (me?.is_xandao === true || me?.xandao === 1) return true;
-
-  try {
-    const { data: rpcAdmin } = await supabase.rpc("is_admin");
-    if (rpcAdmin === true) return true;
-  } catch {}
-
-  // Fallback seguro via admin client para garantir checagem sem bloqueio de RLS
-  try {
-    const admin = await getAdminClient();
-    const { data: adminMe } = await admin
-      .from("usuarios")
-      .select("is_xandao, xandao")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (adminMe?.is_xandao === true || adminMe?.xandao === 1) return true;
-  } catch {}
-
-  return false;
-}
-
-/** Obtém cliente Supabase com chave de serviço (ignora RLS) ou recai no cliente autenticado */
-async function getAdminClient(fallbackClient?: any) {
-  const { createClient: createAdmin } = await import("@supabase/supabase-js");
-  const { supabaseUrl, supabaseServiceRoleKey } = await import("@/lib/supabase/env");
-
-  const key = supabaseServiceRoleKey(false);
-  if (key) {
-    return createAdmin(supabaseUrl(), key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-
-  if (fallbackClient) {
-    return fallbackClient;
-  }
-
-  const { createClient } = await import("@/lib/supabase/server");
-  return createClient();
-}
+import { getAdminClient } from "@/lib/supabase/admin";
 
 /** Atualiza o campo is_xandao / xandao de um usuário (somente admin pode executar). */
 export async function setAdminFlag(userId: string, value: boolean): Promise<{ success: boolean; error?: string }> {

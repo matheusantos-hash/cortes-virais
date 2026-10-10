@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fmtClock as fmt } from "./format.js";
 import type { Block, Clip, ClipCandidate, Options, Word } from "./types.js";
 
 /** Agrupa as palavras em blocos de frase (4–20 s) para o Claude enxergar a estrutura. */
@@ -27,12 +28,7 @@ export function buildBlocks(words: Word[]): Block[] {
   return blocks;
 }
 
-function fmt(sec: number): string {
-  const s = Math.floor(sec);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return [h, m, s % 60].map((n) => String(n).padStart(2, "0")).join(":");
-}
+
 
 const SYSTEM = `Você é um editor de vídeo especialista em conteúdo viral para TikTok, Reels e YouTube Shorts.
 Sua tarefa é encontrar, na transcrição de um vídeo longo, os trechos com maior potencial de viralizar.

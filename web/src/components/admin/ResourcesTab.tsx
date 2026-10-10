@@ -9,15 +9,11 @@ interface Props {
   jobs: Job[];
 }
 
-type Period = "7d" | "30d" | "90d" | "all";
+import { type Period } from "@/lib/types";
+import { periodStart } from "@/lib/format";
 type StatusFilter = "all" | "done" | "failed" | "canceled" | "running";
 
-function periodStart(p: Period): Date | null {
-  if (p === "all") return null;
-  const d = new Date();
-  d.setDate(d.getDate() - { "7d": 7, "30d": 30, "90d": 90 }[p]);
-  return d;
-}
+
 
 /** Estima tamanho do vídeo processado em MB baseado na duração */
 function estimateSizeMB(durationSec: number): number {
