@@ -13,7 +13,6 @@ import {
   Coins,
   Cpu,
   Clock,
-  Sparkles,
   Film,
   Zap,
   TrendingUp,

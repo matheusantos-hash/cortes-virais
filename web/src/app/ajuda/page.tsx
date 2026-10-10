@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Settings,
   Zap,
-  Sparkles,
   Smartphone,
   Subtitles,
   Film,
@@ -132,7 +131,7 @@ export default function AjudaPage() {
           {/* TRECHOS */}
           <section id="trechos" className="card help-section">
             <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Sparkles size={20} style={{ color: "var(--primary)" }} /> Como a IA escolhe os trechos importantes
+              Como a IA escolhe os trechos importantes
             </h2>
             <p>
               A transcrição é dividida em blocos de frases e enviada ao Claude, que atua como um editor especialista em

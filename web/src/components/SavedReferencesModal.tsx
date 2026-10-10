@@ -5,7 +5,6 @@ import type { SavedReference } from "@/lib/types";
 import Modal from "./ui/Modal";
 import {
   Bookmark,
-  Sparkles,
   Trash2,
   Check,
   X,

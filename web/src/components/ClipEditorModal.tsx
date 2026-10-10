@@ -8,7 +8,6 @@ import { detectBrollTriggers, type BrollTriggerSuggestion } from "@/lib/detectBr
 import CloneStudioModal from "./CloneStudioModal";
 import {
   DownloadIcon,
-  SparklesIcon,
   XIcon,
   Info,
   Film,
@@ -975,7 +974,7 @@ export default function ClipEditorModal({
             }`}
             title="Ativar/Desativar Prévia de Motion Graphics Canvas"
           >
-            <SparklesIcon size={11} /> Overlays
+            Overlays
           </button>
         </div>
 
@@ -987,7 +986,7 @@ export default function ClipEditorModal({
             className="bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/50 text-purple-300 px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm shrink-0"
             title="Abrir estúdio de clonagem de edição com IA para este corte"
           >
-            <SparklesIcon size={11} /> Clonar Estilo
+            Clonar Estilo
           </button>
 
           <button
@@ -1007,7 +1006,7 @@ export default function ClipEditorModal({
             className="bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md disabled:opacity-60 shrink-0"
             title="Re-renderizar vídeo final com corte e overlays"
           >
-            <SparklesIcon size={11} /> {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
+            {isSavingTrim ? "Renderizando..." : "Re-renderizar"}
           </button>
 
           {/* Botão de Exportação com Dropdown de Formatos (MP4, SRT, XML, EDL, Capa) */}
@@ -1152,7 +1151,6 @@ export default function ClipEditorModal({
                 transition: "all 0.15s ease",
               }}
             >
-              <SparklesIcon size={15} />
               <span>B-Rolls</span>
             </button>
 
@@ -2871,7 +2869,6 @@ export default function ClipEditorModal({
               className="w-full flex items-center justify-between px-3 py-2 bg-purple-950/40 hover:bg-purple-950/60 text-left transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <SparklesIcon size={14} className="text-purple-400" />
                 <span className="text-xs font-bold text-purple-200">Clonagem de Estilo (IA)</span>
               </div>
               {rightAccordionOpen === "clone" ? <ChevronUp size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
@@ -2888,7 +2885,6 @@ export default function ClipEditorModal({
                   className="w-full mt-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-md py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
                   title="Abrir o estúdio completo de clonagem de edição com IA"
                 >
-                  <SparklesIcon size={14} className="text-purple-200" />
                   Abrir Clone Studio
                 </button>
               </div>

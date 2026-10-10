@@ -12,7 +12,6 @@ import {
   X,
   Scissors,
   Copy,
-  SparklesIcon,
   FolderKanban,
 } from "./Icons";
 

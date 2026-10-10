@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   Film,
   Scissors,
-  Sparkles,
   DownloadIcon,
   TrashIcon,
   Play,
@@ -286,7 +285,6 @@ export default function ProjectWorkspace({
           className={`segmented-btn ${activeTab === "clonar" ? "active" : ""}`}
           onClick={() => setActiveTab("clonar")}
         >
-          <Sparkles size={15} />
           <span>Clonar Estilo para o Projeto</span>
         </button>
       </div>

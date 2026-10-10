@@ -17,7 +17,6 @@ import {
   DownloadIcon,
   TrashIcon,
   TrendingUpIcon,
-  SparklesIcon,
   SmartphoneIcon,
   MonitorIcon,
   XIcon,

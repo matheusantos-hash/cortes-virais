@@ -6,7 +6,6 @@ import { fmtClock } from "@/lib/format";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
   TrendingUpIcon,
-  SparklesIcon,
   DownloadIcon,
   TrashIcon,
   Clock,
@@ -132,12 +131,8 @@ export default function ClipCard({
             color: "var(--primary)",
             margin: "0.2rem 0",
             lineHeight: 1.35,
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "0.35rem",
           }}
         >
-          <SparklesIcon size={13} style={{ flexShrink: 0, marginTop: "0.15rem" }} />
           <span>
             <strong>Impacto visual:</strong> {clip.visual_context}
           </span>
@@ -182,7 +177,7 @@ export default function ClipCard({
           onClick={handleClone}
           title="Enviar este corte para o Clone Studio (aplicar estilo e ritmo de referência com IA)"
         >
-          <SparklesIcon size={13} /> Clonar
+          Clonar
         </button>
 
         {jobId && (

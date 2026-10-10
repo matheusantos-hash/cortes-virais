@@ -22,7 +22,6 @@ import {
   TrashIcon,
   TrendingUpIcon,
   ActivityIcon,
-  SparklesIcon,
   AlertCircleIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -529,7 +528,6 @@ export default function Dashboard({
                         cursor: "pointer",
                       }}
                     >
-                      <SparklesIcon size={14} />
                       <span>Clonar Projeto</span>
                     </button>
                     <Link className="btn-secondary" href={`/jobs/${job.id}`} style={{ fontSize: "0.84rem", padding: "0.45rem 0.85rem", textDecoration: "none" }}>
@@ -577,8 +575,7 @@ export default function Dashboard({
                 {job.status === "done" && jobClips.length > 0 && (
                   <div className="stack" style={{ marginTop: "0.75rem", borderTop: "1px solid var(--card-border)", paddingTop: "1rem" }}>
                     <div className="row">
-                      <strong style={{ fontSize: "0.95rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                        <SparklesIcon size={16} style={{ color: "var(--primary)" }} />
+                      <strong style={{ fontSize: "0.95rem", color: "var(--text)" }}>
                         {jobClips.length} Clipes Gerados pela IA
                       </strong>
                     </div>

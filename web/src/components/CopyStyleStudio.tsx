@@ -15,7 +15,6 @@ import {
   Link as LucideLink,
   Save,
   Bookmark,
-  Sparkles,
   Wand2,
   Subtitles,
   Volume2,
@@ -1372,9 +1371,6 @@ export default function CopyStyleStudio({
         }
       >
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
-          <div className="studio-header-icon" style={{ flexShrink: 0 }}>
-            <Sparkles size={22} />
-          </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
               <h2 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0, color: "var(--text)" }}>
@@ -1785,7 +1781,6 @@ export default function CopyStyleStudio({
                         setActiveStudioTab("clonar");
                       }}
                     >
-                      <Sparkles size={14} style={{ marginRight: "4px" }} />
                       Usar no Clonador
                     </button>
                     <button
@@ -1897,7 +1892,6 @@ export default function CopyStyleStudio({
                   >
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <Sparkles size={16} style={{ color: "var(--primary)" }} />
                         <strong style={{ color: "var(--text)", fontSize: "0.95rem" }}>
                           {referenceName || "Estilo Selecionado"}
                         </strong>
@@ -2229,7 +2223,6 @@ export default function CopyStyleStudio({
                           textTransform: "uppercase",
                         }}
                       >
-                        <Sparkles size={11} />
                         Corte Pré-Selecionado #{sourceClip.position || "1"}
                       </span>
                     </div>
@@ -2376,7 +2369,6 @@ export default function CopyStyleStudio({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: "260px" }}>
-                <Sparkles size={18} style={{ color: "var(--primary)", flexShrink: 0 }} />
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.88rem", color: "var(--text)", fontWeight: 600 }}>
@@ -2972,7 +2964,6 @@ export default function CopyStyleStudio({
               gap: "0.5rem",
             }}
           >
-            <Sparkles size={20} />
             <span>{busy ? "Iniciando Processamento Pro…" : "Clonar Edição & Renderizar Clipes"}</span>
           </button>
         </div>

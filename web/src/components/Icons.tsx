@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Sparkles,
   Video,
   Link as LucideLink,
   Upload,
@@ -86,7 +85,6 @@ import {
 
 // Re-exportação de ícones nativos Lucide
 export {
-  Sparkles,
   Video,
   LucideLink as Link,
   Upload,
@@ -184,10 +182,6 @@ export function SunIcon(props: LucideProps) {
 
 export function MoonIcon(props: LucideProps) {
   return <Moon {...props} />;
-}
-
-export function SparklesIcon(props: LucideProps) {
-  return <Sparkles {...props} />;
 }
 
 export function VideoIcon(props: LucideProps) {

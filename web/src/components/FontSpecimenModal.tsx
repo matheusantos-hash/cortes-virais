@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { SystemFont } from "@/lib/systemFonts";
-import { X, Check, Type, EyeIcon, Sparkles } from "./Icons";
+import { X, Check, Type, EyeIcon } from "./Icons";
 
 interface FontSpecimenModalProps {
   isOpen: boolean;

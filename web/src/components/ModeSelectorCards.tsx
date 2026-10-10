@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Scissors, Copy, Sparkles, Wand2, SlidersHorizontal, Film, ArrowRight, FolderKanban, FolderPlus } from "./Icons";
+import { Scissors, Copy, Wand2, SlidersHorizontal, Film, ArrowRight, FolderKanban, FolderPlus } from "./Icons";
 
 export type DashboardMode = "cortes" | "copiar_estilo";
 
@@ -17,7 +17,6 @@ export default function ModeSelectorCards({ currentMode, onSelectMode }: ModeSel
       <div className="mode-selector-header">
         <div>
           <span className="mode-selector-eyebrow">
-            <Sparkles size={14} style={{ color: "var(--primary)" }} />
             ESCOLHA SEU FLUXO DE CRIAÇÃO
           </span>
           <h2 style={{ fontSize: "1.35rem", margin: "0.2rem 0 0" }}>O que você deseja criar hoje?</h2>
@@ -36,7 +35,6 @@ export default function ModeSelectorCards({ currentMode, onSelectMode }: ModeSel
               <Scissors size={26} />
             </div>
             <span className="mode-card-badge cortes-badge">
-              <Sparkles size={12} style={{ marginRight: "3px" }} />
               Rápido &amp; Automático
             </span>
           </div>

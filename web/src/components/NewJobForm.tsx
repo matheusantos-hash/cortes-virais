@@ -16,7 +16,6 @@ import {
   ColumnsIcon,
   UserIcon,
   UsersIcon,
-  SparklesIcon,
   SlidersIcon,
   XIcon,
   VideoIcon,
@@ -595,7 +594,7 @@ export default function NewJobForm({
             <span>Enquadramento da Câmera Vertical:</span>
             {(verticalMode === "face_tracking" || verticalMode === "split_face") && (
               <span className="badge badge-done" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
-                <SparklesIcon size={12} /> Detecção Facial com IA
+                Detecção Facial com IA
               </span>
             )}
           </label>
@@ -648,8 +647,7 @@ export default function NewJobForm({
           </div>
 
           {verticalMode === "face_tracking" && (
-            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <SparklesIcon size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
               <span>A IA analisa os frames do vídeo para detectar e centralizar automaticamente a pessoa que está em foco.</span>
             </div>
           )}
@@ -762,11 +760,11 @@ export default function NewJobForm({
           />
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-              <strong style={{ fontSize: "1rem", color: "var(--primary)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <SparklesIcon size={16} /> Copiar Estilo de Edição
+              <strong style={{ fontSize: "1rem", color: "var(--primary)" }}>
+                Copiar Estilo de Edição
               </strong>
               <span className="badge badge-done" style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem" }}>
-                <SparklesIcon size={12} /> Higgsfield AI + Claude Vision
+                Higgsfield AI + Claude Vision
               </span>
             </div>
             <small style={{ display: "block", color: "var(--text-muted)", marginTop: "0.25rem" }}>
@@ -785,7 +783,7 @@ export default function NewJobForm({
                   className={refSourceType === "saved" ? "tab active" : "tab"}
                   onClick={() => setRefSourceType("saved")}
                 >
-                  <SparklesIcon size={14} style={{ marginRight: "0.35rem" }} /> Estilo Salvo da Biblioteca ({userSavedRefs.length + STYLE_PRESETS.length})
+                  Estilo Salvo da Biblioteca ({userSavedRefs.length + STYLE_PRESETS.length})
                 </button>
                 <button
                   type="button"
@@ -1054,8 +1052,8 @@ export default function NewJobForm({
               onChange={(e) => setEnableEmojis(e.target.checked)}
               style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
             />
-            <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-              <SparklesIcon size={14} style={{ color: "var(--primary)" }} /> Injetar Emojis Automáticos contextuais na fala (🔥, 💰, 🚀)
+            <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
+              Injetar Emojis Automáticos contextuais na fala (🔥, 💰, 🚀)
             </span>
           </label>
 
@@ -1177,8 +1175,8 @@ export default function NewJobForm({
       {/* SEÇÃO: CURADORIA INTELIGENTE & IA MULTIMODAL */}
       <div className="card stack" style={{ background: "rgba(99, 102, 241, 0.03)", border: "1px solid rgba(99, 102, 241, 0.25)", padding: "1rem" }}>
         <div>
-          <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--primary)" }}>
-            <SparklesIcon size={16} /> Curadoria Inteligente &amp; Raciocínio Profundo
+          <strong style={{ fontSize: "0.95rem", color: "var(--primary)" }}>
+            Curadoria Inteligente &amp; Raciocínio Profundo
           </strong>
           <small style={{ color: "var(--text-muted)", display: "block", marginTop: "0.15rem" }}>
             Tecnologia de visão computacional e inteligência editorial para maximizar retenção e taxas de visualização.
@@ -1310,10 +1308,7 @@ export default function NewJobForm({
             "Processando pedido…"
           )
         ) : (
-          <>
-            <SparklesIcon size={18} />
-            <span>Gerar Cortes com IA</span>
-          </>
+          <span>Gerar Cortes com IA</span>
         )}
       </button>
     </form>

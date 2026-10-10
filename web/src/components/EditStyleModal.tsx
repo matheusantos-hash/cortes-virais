@@ -12,7 +12,6 @@ import {
   Video,
   Film,
   Zap,
-  Sparkles,
   Check,
   Cpu,
   BarChart3,
@@ -373,7 +372,6 @@ export default function EditStyleModal({
                   gap: "5px",
                 }}
               >
-                <Sparkles size={11} />
                 {resolution === "1920x1080"
                   ? "16:9 Horizontal"
                   : resolution === "1080x1080"
@@ -950,8 +948,7 @@ export default function EditStyleModal({
             {newVideoFiles.length > 0 && (
               <div style={{ marginTop: "0.85rem" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
-                  <small style={{ color: "var(--primary)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                    <Sparkles size={13} />
+                  <small style={{ color: "var(--primary)", fontWeight: 600 }}>
                     {newVideoFiles.length} novo(s) vídeo(s) prontos para treinamento:
                   </small>
                   <small style={{ color: "#10b981", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}>
@@ -1011,7 +1008,6 @@ export default function EditStyleModal({
           {/* CAMPO 3: DIRETRIZES DE DESIGN E VIBE DO CORTE (OPCIONAL) */}
           <div style={{ marginBottom: "1rem" }}>
             <label className="field-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Sparkles size={14} style={{ color: "var(--primary)" }} />
               <span>Diretrizes e Vibe do Estilo (Opcional):</span>
             </label>
             <textarea
@@ -1073,7 +1069,6 @@ export default function EditStyleModal({
               disabled={isSaving || !name.trim()}
               style={{ minWidth: "160px" }}
             >
-              <Sparkles size={16} />
               <span>
                 {isSaving
                   ? "Calibrando IA…"

@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
 import FontSpecimenModal from "./FontSpecimenModal";
-import { Type, EyeIcon, Upload, Trash2, Check, Sparkles, ChevronDown } from "./Icons";
+import { Type, EyeIcon, Upload, Trash2, Check, ChevronDown } from "./Icons";
 
 interface FontSelectorProps {
   selectedFontName: string;

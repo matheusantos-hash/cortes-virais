@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 import Link from "next/link";
 import type { Project, Job } from "@/lib/types";
 import { fmtDate } from "@/lib/format";
-import { Film, Sparkles, Trash2, ArrowRight, Video, Scissors, Play } from "./Icons";
+import { Film, Trash2, ArrowRight, Video, Scissors, Play } from "./Icons";
 
 interface ProjectCardProps {
   project: Project;
