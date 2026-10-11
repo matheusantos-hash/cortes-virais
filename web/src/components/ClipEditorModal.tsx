@@ -1611,12 +1611,18 @@ export default function ClipEditorModal({
             <button
               type="button"
               onClick={togglePlay}
-              className={`w-9 h-9 rounded-full flex items-center justify-center text-white cursor-pointer transition-transform hover:scale-105 shadow-lg ${
+              aria-label={isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"}
+              className={`player-icon-btn w-9 h-9 min-w-9 min-h-9 !p-0 rounded-full flex items-center justify-center text-white cursor-pointer transition-transform hover:scale-105 shadow-lg ${
                 isPlaying ? "bg-rose-500 hover:bg-rose-600" : "bg-indigo-600 hover:bg-indigo-500"
               }`}
+              style={{ padding: 0 }}
               title={isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"}
             >
-              {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+              {isPlaying ? (
+                <Pause size={18} fill="currentColor" color="#FFFFFF" strokeWidth={2} style={{ flexShrink: 0 }} />
+              ) : (
+                <Play size={18} fill="currentColor" color="#FFFFFF" strokeWidth={2} style={{ marginLeft: "2px", flexShrink: 0 }} />
+              )}
             </button>
 
             <button
