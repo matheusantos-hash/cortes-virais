@@ -396,5 +396,97 @@ export async function deleteProjectAction(projectId: string): Promise<{ success:
   }
 }
 
+/**
+ * Conclui o pipeline híbrido: insere os clipes fatiados localmente no banco
+ * e marca o job como concluído com sucesso.
+ */
+export async function finalizeClientSlicedClipsAction(
+  jobId: string,
+  clipsData: {
+    position: number;
+    title: string;
+    hook?: string;
+    reason?: string;
+    score?: number;
+    start_seconds: number;
+    end_seconds: number;
+    file_path: string;
+    thumbnail_url?: string | null;
+  }[]
+): Promise<{ success: boolean; error?: string }> {
+  if (!jobId) return { success: false, error: "ID do job não fornecido." };
+  if (!clipsData || clipsData.length === 0) return { success: false, error: "Nenhum clipe enviado." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Usuário não autenticado." };
+
+  try {
+    const { data: job, error: jobErr } = await supabase
+      .from("jobs")
+      .select("id, user_id, logs")
+      .eq("id", jobId)
+      .single();
+
+    if (jobErr || !job) {
+      return { success: false, error: "Job não encontrado." };
+    }
+    if (job.user_id !== user.id) {
+      return { success: false, error: "Acesso negado para este job." };
+    }
+
+    // Prepara inserção dos clipes
+    const clipRows = clipsData.map((c) => ({
+      job_id: jobId,
+      user_id: user.id,
+      position: c.position,
+      title: c.title,
+      hook: c.hook || null,
+      reason: c.reason || null,
+      score: c.score || null,
+      start_seconds: c.start_seconds,
+      end_seconds: c.end_seconds,
+      file_path: c.file_path,
+    }));
+
+    const { error: insClipErr } = await supabase.from("clips").insert(clipRows);
+    if (insClipErr) {
+      console.error("[finalizeClientSlicedClipsAction] Erro ao inserir clipes:", insClipErr);
+      return { success: false, error: `Falha ao salvar clipes: ${insClipErr.message}` };
+    }
+
+    const currentLogs = job.logs || [];
+    const newLogs = [
+      ...currentLogs,
+      `[${new Date().toLocaleTimeString("pt-BR")}] [PIPELINE HÍBRIDO] ${clipsData.length} clipes foram fatiados e enviados com sucesso pelo cliente!`,
+      `[${new Date().toLocaleTimeString("pt-BR")}] Processo concluído com êxito.`,
+    ];
+
+    const { error: updErr } = await supabase
+      .from("jobs")
+      .update({
+        status: "done",
+        progress: 100,
+        finished_at: new Date().toISOString(),
+        logs: newLogs,
+      })
+      .eq("id", jobId);
+
+    if (updErr) {
+      console.error("[finalizeClientSlicedClipsAction] Erro ao atualizar status do job:", updErr);
+    }
+
+    revalidatePath(`/jobs/${jobId}`);
+    revalidatePath("/");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[finalizeClientSlicedClipsAction] Erro fatal:", err);
+    return { success: false, error: err?.message || "Falha ao registrar clipes." };
+  }
+}
+
+
 
 

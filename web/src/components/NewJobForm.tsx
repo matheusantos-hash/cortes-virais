@@ -6,6 +6,8 @@ import { uploadResumable } from "@/lib/upload";
 import { safeName } from "@/lib/format";
 import { VerticalMode } from "@/lib/types";
 import { SYSTEM_FONTS, type SystemFont } from "@/lib/systemFonts";
+import { extractAudioFromVideoFile } from "@/lib/audioExtractor";
+import { storeLocalVideoFile } from "@/lib/clientFileStore";
 import {
   LinkIcon,
   UploadIcon,
@@ -214,6 +216,8 @@ export default function NewJobForm({
   const [enableExtendedThinking, setEnableExtendedThinking] = useState(true);
 
   const [busy, setBusy] = useState(false);
+  const [turboExtraction, setTurboExtraction] = useState(true);
+  const [extractProgress, setExtractProgress] = useState<string | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -271,14 +275,42 @@ export default function NewJobForm({
         setBusy(false);
         return setError("O arquivo principal precisa ser um vídeo (.mp4, .mov, .mkv).");
       }
-      if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
-        setBusy(false);
-        return setError(`O arquivo tem mais de ${MAX_UPLOAD_MB} MB. Cole um link do YouTube no lugar.`);
+
+      let fileToUpload: File = file;
+      let uploadContentType = file.type || "video/mp4";
+      let uploadPath = `${userId}/${crypto.randomUUID()}-${safeName(file.name)}`;
+
+      if (turboExtraction) {
+        try {
+          setExtractProgress("Extraindo áudio localmente via Web Audio API...");
+          const { audioBlob } = await extractAudioFromVideoFile(file, (p) => {
+            setExtractProgress(p.message);
+          });
+          const audioFileName = `audio-${crypto.randomUUID().slice(0, 8)}-${safeName(file.name.replace(/\.[^/.]+$/, ""))}.wav`;
+          fileToUpload = new File([audioBlob], audioFileName, { type: "audio/wav" });
+          uploadContentType = "audio/wav";
+          uploadPath = `${userId}/${crypto.randomUUID()}-${safeName(audioFileName)}`;
+          // Armazena no cache local para corte instantâneo posterior
+          storeLocalVideoFile(file.name, file);
+        } catch (extErr: any) {
+          console.warn("Extração de áudio client-side falhou, caindo para envio direto:", extErr);
+          if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+            setBusy(false);
+            setExtractProgress(null);
+            return setError(`Não foi possível extrair o áudio no navegador e o vídeo completo ultrapassa ${MAX_UPLOAD_MB} MB. Envie um vídeo menor ou use um link.`);
+          }
+        }
+      } else {
+        if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+          setBusy(false);
+          return setError(`O arquivo tem mais de ${MAX_UPLOAD_MB} MB. Cole um link do YouTube no lugar ou ative o Modo Turbo.`);
+        }
       }
-      const path = `${userId}/${crypto.randomUUID()}-${safeName(file.name)}`;
+
       let upError: string | null = null;
       try {
-        if (file.size > RESUMABLE_FROM_BYTES) {
+        setExtractProgress("Enviando arquivo para o servidor...");
+        if (fileToUpload.size > RESUMABLE_FROM_BYTES) {
           const {
             data: { session },
           } = await supabase.auth.getSession();
@@ -287,23 +319,24 @@ export default function NewJobForm({
           await uploadResumable({
             accessToken: session.access_token,
             bucket: "sources",
-            path,
-            file,
+            path: uploadPath,
+            file: fileToUpload,
             onProgress: setUploadPct,
           });
         } else {
-          const { error } = await supabase.storage.from("sources").upload(path, file, { contentType: file.type || "video/mp4" });
+          const { error } = await supabase.storage.from("sources").upload(uploadPath, fileToUpload, { contentType: uploadContentType });
           if (error) throw new Error(error.message);
         }
       } catch (err) {
         upError = err instanceof Error ? err.message : "erro desconhecido";
       }
       setUploadPct(null);
+      setExtractProgress(null);
       if (upError) {
         setBusy(false);
-        return setError(`Falha ao enviar o arquivo de vídeo: ${upError}`);
+        return setError(`Falha ao enviar o arquivo: ${upError}`);
       }
-      source = { source_type: "upload", source_path: path };
+      source = { source_type: "upload", source_path: uploadPath };
     }
 
     // Processamento de Copiar Estilo / Vídeo de Referência (se ativado)
@@ -387,11 +420,14 @@ export default function NewJobForm({
       }
     }
 
+    const isClientPipeline = mode === "upload" && turboExtraction;
+
     const payload: Record<string, any> = {
       user_id: userId,
       ...(effectiveProjectId ? { project_id: effectiveProjectId } : {}),
       ...source,
       file_name: mode === "upload" && file ? file.name : null,
+      client_pipeline_enabled: isClientPipeline,
       orientation,
       vertical_mode: orientation === "vertical" ? (refManualAdj?.camera?.verticalMode || verticalMode) : "crop",
       crop_x: cropPct / 100,
@@ -416,6 +452,9 @@ export default function NewJobForm({
       enable_extended_thinking: enableExtendedThinking,
       manual_adjustments: {
         ...(refManualAdj || {}),
+        clientPipeline: isClientPipeline,
+        originalFileName: file?.name || null,
+        originalFileSize: file?.size || null,
         subtitles: {
           style: copyStyle && refSourceType === "saved" && selectedUserRef?.subtitle_style ? selectedUserRef.subtitle_style : subtitleStyle,
           customFontName: copyStyle && refSourceType === "saved" && selectedUserRef?.custom_font_name ? selectedUserRef.custom_font_name : selectedFontName,
@@ -431,20 +470,34 @@ export default function NewJobForm({
       },
     };
 
-    let { error: insError } = await supabase.from("jobs").insert(payload);
+    let { data: insertedJob, error: insError } = await supabase
+      .from("jobs")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
+
+    // Se o banco ainda não tiver a coluna client_pipeline_enabled, tenta sem ela
+    if (insError && insError.message.includes("client_pipeline_enabled")) {
+      delete payload.client_pipeline_enabled;
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
+      insError = retry.error;
+    }
 
     // Se o banco ainda não tiver as colunas de IA curation dedicadas, tenta sem elas (já estão salvas em manual_adjustments)
     if (insError && (insError.message.includes("enable_visual_analysis") || insError.message.includes("enable_extended_thinking"))) {
       delete payload.enable_visual_analysis;
       delete payload.enable_extended_thinking;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
     }
 
     // Se o banco ainda não tiver a nova coluna de transcription_provider, tenta sem ela
     if (insError && insError.message.includes("transcription_provider")) {
       delete payload.transcription_provider;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
     }
 
@@ -453,7 +506,8 @@ export default function NewJobForm({
       delete payload.subtitle_style;
       delete payload.enable_sfx;
       delete payload.enable_emojis;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
     }
 
@@ -461,7 +515,8 @@ export default function NewJobForm({
     if (insError && (insError.message.includes("broll_source") || insError.message.includes("use_broll"))) {
       delete payload.use_broll;
       delete payload.broll_source;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
     }
 
@@ -473,7 +528,8 @@ export default function NewJobForm({
       delete payload.reference_style;
       delete payload.design_instructions;
       delete payload.vertical_mode;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
     }
 
@@ -481,8 +537,14 @@ export default function NewJobForm({
     if (insError && (insError.message.includes("file_name") || insError.message.includes("source_meta"))) {
       delete payload.file_name;
       delete payload.source_meta;
-      const retry = await supabase.from("jobs").insert(payload);
+      const retry = await supabase.from("jobs").insert(payload).select("id").maybeSingle();
+      insertedJob = retry.data;
       insError = retry.error;
+    }
+
+    if (insertedJob?.id && file) {
+      storeLocalVideoFile(insertedJob.id, file);
+      storeLocalVideoFile(file.name, file);
     }
 
     setBusy(false);
@@ -579,7 +641,36 @@ export default function NewJobForm({
         </label>
       ) : (
         <div>
-          <label style={{ marginBottom: "0.4rem" }}>Arquivo de Vídeo (.mp4, .mov, .mkv)</label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem", flexWrap: "wrap", gap: "0.5rem" }}>
+            <label style={{ margin: 0 }}>Arquivo de Vídeo (.mp4, .mov, .mkv)</label>
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                cursor: "pointer",
+                fontSize: "0.82rem",
+                color: turboExtraction ? "var(--primary)" : "var(--text-muted)",
+                fontWeight: 600,
+                background: turboExtraction ? "rgba(139, 92, 246, 0.12)" : "var(--bg-subtle)",
+                padding: "0.25rem 0.65rem",
+                borderRadius: "6px",
+                border: turboExtraction ? "1px solid rgba(139, 92, 246, 0.3)" : "1px solid var(--card-border)",
+                transition: "all 0.15s ease",
+              }}
+              title="Extrai apenas o áudio no seu computador (~20MB), economizando 95% de banda e upload."
+            >
+              <input
+                type="checkbox"
+                checked={turboExtraction}
+                onChange={(e) => setTurboExtraction(e.target.checked)}
+                style={{ accentColor: "var(--primary)", cursor: "pointer" }}
+              />
+              <Zap size={13} style={{ color: turboExtraction ? "var(--primary)" : "inherit" }} />
+              <span>Upload Turbo (Extração Local)</span>
+            </label>
+          </div>
+
           <div
             className={`dropzone ${dragOver ? "active" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -598,12 +689,28 @@ export default function NewJobForm({
               }}
             />
             <div className="dropzone-icon">
-              <UploadIcon size={22} />
+              {turboExtraction ? <Zap size={22} style={{ color: "var(--primary)" }} /> : <UploadIcon size={22} />}
             </div>
             {file ? (
               <div>
                 <strong style={{ color: "var(--text)", display: "block" }}>{file.name}</strong>
                 <span className="muted small">{formatBytes(file.size)}</span>
+                {turboExtraction && (
+                  <div
+                    style={{
+                      fontSize: "0.78rem",
+                      color: "var(--primary)",
+                      marginTop: "0.3rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
+                    <Zap size={12} />
+                    <span>Áudio leve será extraído no navegador para envio instantâneo</span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="btn-danger-outline"
@@ -621,10 +728,46 @@ export default function NewJobForm({
                 <strong className="dropzone-title">
                   Arraste e solte o vídeo aqui
                 </strong>
-                <span className="dropzone-subtitle" style={{ display: "block" }}>ou clique para selecionar do computador (até {MAX_UPLOAD_MB} MB)</span>
+                <span className="dropzone-subtitle" style={{ display: "block" }}>
+                  {turboExtraction
+                    ? "ou clique para selecionar do computador (arquivos de qualquer tamanho via Modo Turbo)"
+                    : `ou clique para selecionar do computador (até ${MAX_UPLOAD_MB} MB)`}
+                </span>
               </div>
             )}
           </div>
+
+          {extractProgress && (
+            <div
+              style={{
+                marginTop: "0.6rem",
+                padding: "0.6rem 0.85rem",
+                borderRadius: "8px",
+                background: "rgba(139, 92, 246, 0.1)",
+                border: "1px solid rgba(139, 92, 246, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.82rem",
+                color: "var(--text)",
+              }}
+            >
+              <Zap size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <span>{extractProgress}</span>
+            </div>
+          )}
+
+          {uploadPct !== null && (
+            <div style={{ marginTop: "0.6rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", marginBottom: "0.25rem", color: "var(--text-muted)" }}>
+                <span>Enviando áudio comprimido...</span>
+                <span>{uploadPct}%</span>
+              </div>
+              <div style={{ width: "100%", height: "4px", background: "var(--card-border)", borderRadius: "2px", overflow: "hidden" }}>
+                <div style={{ width: `${uploadPct}%`, height: "100%", background: "var(--primary)", transition: "width 0.2s ease" }} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

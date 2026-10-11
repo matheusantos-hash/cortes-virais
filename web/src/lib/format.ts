@@ -5,6 +5,7 @@ export const STATUS_LABEL: Record<JobStatus, string> = {
   downloading: "Obtendo o vídeo",
   transcribing: "Transcrevendo",
   analyzing: "Escolhendo os trechos",
+  awaiting_client_cut: "Aguardando corte local",
   cutting: "Cortando os clipes",
   done: "Pronto",
   failed: "Falhou",

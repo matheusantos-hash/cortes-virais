@@ -83,6 +83,9 @@ interface Job {
   enable_visual_analysis?: boolean;
   enable_extended_thinking?: boolean;
   canvas_brolls?: any[] | null;
+  client_pipeline_enabled?: boolean;
+  pending_candidates?: any[] | null;
+  audio_storage_path?: string | null;
 }
 
 /** Erro com mensagem segura para mostrar ao usuário. Os demais viram uma mensagem genérica. */
@@ -666,6 +669,10 @@ async function processJob(job: Job) {
       );
     }
 
+    const isClientPipeline = Boolean(
+      job.client_pipeline_enabled || (job.manual_adjustments as any)?.clientPipeline
+    );
+
     const opts: Options = {
       orientation: job.orientation,
       clips: job.clip_count,
@@ -696,7 +703,7 @@ async function processJob(job: Job) {
       thinkingBudgetTokens: manualAdj?.aiCuration?.thinkingBudgetTokens ?? 2048,
       exportSettings: job.export_settings as any,
       force: false,
-      dryRun: false,
+      dryRun: isClientPipeline,
     };
 
     const { clips, files, editDecisions } = await processVideo({
@@ -718,6 +725,48 @@ async function processJob(job: Job) {
     });
 
     await checkCanceled();
+
+    if (isClientPipeline) {
+      await pushLog(`[PIPELINE HÍBRIDO] ${clips.length} momentos virais aprovados pela IA! Notificando navegador para corte local instantâneo.`);
+      const candidatePayload = clips.map((c, idx) => ({
+        id: `cand_${idx + 1}`,
+        position: idx + 1,
+        title: c.title,
+        hook: c.hook,
+        score: c.score,
+        reason: c.reason,
+        start_seconds: c.start,
+        end_seconds: c.end,
+        duration_seconds: Math.round((c.end - c.start) * 10) / 10,
+        edit_decisions: editDecisions[idx] || null,
+      }));
+
+      const patchData: Record<string, any> = {
+        status: "awaiting_client_cut",
+        progress: 80,
+        pending_candidates: candidatePayload,
+        manual_adjustments: {
+          ...(job.manual_adjustments || {}),
+          pendingCandidates: candidatePayload,
+        },
+      };
+
+      const { error: patchErr } = await supabase.from("jobs").update(patchData).eq("id", job.id);
+      if (patchErr) {
+        // Fallback caso a constraint no banco ainda não tenha 'awaiting_client_cut'
+        delete patchData.status;
+        delete patchData.pending_candidates;
+        await supabase.from("jobs").update({
+          ...patchData,
+          status: "cutting",
+          progress: 80,
+        }).eq("id", job.id);
+      }
+
+      await flushLogs();
+      console.log(`[${job.id}] Pipeline híbrido: IA concluiu análise e aguarda corte no cliente.`);
+      return;
+    }
 
     // 4. Enviar os clipes ao Storage e registrar no banco
     await pushLog("Iniciando upload dos clipes finalizados para o Storage Supabase...");

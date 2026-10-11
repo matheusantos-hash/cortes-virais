@@ -14,6 +14,7 @@ const ClipEditorModal = dynamic(() => import("./ClipEditorModal"), { ssr: false 
 import ClipCard from "./ClipCard";
 import BatchExportModal from "./BatchExportModal";
 import CustomVideoPlayer from "./CustomVideoPlayer";
+import ClientSlicingSection from "./ClientSlicingSection";
 import {
   DownloadIcon,
   TrashIcon,
@@ -347,6 +348,19 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           </div>
         )}
       </div>
+
+      {/* Seção de Fatiamento Local se o job estiver aguardando o corte do cliente */}
+      {(job.status === "awaiting_client_cut" ||
+        (job.status !== "done" &&
+          Boolean(job.pending_candidates?.length || (job.manual_adjustments as any)?.pendingCandidates?.length))) && (
+        <ClientSlicingSection
+          jobId={job.id}
+          userId={job.user_id}
+          fileName={job.file_name}
+          candidates={job.pending_candidates || (job.manual_adjustments as any)?.pendingCandidates || []}
+          onCompleted={refresh}
+        />
+      )}
 
       {/* Terminal PowerShell do Backend */}
       <section className="stack">

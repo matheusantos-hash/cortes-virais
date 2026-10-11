@@ -3,6 +3,7 @@ export type JobStatus =
   | "downloading"
   | "transcribing"
   | "analyzing"
+  | "awaiting_client_cut"
   | "cutting"
   | "done"
   | "failed"
@@ -86,6 +87,10 @@ export interface Job {
   job_type?: "full" | "trim";
   canvas_brolls?: CanvasBroll[];
   project_id?: string | null;
+  client_pipeline_enabled?: boolean;
+  pending_candidates?: any[];
+  audio_storage_path?: string | null;
+  manual_adjustments?: Record<string, any> | null;
 }
 
 export interface Project {
