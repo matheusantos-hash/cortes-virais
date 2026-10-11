@@ -426,74 +426,124 @@ h3 { font-size: 1.05rem; }
   }
 }
 
-/* Form Styles */
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text);
+@layer base {
+  /* Form Styles */
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: 0.92rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--text);
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #94A3B8;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+
+  input[type="range"] {
+    padding: 0;
+    accent-color: var(--primary);
+    background: transparent;
+  }
+
+  small, .small {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  /* Botões Base */
+  button, .button {
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 0.65rem 1.15rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+
+  button:disabled, .button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 }
 
-input, select, textarea {
-  font-family: inherit;
-  font-size: 0.92rem;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid var(--input-border);
-  border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--text);
-  width: 100%;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
-}
-
-input::placeholder, textarea::placeholder {
-  color: #94A3B8;
-}
-
-input:focus, select:focus, textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
-}
-
-input[type="range"] {
+/* Reset isolado para Checkbox e Radio - previne stretch de 100% e paddings globais */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.15rem;
+  height: 1.15rem;
   padding: 0;
+  margin: 0;
   accent-color: var(--primary);
-  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
-small, .small {
-  font-size: 0.82rem;
+/* Linhas horizontais de checkbox e label */
+.checkbox-row,
+label.checkbox-row {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+/* Botões de ícones utilitários compactos */
+.btn-icon {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+.btn-icon:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
 }
 
 .muted {
   color: var(--text-muted);
-}
-
-/* Botões */
-button, .button {
-  font-family: inherit;
-  font-size: 0.92rem;
-  font-weight: 600;
-  padding: 0.65rem 1.15rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  text-decoration: none;
-}
-
-button:disabled, .button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
 }
 
 /* Botão Primário CTA Vibrante */

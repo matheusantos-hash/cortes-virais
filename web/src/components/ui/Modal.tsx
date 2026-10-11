@@ -126,6 +126,7 @@ export default function Modal({
                 borderRadius: "8px",
                 width: "32px",
                 height: "32px",
+                padding: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

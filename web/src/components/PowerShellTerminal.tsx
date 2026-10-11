@@ -270,6 +270,7 @@ export default function PowerShellTerminal({ logs = [], status, jobId }: PowerSh
         .ps-ctrl-btn {
           background: transparent;
           border: none;
+          padding: 0;
           color: #94a3b8;
           width: 24px;
           height: 22px;

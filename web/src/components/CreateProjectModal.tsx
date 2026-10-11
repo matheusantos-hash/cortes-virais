@@ -124,6 +124,7 @@ export default function CreateProjectModal({
                   style={{
                     width: "32px",
                     height: "32px",
+                    padding: 0,
                     borderRadius: "50%",
                     background: col.hex,
                     border: isSelected ? "2px solid #ffffff" : "2px solid rgba(255, 255, 255, 0.15)",
