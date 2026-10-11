@@ -34,7 +34,11 @@ import {
   ChevronDown,
   ChevronUp,
 } from "./Icons";
-import ModernColorPicker from "./ModernColorPicker";
+import AdvancedNumericControls from "./job-form/AdvancedNumericControls";
+import AdvancedBrollsSection from "./job-form/AdvancedBrollsSection";
+import AdvancedSubtitlesSection from "./job-form/AdvancedSubtitlesSection";
+import AdvancedTranscriptionSection from "./job-form/AdvancedTranscriptionSection";
+import AdvancedCurationSection from "./job-form/AdvancedCurationSection";
 
 const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 50;
 const RESUMABLE_FROM_BYTES = 6 * 1024 * 1024; // acima disso, usa envio retomável (TUS)
@@ -801,53 +805,16 @@ export default function NewJobForm({
       {showAdvanced && (
         <div className="stack" style={{ gap: "1rem", paddingTop: "0.5rem" }}>
           {/* Controles de Ajuste Numérico */}
-          <div className="grid3">
-        <label>
-          Qtd. de cortes
-          <input
-            type="number"
-            min={1}
-            max={20}
-            value={clipCount}
-            onChange={(e) => setClipCount(Number(e.target.value))}
+          <AdvancedNumericControls
+            clipCount={clipCount}
+            onClipCountChange={setClipCount}
+            minSeconds={minSeconds}
+            onMinSecondsChange={setMinSeconds}
+            maxSeconds={maxSeconds}
+            onMaxSecondsChange={setMaxSeconds}
+            language={language}
+            onLanguageChange={setLanguage}
           />
-        </label>
-        <label>
-          Duração Mín. (s)
-          <input
-            type="number"
-            min={5}
-            max={3600}
-            value={minSeconds}
-            onChange={(e) => setMinSeconds(Number(e.target.value))}
-          />
-          {minSeconds >= 60 && (
-            <small className="muted">{Math.floor(minSeconds / 60)}m {minSeconds % 60 ? `${minSeconds % 60}s` : ""}</small>
-          )}
-        </label>
-        <label>
-          Duração Máx. (s)
-          <input
-            type="number"
-            min={10}
-            max={3600}
-            value={maxSeconds}
-            onChange={(e) => setMaxSeconds(Number(e.target.value))}
-          />
-          {maxSeconds >= 60 && (
-            <small className="muted">{Math.floor(maxSeconds / 60)}m {maxSeconds % 60 ? `${maxSeconds % 60}s` : ""}</small>
-          )}
-        </label>
-      </div>
-
-      <label>
-        Idioma Falado no Vídeo
-        <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-          <option value="pt-BR">Português (Brasil)</option>
-          <option value="en">Inglês</option>
-          <option value="es">Espanhol</option>
-        </select>
-      </label>
 
       {/* SEÇÃO PRINCIPAL: COPIAR ESTILO COM HIGGSFIELD AI */}
       <div
@@ -1063,318 +1030,46 @@ export default function NewJobForm({
 
       {/* SEÇÃO: B-ROLL ISOLADO (QUANDO NÃO USAR COPIAR ESTILO) */}
       {!copyStyle && (
-        <div className="card" style={{ border: "1px dashed rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.03)", padding: "0.85rem" }}>
-          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.65rem", cursor: "pointer", margin: 0 }}>
-            <input
-              type="checkbox"
-              style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary)", cursor: "pointer" }}
-              checked={useBroll}
-              onChange={(e) => setUseBroll(e.target.checked)}
-            />
-            <div>
-              <strong style={{ fontSize: "0.92rem", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <FilmIcon size={15} /> Inserir B-Rolls automáticos nos momentos-chave
-              </strong>
-              <small style={{ display: "block", color: "var(--text-muted)" }}>
-                Intercala vídeos de apoio em Full HD para aumentar a retenção.
-              </small>
-            </div>
-          </label>
-
-          {useBroll && (
-            <div style={{ marginTop: "0.75rem", paddingTop: "0.65rem", borderTop: "1px solid var(--card-border)" }}>
-              <label>
-                Provedor de B-Roll:
-                <select value={brollSource} onChange={(e) => setBrollSource(e.target.value as "auto" | "pexels" | "higgsfield")}>
-                  <option value="auto">⚡ Automático (IA Decide - Recomendado)</option>
-                  <option value="higgsfield">Higgsfield AI (Apenas Gerados por IA)</option>
-                  <option value="pexels">Pixabay / Pexels (Apenas Vídeos Reais)</option>
-                </select>
-              </label>
-            </div>
-          )}
-        </div>
+        <AdvancedBrollsSection
+          useBroll={useBroll}
+          onUseBrollChange={setUseBroll}
+          brollSource={brollSource}
+          onBrollSourceChange={setBrollSource}
+        />
       )}
 
-      {/* SEÇÃO: TIPOGRAFIA VIRAL & SOUND DESIGN (FASE 4 + HYPERFRAMES) */}
-      <div className="card stack" style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)", padding: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-          <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--primary)" }}>
-            <Palette size={16} /> Estilo de Legenda &amp; Sound Design
-          </strong>
-          <span className="badge" style={{ background: "rgba(99, 102, 241, 0.15)", color: "#a5b4fc", fontSize: "0.72rem" }}>
-            Alta Retenção
-          </span>
-        </div>
+      {/* SEÇÃO: TIPOGRAFIA VIRAL & SOUND DESIGN */}
+      <AdvancedSubtitlesSection
+        selectedFontName={selectedFontName}
+        onFontNameChange={setSelectedFontName}
+        subtitleStyle={subtitleStyle}
+        onSubtitleStyleChange={setSubtitleStyle}
+        primaryColor={primaryColor}
+        onPrimaryColorChange={setPrimaryColor}
+        highlightColor={highlightColor}
+        onHighlightColorChange={setHighlightColor}
+        enableEmojis={enableEmojis}
+        onEnableEmojisChange={setEnableEmojis}
+        enableSfx={enableSfx}
+        onEnableSfxChange={setEnableSfx}
+      />
 
-        <div className="grid2" style={{ marginTop: "0.5rem" }}>
-          <label>
-            Tipografia das Legendas (Fontes do Sistema):
-            <select
-              value={selectedFontName}
-              onChange={(e) => setSelectedFontName(e.target.value)}
-              style={{ marginTop: "0.3rem" }}
-            >
-              {SYSTEM_FONTS.map((font) => (
-                <option key={font.id} value={font.name}>
-                  {font.name} {font.id === "poppins" ? "⭐ (Recomendada / Poppins)" : `— ${font.category}`}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Estilo de Animação / Preset:
-            <select
-              value={subtitleStyle}
-              onChange={(e) => setSubtitleStyle(e.target.value as any)}
-              style={{ marginTop: "0.3rem" }}
-            >
-              <option value="hormozi">Alex Hormozi (Amarelo vibrante, contorno preto espesso)</option>
-              <option value="beast">MrBeast Impact (Cores neon dinâmicas e ritmo ultra-rápido)</option>
-              <option value="apple">Apple Minimal (Tipografia limpa, cantos suaves, estilo Apple)</option>
-              <option value="minimal">Legenda Clássica (Subtítulo discreto na base com fundo suave)</option>
-            </select>
-          </label>
-        </div>
-
-        {/* Paleta rápida de cores das legendas com Swatches SVG redondos e Pizza de Cores */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", background: "rgba(0,0,0,0.22)", padding: "0.75rem 0.9rem", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
-          <ModernColorPicker
-            label="Cor do Texto:"
-            color={primaryColor}
-            onChange={(c) => setPrimaryColor(c)}
-            presetColors={[
-              { color: "#FFFFFF", name: "Branco" },
-              { color: "#FACC15", name: "Amarelo" },
-              { color: "#00F0FF", name: "Ciano" },
-              { color: "#10B981", name: "Verde" },
-            ]}
-            compact
-          />
-
-          <ModernColorPicker
-            label="Destaque (Karaoke):"
-            color={highlightColor}
-            onChange={(c) => setHighlightColor(c)}
-            presetColors={[
-              { color: "#FACC15", name: "Amarelo Vibrante" },
-              { color: "#10B981", name: "Verde Neon" },
-              { color: "#00F0FF", name: "Ciano Elétrico" },
-              { color: "#FF007A", name: "Magenta" },
-              { color: "#FB923C", name: "Laranja" },
-            ]}
-            compact
-          />
-        </div>
-
-        <div className="stack" style={{ gap: "0.5rem", marginTop: "0.25rem" }}>
-          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
-            <input
-              type="checkbox"
-              checked={enableEmojis}
-              onChange={(e) => setEnableEmojis(e.target.checked)}
-              style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
-            />
-            <span style={{ fontSize: "0.85rem", color: "var(--text)" }}>
-              Injetar Emojis Automáticos contextuais na fala (🔥, 💰, 🚀)
-            </span>
-          </label>
-
-          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem", cursor: "pointer", margin: 0 }}>
-            <input
-              type="checkbox"
-              checked={enableSfx}
-              onChange={(e) => setEnableSfx(e.target.checked)}
-              style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
-            />
-            <span style={{ fontSize: "0.85rem", color: "var(--text)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-              <Volume2 size={14} style={{ color: "var(--primary)" }} /> Sound Design (Whoosh, Pop e Ding sincronizados)
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {/* SEÇÃO: MOTOR DE TRANSCRIÇÃO & FALLBACK (DEEPGRAM vs GEMINI PRO) */}
-      <div className="card stack" style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--card-border)", padding: "1rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-          <div>
-            <strong style={{ fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "0.45rem", color: "var(--text)" }}>
-              <Zap size={16} style={{ color: "var(--primary)" }} /> Motor de Transcrição &amp; IA de Áudio
-            </strong>
-            <small style={{ color: "var(--text-muted)", display: "block", marginTop: "0.15rem" }}>
-              Escolha a inteligência usada para mapear falas, timestamps e eventos sonoros.
-            </small>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSaveDefaultProvider}
-            disabled={savingDefaultProvider}
-            className="btn-ghost"
-            style={{
-              fontSize: "0.78rem",
-              padding: "0.3rem 0.65rem",
-              borderRadius: "6px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              border: savedDefaultSuccess ? "1px solid rgba(16, 185, 129, 0.5)" : "1px solid var(--card-border)",
-              color: savedDefaultSuccess ? "#10b981" : "var(--text-muted)",
-              background: savedDefaultSuccess ? "rgba(16, 185, 129, 0.1)" : "transparent",
-              transition: "all 0.2s ease",
-              cursor: "pointer",
-            }}
-            title="Salva este provedor como preferência padrão para seus próximos vídeos"
-          >
-            {savedDefaultSuccess ? (
-              <>
-                <Check size={13} /> Padrão Salvo!
-              </>
-            ) : (
-              <>
-                <Save size={13} /> Salvar como Padrão
-              </>
-            )}
-          </button>
-        </div>
-
-        <div className="selection-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginTop: "0.4rem" }}>
-          {/* Card Auto / Fallback */}
-          <div
-            className={`selection-card ${transcriptionProvider === "auto" ? "active" : ""}`}
-            onClick={() => setTranscriptionProvider("auto")}
-            style={{ cursor: "pointer", position: "relative" }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-              <Shield size={20} style={{ color: transcriptionProvider === "auto" ? "var(--primary)" : "var(--text-muted)" }} />
-              <span className="badge badge-done" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem" }}>
-                Recomendado
-              </span>
-            </div>
-            <div className="selection-card-title">Auto + Fallback</div>
-            <span className="selection-card-desc">
-              Usa Deepgram Nova-3. Se a cota acabar ou houver erro, alterna para o Gemini Pro sem travar o vídeo.
-            </span>
-          </div>
-
-          {/* Card Deepgram */}
-          <div
-            className={`selection-card ${transcriptionProvider === "deepgram" ? "active" : ""}`}
-            onClick={() => setTranscriptionProvider("deepgram")}
-            style={{ cursor: "pointer" }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-              <Zap size={20} style={{ color: transcriptionProvider === "deepgram" ? "var(--primary)" : "var(--text-muted)" }} />
-              <span className="badge" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", background: "rgba(99, 102, 241, 0.15)", color: "#a5b4fc" }}>
-                Nova-3
-              </span>
-            </div>
-            <div className="selection-card-title">Deepgram Nova-3</div>
-            <span className="selection-card-desc">
-              Velocidade ultrarrápida com precisão milimétrica palavra por palavra para legendas karaokê dinâmicas.
-            </span>
-          </div>
-
-          {/* Card Gemini Pro */}
-          <div
-            className={`selection-card ${transcriptionProvider === "gemini" ? "active" : ""}`}
-            onClick={() => setTranscriptionProvider("gemini")}
-            style={{ cursor: "pointer" }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-              <Cpu size={20} style={{ color: transcriptionProvider === "gemini" ? "var(--primary)" : "var(--text-muted)" }} />
-              <span className="badge" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem", background: "rgba(16, 185, 129, 0.15)", color: "#34d399" }}>
-                Multimodal
-              </span>
-            </div>
-            <div className="selection-card-title">Google Gemini Pro</div>
-            <span className="selection-card-desc">
-              Analisa áudio nativamente com tags de risos, aplausos e emoção. Econômico e suporta horas de vídeo.
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* SEÇÃO: MOTOR DE TRANSCRIÇÃO & FALLBACK */}
+      <AdvancedTranscriptionSection
+        transcriptionProvider={transcriptionProvider}
+        onProviderChange={setTranscriptionProvider}
+        onSaveDefault={handleSaveDefaultProvider}
+        savingDefault={savingDefaultProvider}
+        savedSuccess={savedDefaultSuccess}
+      />
 
       {/* SEÇÃO: CURADORIA INTELIGENTE & IA MULTIMODAL */}
-      <div className="card stack" style={{ background: "rgba(99, 102, 241, 0.03)", border: "1px solid rgba(99, 102, 241, 0.25)", padding: "1rem" }}>
-        <div>
-          <strong style={{ fontSize: "0.95rem", color: "var(--primary)" }}>
-            Curadoria Inteligente &amp; Raciocínio Profundo
-          </strong>
-          <small style={{ color: "var(--text-muted)", display: "block", marginTop: "0.15rem" }}>
-            Tecnologia de visão computacional e inteligência editorial para maximizar retenção e taxas de visualização.
-          </small>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem", marginTop: "0.25rem" }}>
-          {/* Card Gemini Agentic Video */}
-          <label
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: "0.65rem",
-              cursor: "pointer",
-              padding: "0.75rem",
-              borderRadius: "8px",
-              background: enableVisualAnalysis ? "rgba(99, 102, 241, 0.08)" : "rgba(255, 255, 255, 0.02)",
-              border: enableVisualAnalysis ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-              transition: "all 0.2s ease",
-              margin: 0,
-            }}
-          >
-            <input
-              type="checkbox"
-              style={{ width: "1.15rem", height: "1.15rem", accentColor: "var(--primary)", marginTop: "0.15rem", cursor: "pointer" }}
-              checked={enableVisualAnalysis}
-              onChange={(e) => setEnableVisualAnalysis(e.target.checked)}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                <strong style={{ fontSize: "0.88rem", color: "var(--text)" }}>Gemini Agentic Vision</strong>
-                <span className="badge badge-done" style={{ fontSize: "0.65rem", padding: "0.08rem 0.35rem" }}>IA Visual</span>
-              </div>
-              <small style={{ display: "block", color: "var(--text-muted)", marginTop: "0.2rem", fontSize: "0.78rem", lineHeight: 1.35 }}>
-                A IA assiste ao vídeo dinamicamente buscando picos de expressão facial, gestos e telas para priorizar cortes de alto impacto visual.
-              </small>
-            </div>
-          </label>
-
-          {/* Card Claude Extended Thinking */}
-          <label
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: "0.65rem",
-              cursor: "pointer",
-              padding: "0.75rem",
-              borderRadius: "8px",
-              background: enableExtendedThinking ? "rgba(99, 102, 241, 0.08)" : "rgba(255, 255, 255, 0.02)",
-              border: enableExtendedThinking ? "1px solid var(--primary)" : "1px solid var(--card-border)",
-              transition: "all 0.2s ease",
-              margin: 0,
-            }}
-          >
-            <input
-              type="checkbox"
-              style={{ width: "1.15rem", height: "1.15rem", accentColor: "var(--primary)", marginTop: "0.15rem", cursor: "pointer" }}
-              checked={enableExtendedThinking}
-              onChange={(e) => setEnableExtendedThinking(e.target.checked)}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                <strong style={{ fontSize: "0.88rem", color: "var(--text)" }}>Claude Extended Thinking</strong>
-                <span className="badge badge-done" style={{ fontSize: "0.65rem", padding: "0.08rem 0.35rem" }}>Raciocínio</span>
-              </div>
-              <small style={{ display: "block", color: "var(--text-muted)", marginTop: "0.2rem", fontSize: "0.78rem", lineHeight: 1.35 }}>
-                Ativa cota de raciocínio profundo no Claude para planejar arcos narrativos autocontidos e ganchos magnéticos nos primeiros 3s.
-              </small>
-            </div>
-          </label>
-        </div>
-      </div>
+      <AdvancedCurationSection
+        enableVisualAnalysis={enableVisualAnalysis}
+        onEnableVisualAnalysisChange={setEnableVisualAnalysis}
+        enableExtendedThinking={enableExtendedThinking}
+        onEnableExtendedThinkingChange={setEnableExtendedThinking}
+      />
 
         {/* Modo Rascunho */}
         <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>

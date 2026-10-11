@@ -7,8 +7,10 @@ import { safeName } from "@/lib/format";
 import type { ExportSettings, ManualAdjustments, SavedReference, SubtitleStyle } from "@/lib/types";
 import SavedReferencesModal from "./SavedReferencesModal";
 import EditStyleModal from "./EditStyleModal";
-import FontSelector from "./FontSelector";
-import ModernColorPicker from "./ModernColorPicker";
+import StudioSubtitlesSection from "./studio/StudioSubtitlesSection";
+import StudioPacingSection from "./studio/StudioPacingSection";
+import StudioSoundBrollsSection from "./studio/StudioSoundBrollsSection";
+import StudioExportSection from "./studio/StudioExportSection";
 import {
   Copy,
   Upload,
@@ -2425,543 +2427,95 @@ export default function CopyStyleStudio({
 
           <div className="studio-controls-grid">
             {/* Bloco 1: Legendas */}
-            <div className="control-box">
-              <div className="control-box-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <Subtitles size={17} style={{ color: "var(--primary)" }} />
-                  <strong>Ajuste de Legendas</strong>
-                </div>
-                {appliedRef && (
-                  <span className="badge" style={{ fontSize: "0.68rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--primary)" }}>
-                    {appliedRef.name.slice(0, 18)}…
-                  </span>
-                )}
-              </div>
-
-              <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
-                {/* Visualização Dinâmica da Legenda (Live Preview) */}
-                <div
-                  style={{
-                    background: "rgba(10, 15, 29, 0.85)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: "8px",
-                    padding: "0.75rem",
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                    <span className="muted" style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                      Preview da Legenda em Tempo Real
-                    </span>
-                    <span style={{ fontSize: "0.68rem", color: "var(--primary)", fontWeight: 600 }}>
-                      {subtitleStyle.toUpperCase()} • {fontSize.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: "0.6rem 0.4rem",
-                      borderRadius: "6px",
-                      background: "radial-gradient(ellipse at center, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.95) 100%)",
-                      minHeight: "48px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: fontPreviewUrl ? "'PreviewCustomFont', sans-serif" : (customFontName ? `'${customFontName}', sans-serif` : "inherit"),
-                      fontSize: fontSize === "extra" ? "1.25rem" : fontSize === "large" ? "1.1rem" : "0.95rem",
-                      fontWeight: 800,
-                      lineHeight: 1.2,
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: primaryColor,
-                        textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 6px rgba(0,0,0,0.8)",
-                        marginRight: "6px",
-                      }}
-                    >
-                      CORTE DA
-                    </span>
-                    <span
-                      style={{
-                        color: highlightColor,
-                        textShadow: "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 3px 6px rgba(0,0,0,0.8)",
-                      }}
-                    >
-                      PEGADA 🔥
-                    </span>
-                  </div>
-
-                  <div style={{ marginTop: "0.4rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", fontSize: "0.7rem" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      Base: <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: primaryColor, display: "inline-block", border: "1px solid #666" }} /> <strong>{primaryColor}</strong>
-                    </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      Destaque: <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: highlightColor, display: "inline-block", border: "1px solid #666" }} /> <strong>{highlightColor}</strong>
-                    </span>
-                    {customFontName && (
-                      <span style={{ color: "var(--primary)" }}>
-                        Fonte: <strong>{customFontName}</strong>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="field-label">Estilo Visual</label>
-                  <select
-                    className="input select"
-                    value={subtitleStyle}
-                    onChange={(e) => setSubtitleStyle(e.target.value as SubtitleStyle)}
-                  >
-                    <option value="hormozi">Hormozi Pop (Impacto &amp; Contorno)</option>
-                    <option value="beast">Beast Neon (Verde/Amarelo)</option>
-                    <option value="apple">Apple Clean (Minimalista Elegante)</option>
-                    <option value="minimal">Discreto &amp; Neutro</option>
-                  </select>
-                </div>
-
-                <div className="row" style={{ gap: "0.5rem" }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Tamanho da Fonte</label>
-                    <select
-                      className="input select"
-                      value={fontSize}
-                      onChange={(e) => setFontSize(e.target.value as any)}
-                    >
-                      <option value="medium">Médio (Discreto)</option>
-                      <option value="large">Grande (Social Padrão)</option>
-                      <option value="extra">Extra Grande (Retenção Alta)</option>
-                    </select>
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Posição Vertical</label>
-                    <select
-                      className="input select"
-                      value={positionY}
-                      onChange={(e) => setPositionY(e.target.value as any)}
-                    >
-                      <option value="bottom">Inferior (Padrão)</option>
-                      <option value="center-bottom">Centro-Baixo (Otimizado)</option>
-                      <option value="center">Centro da Tela</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* COR 1: COR PRINCIPAL DO TEXTO (BASE DA LEGENDA) */}
-                <ModernColorPicker
-                  label="Cor Principal do Texto (Base):"
-                  color={primaryColor}
-                  onChange={setPrimaryColor}
-                  presetColors={BASE_COLOR_PRESETS}
-                />
-
-                {/* COR 2: COR DO DESTAQUE (KARAOKÊ / PALAVRA ATIVA) */}
-                <ModernColorPicker
-                  label="Cor do Destaque (Karaokê):"
-                  color={highlightColor}
-                  onChange={setHighlightColor}
-                  presetColors={HIGHLIGHT_COLOR_PRESETS}
-                />
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={enableEmojis}
-                    onChange={(e) => setEnableEmojis(e.target.checked)}
-                  />
-                  <span>Inserir emojis automáticos sincados no texto</span>
-                </label>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={karaokeHighlight}
-                    onChange={(e) => setKaraokeHighlight(e.target.checked)}
-                  />
-                  <span>Destaque palavra por palavra (Word highlight)</span>
-                </label>
-
-                {/* Seletor de Fontes Embutidas + Ícone de Olho + Modal de Amostra com Negrito ON/OFF */}
-                <div style={{ marginTop: "0.4rem", paddingTop: "0.6rem", borderTop: "1px dashed var(--card-border)" }}>
-                  <FontSelector
-                    selectedFontName={customFontName || "Montserrat Black"}
-                    onSelectFontName={(fontName) => {
-                      setCustomFontName(fontName);
-                      setCustomFontFile(null);
-                      setCustomFontPath(null);
-                      setFontPreviewUrl(null);
-                    }}
-                    onSelectCustomFile={(file) => handleFontSelect(file)}
-                    customFontFile={customFontFile}
-                    customFontPath={customFontPath}
-                    onClearCustomFont={() => {
-                      setCustomFontFile(null);
-                      setCustomFontPath(null);
-                      setCustomFontName("");
-                      setFontPreviewUrl(null);
-                      if (fontFileInputRef.current) fontFileInputRef.current.value = "";
-                    }}
-                    primaryColor={primaryColor}
-                    highlightColor={highlightColor}
-                    isInheritedFromStyle={Boolean(appliedRef && !customFontFile)}
-                    styleName={appliedRef?.name}
-                  />
-                </div>
-              </div>
-            </div>
+            <StudioSubtitlesSection
+              appliedRef={appliedRef}
+              subtitleStyle={subtitleStyle}
+              onSubtitleStyleChange={setSubtitleStyle}
+              fontSize={fontSize}
+              onFontSizeChange={setFontSize}
+              positionY={positionY}
+              onPositionYChange={setPositionY}
+              primaryColor={primaryColor}
+              onPrimaryColorChange={setPrimaryColor}
+              highlightColor={highlightColor}
+              onHighlightColorChange={setHighlightColor}
+              enableEmojis={enableEmojis}
+              onEnableEmojisChange={setEnableEmojis}
+              karaokeHighlight={karaokeHighlight}
+              onKaraokeHighlightChange={setKaraokeHighlight}
+              customFontName={customFontName}
+              onSelectFontName={(fontName) => {
+                setCustomFontName(fontName);
+                setCustomFontFile(null);
+                setCustomFontPath(null);
+                setFontPreviewUrl(null);
+              }}
+              customFontFile={customFontFile}
+              customFontPath={customFontPath}
+              fontPreviewUrl={fontPreviewUrl}
+              onFontSelect={(file) => handleFontSelect(file)}
+              onClearCustomFont={() => {
+                setCustomFontFile(null);
+                setCustomFontPath(null);
+                setCustomFontName("");
+                setFontPreviewUrl(null);
+                if (fontFileInputRef.current) fontFileInputRef.current.value = "";
+              }}
+              baseColorPresets={BASE_COLOR_PRESETS}
+              highlightColorPresets={HIGHLIGHT_COLOR_PRESETS}
+            />
 
             {/* Bloco 2: Posição de Câmeras & Enquadramento Vertical */}
-            <div className="control-box">
-              <div className="control-box-header">
-                <Video size={17} style={{ color: "var(--primary)" }} />
-                <strong>Posição de Câmeras &amp; Enquadramento</strong>
-              </div>
-
-              <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
-                <div>
-                  <label className="field-label">Enquadramento Vertical Automático</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "0.45rem" }}>
-                    <div
-                      className={`selection-card ${verticalMode === "face_tracking" ? "active" : ""}`}
-                      onClick={() => setVerticalMode("face_tracking")}
-                      style={{
-                        padding: "0.55rem 0.4rem",
-                        border: verticalMode === "face_tracking" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: verticalMode === "face_tracking" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
-                        textAlign: "center",
-                      }}
-                    >
-                      <User size={18} style={{ color: verticalMode === "face_tracking" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                      <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Auto-Face (IA)</strong>
-                      <small className="muted" style={{ fontSize: "0.68rem" }}>Centraliza falante</small>
-                    </div>
-
-                    <div
-                      className={`selection-card ${verticalMode === "split_face" ? "active" : ""}`}
-                      onClick={() => setVerticalMode("split_face")}
-                      style={{
-                        padding: "0.55rem 0.4rem",
-                        border: verticalMode === "split_face" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: verticalMode === "split_face" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
-                        textAlign: "center",
-                      }}
-                    >
-                      <Users size={18} style={{ color: verticalMode === "split_face" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                      <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Podcast IA</strong>
-                      <small className="muted" style={{ fontSize: "0.68rem" }}>Host + Convidado</small>
-                    </div>
-
-                    <div
-                      className={`selection-card ${verticalMode === "crop" ? "active" : ""}`}
-                      onClick={() => setVerticalMode("crop")}
-                      style={{
-                        padding: "0.55rem 0.4rem",
-                        border: verticalMode === "crop" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: verticalMode === "crop" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
-                        textAlign: "center",
-                      }}
-                    >
-                      <Crop size={18} style={{ color: verticalMode === "crop" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                      <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Preencher 9:16</strong>
-                      <small className="muted" style={{ fontSize: "0.68rem" }}>Recorte central</small>
-                    </div>
-
-                    <div
-                      className={`selection-card ${verticalMode === "blur" ? "active" : ""}`}
-                      onClick={() => setVerticalMode("blur")}
-                      style={{
-                        padding: "0.55rem 0.4rem",
-                        border: verticalMode === "blur" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: verticalMode === "blur" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
-                        textAlign: "center",
-                      }}
-                    >
-                      <Layers size={18} style={{ color: verticalMode === "blur" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                      <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Fundo Blur</strong>
-                      <small className="muted" style={{ fontSize: "0.68rem" }}>Com desfoque</small>
-                    </div>
-
-                    <div
-                      className={`selection-card ${verticalMode === "split" ? "active" : ""}`}
-                      onClick={() => setVerticalMode("split")}
-                      style={{
-                        padding: "0.55rem 0.4rem",
-                        border: verticalMode === "split" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: verticalMode === "split" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
-                        textAlign: "center",
-                      }}
-                    >
-                      <Columns size={18} style={{ color: verticalMode === "split" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
-                      <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Split 50/50</strong>
-                      <small className="muted" style={{ fontSize: "0.68rem" }}>Divisão fixa</small>
-                    </div>
-                  </div>
-                </div>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={smartPunchInZoom}
-                    onChange={(e) => setSmartPunchInZoom(e.target.checked)}
-                  />
-                  <span>Punch-in Zoom dinâmico em falas de impacto/clímax</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Bloco 3: Momentos Importantes & Dinâmica de Corte */}
-            <div className="control-box">
-              <div className="control-box-header">
-                <SlidersHorizontal size={17} style={{ color: "var(--primary)" }} />
-                <strong>Momentos Importantes &amp; Ritmo</strong>
-              </div>
-
-              <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
-                <div>
-                  <label className="field-label">Sensibilidade de Ganchos (Hooks)</label>
-                  <select
-                    className="input select"
-                    value={hookSensitivity}
-                    onChange={(e) => setHookSensitivity(e.target.value as any)}
-                  >
-                    <option value="extreme">Prioridade Máxima (Momentos de Alto Impacto)</option>
-                    <option value="balanced">Equilibrada (Retenção &amp; Contexto)</option>
-                    <option value="subtle">Narrativa Suave (Fluidez Contínua)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="field-label">Ritmo de Cortes na Edição</label>
-                  <select
-                    className="input select"
-                    value={cutPacing}
-                    onChange={(e) => setCutPacing(e.target.value as any)}
-                  >
-                    <option value="ultra_fast">Ultra Dinâmico (1 a 3 segundos)</option>
-                    <option value="dynamic">Dinâmico Social (3 a 5 segundos)</option>
-                    <option value="smooth">Fluido / Conversação (5 a 8s)</option>
-                  </select>
-                </div>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={removeSilences}
-                    onChange={(e) => setRemoveSilences(e.target.checked)}
-                  />
-                  <span>Remover silêncios e pausas longas automaticamente</span>
-                </label>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={smartPunchInZoom}
-                    onChange={(e) => setSmartPunchInZoom(e.target.checked)}
-                  />
-                  <span>Punch-in Zoom inteligente em palavras de clímax</span>
-                </label>
-
-                <div className="row" style={{ gap: "0.5rem" }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Duração Mín. (s)</label>
-                    <input
-                      type="number"
-                      className="input"
-                      value={minSeconds}
-                      min={10}
-                      max={180}
-                      onChange={(e) => setMinSeconds(Number(e.target.value))}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Duração Máx. (s)</label>
-                    <input
-                      type="number"
-                      className="input"
-                      value={maxSeconds}
-                      min={20}
-                      max={300}
-                      onChange={(e) => setMaxSeconds(Number(e.target.value))}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="field-label">Cortes</label>
-                    <input
-                      type="number"
-                      className="input"
-                      value={clipCount}
-                      min={1}
-                      max={20}
-                      onChange={(e) => setClipCount(Number(e.target.value))}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StudioPacingSection
+              verticalMode={verticalMode}
+              onVerticalModeChange={setVerticalMode}
+              smartPunchInZoom={smartPunchInZoom}
+              onSmartPunchInZoomChange={setSmartPunchInZoom}
+              hookSensitivity={hookSensitivity}
+              onHookSensitivityChange={setHookSensitivity}
+              cutPacing={cutPacing}
+              onCutPacingChange={setCutPacing}
+              removeSilences={removeSilences}
+              onRemoveSilencesChange={setRemoveSilences}
+              minSeconds={minSeconds}
+              onMinSecondsChange={setMinSeconds}
+              maxSeconds={maxSeconds}
+              onMaxSecondsChange={setMaxSeconds}
+              clipCount={clipCount}
+              onClipCountChange={setClipCount}
+            />
 
             {/* Bloco 3: Sound Design & B-Rolls */}
-            <div className="control-box" style={{ gridColumn: "1 / -1" }}>
-              <div className="control-box-header">
-                <Volume2 size={17} style={{ color: "var(--primary)" }} />
-                <strong>Sound Design &amp; B-Rolls Inteligentes</strong>
-              </div>
-
-              <div className="row" style={{ gap: "1.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={enableSfx}
-                    onChange={(e) => setEnableSfx(e.target.checked)}
-                  />
-                  <span>SFX de impacto nas transições (Whoosh, Ding, Pop)</span>
-                </label>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={backgroundMusicDucking}
-                    onChange={(e) => setBackgroundMusicDucking(e.target.checked)}
-                  />
-                  <span>Auto-Ducking de áudio (reduz trilha durante a fala)</span>
-                </label>
-
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={useBroll}
-                    onChange={(e) => setUseBroll(e.target.checked)}
-                  />
-                  <span>Sobrepor B-Rolls contextuais com IA</span>
-                </label>
-
-                {useBroll && (
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-                    <span className="muted small">Fonte B-Roll:</span>
-                    <select
-                      className="input select"
-                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.85rem" }}
-                      value={brollSource}
-                      onChange={(e) => setBrollSource(e.target.value as any)}
-                    >
-                      <option value="auto">⚡ Automático (IA Decide - Recomendado)</option>
-                      <option value="higgsfield">Higgsfield AI (Apenas Gerados por IA)</option>
-                      <option value="pexels">Pexels / Pixabay (Apenas Vídeos Reais)</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
+            <StudioSoundBrollsSection
+              enableSfx={enableSfx}
+              onEnableSfxChange={setEnableSfx}
+              backgroundMusicDucking={backgroundMusicDucking}
+              onBackgroundMusicDuckingChange={setBackgroundMusicDucking}
+              useBroll={useBroll}
+              onUseBrollChange={setUseBroll}
+              brollSource={brollSource}
+              onBrollSourceChange={setBrollSource}
+            />
           </div>
         </section>
 
         {/* ========================================================
             ETAPA 4: EXPORTAÇÃO PROFISSIONAL (STUDIO PRO)
         ======================================================== */}
-        <section className="studio-section">
-          <div className="studio-section-title">
-            <span className="step-number">4</span>
-            <div>
-              <h3>Opções de Exportação Profissional</h3>
-              <p className="muted small">Configurações de renderização, codecs e exportação para NLEs (Premiere / DaVinci)</p>
-            </div>
-          </div>
-
-          <div className="card-subtle stack" style={{ padding: "1.2rem" }}>
-            <div className="export-grid">
-              <div>
-                <label className="field-label">Resolução de Saída</label>
-                <select
-                  className="input select"
-                  value={resolution}
-                  onChange={(e) => setResolution(e.target.value as any)}
-                >
-                  <option value="1080x1920">1080x1920 (Vertical 9:16 - TikTok / Reels / Shorts)</option>
-                  <option value="2160x3840">2160x3840 (4K Vertical Ultra HD)</option>
-                  <option value="1920x1080">1920x1080 (Horizontal 16:9 - YouTube Padrão)</option>
-                  <option value="1080x1080">1080x1080 (Quadrado 1:1 - Feed Instagram)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="field-label">Codec de Vídeo</label>
-                <select
-                  className="input select"
-                  value={codec}
-                  onChange={(e) => setCodec(e.target.value as any)}
-                >
-                  <option value="h264">H.264 / AVC (Máxima compatibilidade)</option>
-                  <option value="hevc">H.265 / HEVC (Maior nitidez e menor tamanho)</option>
-                  <option value="prores422">Apple ProRes 422 (Master sem perdas)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="field-label">Taxa de Quadros (FPS)</label>
-                <select
-                  className="input select"
-                  value={fps}
-                  onChange={(e) => setFps(Number(e.target.value) as any)}
-                >
-                  <option value={60}>60 FPS (Ultra Suave)</option>
-                  <option value={30}>30 FPS (Padrão Redes Sociais)</option>
-                  <option value={24}>24 FPS (Cinemático)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="field-label">Bitrate de Renderização</label>
-                <select
-                  className="input select"
-                  value={bitrate}
-                  onChange={(e) => setBitrate(e.target.value as any)}
-                >
-                  <option value="master">Master Studio (25 Mbps)</option>
-                  <option value="high">Alta Qualidade (12 Mbps)</option>
-                  <option value="standard">Web Otimizado (6 Mbps)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="row" style={{ marginTop: "0.85rem", gap: "1.5rem", flexWrap: "wrap" }}>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={audioNormalization}
-                  onChange={(e) => setAudioNormalization(e.target.checked)}
-                />
-                <span title="Ajusta o volume do áudio para o padrão exigido pelo TikTok, Reels e Shorts">
-                  <Volume2 size={15} style={{ verticalAlign: "middle", marginRight: "4px" }} />
-                  Normalização de Áudio EBU R128 (-14 LUFS para Redes Sociais)
-                </span>
-              </label>
-
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={generateNleTimeline}
-                  onChange={(e) => setGenerateNleTimeline(e.target.checked)}
-                />
-                <span title="Gera arquivos XML e EDL para abrir a timeline no Premiere Pro ou DaVinci Resolve">
-                  <FileCode size={15} style={{ verticalAlign: "middle", marginRight: "4px" }} />
-                  Gerar Pacote NLE (XML Premiere + EDL DaVinci + SRT)
-                </span>
-              </label>
-            </div>
-          </div>
-        </section>
+        <StudioExportSection
+          resolution={resolution}
+          onResolutionChange={setResolution}
+          codec={codec}
+          onCodecChange={setCodec}
+          fps={fps}
+          onFpsChange={setFps}
+          bitrate={bitrate}
+          onBitrateChange={setBitrate}
+          audioNormalization={audioNormalization}
+          onAudioNormalizationChange={setAudioNormalization}
+          generateNleTimeline={generateNleTimeline}
+          onGenerateNleTimelineChange={setGenerateNleTimeline}
+        />
 
         {/* PROGRESSO DE UPLOAD SE HOUVER */}
         {uploadPct !== null && (
