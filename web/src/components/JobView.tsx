@@ -105,9 +105,26 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       })
       .subscribe();
 
+    const logsBroadcastChannel = supabase
+      .channel(`job-logs-${initialJob.id}`)
+      .on("broadcast", { event: "new_log" }, (payload: any) => {
+        if (payload?.payload?.log) {
+          setJob((prev) => {
+            const currentLogs = prev.logs || [];
+            if (currentLogs[currentLogs.length - 1] === payload.payload.log) return prev;
+            return {
+              ...prev,
+              logs: [...currentLogs.slice(-199), payload.payload.log],
+            };
+          });
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(jobChannel);
       supabase.removeChannel(clipsChannel);
+      supabase.removeChannel(logsBroadcastChannel);
     };
   }, [supabase, initialJob.id, refresh]);
 

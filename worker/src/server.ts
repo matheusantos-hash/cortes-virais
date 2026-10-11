@@ -137,25 +137,35 @@ async function processJob(job: Job) {
   let hasPendingLogs = false;
   let debitedMinutes = 0;
 
+  // Canal Realtime Broadcast dedicado para streaming efêmero de logs sem contenção de banco
+  const logBroadcastChannel = supabase.channel(`job-logs-${job.id}`);
+  logBroadcastChannel.subscribe();
+
   const pushLog = async (msg: string) => {
     const formatted = `[${timeStamp()}] ${msg}`;
     logs.push(formatted);
     console.log(`[${job.id}] ${msg}`);
     hasPendingLogs = true;
+    // Broadcast imediato via WebSockets sem bater em disco nem gerar escritas no Postgres
+    logBroadcastChannel.send({
+      type: "broadcast",
+      event: "new_log",
+      payload: { log: formatted },
+    }).catch(() => {});
   };
 
   const flushLogs = async () => {
     if (!hasPendingLogs) return;
     hasPendingLogs = false;
-    // Limita aos últimos 200 logs para manter queries leves no banco
-    await updateJob(job.id, { logs: logs.slice(-200) });
+    // Limita aos últimos 100 logs para manter queries leves no banco
+    await updateJob(job.id, { logs: logs.slice(-100) });
   };
 
-  // Sincroniza logs periodicamente para não saturar requisições
+  // Sincroniza logs no Postgres apenas a cada 5 segundos para consolidar histórico sem sobrecarregar I/O
   const startLogSync = () => {
     syncTimer = setInterval(() => {
       if (hasPendingLogs) flushLogs().catch(() => {});
-    }, 1000);
+    }, 5000);
   };
 
   const stopLogSync = () => {
@@ -163,6 +173,7 @@ async function processJob(job: Job) {
       clearInterval(syncTimer);
       syncTimer = null;
     }
+    supabase.removeChannel(logBroadcastChannel).catch(() => {});
   };
 
   const checkCanceled = async () => {
