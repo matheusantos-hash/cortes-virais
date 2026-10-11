@@ -21,6 +21,9 @@ export interface ClipCardProps {
   jobId?: string;
   orientation?: "vertical" | "horizontal";
   verticalMode?: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (clipId: string) => void;
   onEdit?: (clip: Clip) => void;
   onDownload?: (clip: Clip) => void;
   onDelete?: (clipId: string) => void;
@@ -36,6 +39,9 @@ export default function ClipCard({
   jobId,
   orientation,
   verticalMode,
+  selectable = true,
+  selected = false,
+  onToggleSelect,
   onEdit,
   onDownload,
   onDelete,
@@ -61,7 +67,51 @@ export default function ClipCard({
   };
 
   return (
-    <div className="clip-card" style={{ display: "flex", flexDirection: "column" }}>
+    <div
+      className={`clip-card ${selected ? "clip-card-selected" : ""}`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        border: selected ? "2px solid var(--primary, #8b5cf6)" : undefined,
+        boxShadow: selected ? "0 0 16px rgba(139, 92, 246, 0.25)" : undefined,
+        transition: "border 0.2s, box-shadow 0.2s",
+      }}
+    >
+      {selectable && (
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            left: "10px",
+            zIndex: 10,
+            background: "rgba(10, 15, 29, 0.8)",
+            backdropFilter: "blur(4px)",
+            borderRadius: "6px",
+            padding: "4px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            cursor: "pointer",
+            border: selected ? "1px solid var(--primary, #8b5cf6)" : "1px solid rgba(255, 255, 255, 0.15)",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(clip.id);
+          }}
+          title={selected ? "Desmarcar corte" : "Selecionar corte para exportação em lote"}
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(selected)}
+            onChange={() => onToggleSelect?.(clip.id)}
+            style={{ cursor: "pointer", accentColor: "var(--primary, #8b5cf6)" }}
+          />
+          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: selected ? "var(--primary, #a78bfa)" : "#fff" }}>
+            Corte #{clip.position}
+          </span>
+        </div>
+      )}
       {videoSrc ? (
         <CustomVideoPlayer
           src={videoSrc}

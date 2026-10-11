@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import StatusBadge from "./StatusBadge";
 const ClipEditorModal = dynamic(() => import("./ClipEditorModal"), { ssr: false });
 import ClipCard from "./ClipCard";
+import BatchExportModal from "./BatchExportModal";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 import {
   DownloadIcon,
@@ -33,6 +34,7 @@ import {
   Clock,
   Pencil,
   FolderKanban,
+  Check,
 } from "./Icons";
 
 export default function JobView({ initialJob, initialClips }: { initialJob: Job; initialClips: Clip[] }) {
@@ -44,6 +46,33 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
   const [canceling, setCanceling] = useState(false);
   const [editingClip, setEditingClip] = useState<Clip | null>(null);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
+  const [isBatchExportModalOpen, setIsBatchExportModalOpen] = useState(false);
+
+  const toggleSelectClip = (clipId: string) => {
+    setSelectedClipIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(clipId)) next.delete(clipId);
+      else next.add(clipId);
+      return next;
+    });
+  };
+
+  const selectAllClips = () => {
+    if (selectedClipIds.size === clips.length) {
+      setSelectedClipIds(new Set());
+    } else {
+      setSelectedClipIds(new Set(clips.map((c) => c.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedClipIds(new Set());
+  };
+
+  const activeSelectedClips = useMemo(() => {
+    return clips.filter((c) => selectedClipIds.has(c.id));
+  }, [clips, selectedClipIds]);
 
   const refresh = useCallback(async () => {
     const { data: j } = await supabase.from("jobs").select("*").eq("id", initialJob.id).single();
@@ -310,35 +339,63 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
       {job.status === "done" && (
         <section className="stack">
           <div className="row" style={{ flexWrap: "wrap", gap: "0.75rem", justifyContent: "space-between", alignItems: "center" }}>
-            <h2>Clipes Gerados pela IA ({clips.length})</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <h2>Clipes Gerados pela IA ({clips.length})</h2>
+              {clips.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-small btn-secondary"
+                  onClick={selectAllClips}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.78rem" }}
+                  title="Marcar ou desmarcar todos os clipes"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedClipIds.size === clips.length && clips.length > 0}
+                    onChange={selectAllClips}
+                    style={{ pointerEvents: "none", accentColor: "var(--primary, #8b5cf6)" }}
+                  />
+                  <span>
+                    {selectedClipIds.size === clips.length
+                      ? "Desmarcar Todos"
+                      : `Selecionar Todos (${clips.length})`}
+                  </span>
+                </button>
+              )}
+            </div>
 
-            {/* Menu de Exportação NLE Profissional */}
+            {/* Menu de Exportação NLE Profissional & CapCut */}
             <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
-              <a
-                href={`/api/jobs/${job.id}/export?format=xml`}
-                download
+              <button
+                type="button"
                 className="btn btn-small"
+                onClick={() => {
+                  if (selectedClipIds.size === 0) {
+                    setSelectedClipIds(new Set(clips.map((c) => c.id)));
+                  }
+                  setIsBatchExportModalOpen(true);
+                }}
                 style={{
-                  background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                  background: "linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)",
                   color: "#fff",
                   fontWeight: 600,
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "0.4rem",
                 }}
-                title="Exportar projeto XML (FCP7) compatível com Adobe Premiere Pro e DaVinci Resolve com preservação da timeline e cortes"
+                title="Exportar clipes em lote com opções de vídeos MP4 finalizados ou projetos editáveis para CapCut Desktop"
               >
-                <Film size={14} /> Exportar XML (Premiere / Resolve)
-              </a>
+                <DownloadIcon size={14} /> Exportação em Lote / CapCut
+              </button>
 
               <a
-                href={`/api/jobs/${job.id}/export?format=edl`}
+                href={`/api/jobs/${job.id}/export?format=xml`}
                 download
                 className="btn btn-small btn-secondary"
                 style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
-                title="Exportar lista de cortes EDL CMX 3600 universal para conform e relink com a mídia original"
+                title="Exportar projeto XML (FCP7) compatível com Adobe Premiere Pro e DaVinci Resolve com preservação da timeline e cortes"
               >
-                <FileCode size={14} /> EDL (CMX 3600)
+                <Film size={14} /> XML (Premiere / Resolve)
               </a>
 
               <a
@@ -364,6 +421,9 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
                 jobId={job.id}
                 orientation={job.orientation}
                 verticalMode={job.vertical_mode}
+                selectable={true}
+                selected={selectedClipIds.has(clip.id)}
+                onToggleSelect={toggleSelectClip}
                 onEdit={handleOpenEditor}
                 onDownload={download}
                 onDelete={handleDeleteClip}
@@ -374,6 +434,58 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
           </div>
         </section>
       )}
+
+      {/* Barra Flutuante de Ações em Massa (Bulk Actions Toolbar) */}
+      {activeSelectedClips.length > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9000,
+            background: "rgba(15, 23, 42, 0.95)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid var(--primary, #8b5cf6)",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(139, 92, 246, 0.3)",
+            borderRadius: "50px",
+            padding: "8px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "14px",
+          }}
+        >
+          <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "#fff", whiteSpace: "nowrap" }}>
+            {activeSelectedClips.length} {activeSelectedClips.length === 1 ? "corte selecionado" : "cortes selecionados"}
+          </span>
+          <button
+            type="button"
+            className="btn btn-cta btn-small"
+            onClick={() => setIsBatchExportModalOpen(true)}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", borderRadius: "20px" }}
+          >
+            <DownloadIcon size={14} />
+            Exportar Selecionados
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={clearSelection}
+            style={{ borderRadius: "20px" }}
+          >
+            Limpar
+          </button>
+        </div>
+      )}
+
+      {/* Modal de Exportação em Lote */}
+      <BatchExportModal
+        isOpen={isBatchExportModalOpen}
+        onClose={() => setIsBatchExportModalOpen(false)}
+        job={job}
+        selectedClips={activeSelectedClips.length > 0 ? activeSelectedClips : clips}
+        signedUrls={urls}
+      />
 
       {/* Modal Interativo de Trimming & Gerador de Capas & B-Rolls Canvas */}
       {editingClip && (

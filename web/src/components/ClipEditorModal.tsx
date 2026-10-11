@@ -156,7 +156,9 @@ export default function ClipEditorModal({
   const [subtitleFontSize, setSubtitleFontSize] = useState<"small" | "medium" | "large" | "extra">("large");
   const [customSubtitleFontSize, setCustomSubtitleFontSize] = useState<number>(28);
   const [enableEmojis, setEnableEmojis] = useState<boolean>(true);
-  const [showSubtitlePreview, setShowSubtitlePreview] = useState<boolean>(true);
+  // Se o clipe é legado com legendas queimadas nos pixels, desativa o preview dinâmico inicial para não sobrepor texto duplicado
+  const hasBurnedInSubtitles = Boolean(clip.file_path && !((clip as any).clean_file_path));
+  const [showSubtitlePreview, setShowSubtitlePreview] = useState<boolean>(!hasBurnedInSubtitles);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
 
   // Redimensionamento interativo das seções laterais (Painéis Esquerdo e Direito)
@@ -1048,6 +1050,18 @@ export default function ClipEditorModal({
                     </div>
                   </a>
                 )}
+
+                <a
+                  href={`/api/jobs/${clip.job_id}/export?format=capcut&clipId=${clip.id}`}
+                  download={`draft_content_${clip.position || 1}.json`}
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-gray-200 hover:text-white hover:bg-[#202538] rounded-md transition-colors"
+                >
+                  <Smartphone size={13} className="text-purple-400" />
+                  <div className="flex flex-col">
+                    <span className="font-semibold">Projeto CapCut (draft.json)</span>
+                    <span className="text-[10px] text-gray-400">Legendas editáveis no CapCut Desktop</span>
+                  </div>
+                </a>
 
                 <a
                   href={`/api/jobs/${clip.job_id}/export?format=srt&clipId=${clip.id}`}

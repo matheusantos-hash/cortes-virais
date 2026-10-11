@@ -5,6 +5,7 @@ import { buildTimelineProject } from "@/lib/export/timeline";
 import { generateFcp7Xml } from "@/lib/export/fcp7xml";
 import { generateEdl } from "@/lib/export/edl";
 import { generateClipSrt } from "@/lib/export/srt";
+import { generateCapCutDraft } from "@/lib/export/capcut";
 
 export async function GET(
   request: NextRequest,
@@ -101,6 +102,27 @@ export async function GET(
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Content-Disposition": `attachment; filename="${safeName}_legendas.srt"`,
+      },
+    });
+  }
+
+  if (format === "capcut") {
+    const targetClip = clipId
+      ? (clips as Clip[]).find((c) => c.id === clipId)
+      : (clips as Clip[])[0];
+
+    if (!targetClip) {
+      return new NextResponse("Corte não encontrado", { status: 404 });
+    }
+
+    const capcutDraft = generateCapCutDraft(targetClip);
+    const draftFileName = `draft_content_${targetClip.position || 1}.json`;
+
+    return new NextResponse(capcutDraft.draftContentJson, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${draftFileName}"`,
       },
     });
   }
