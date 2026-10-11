@@ -57,7 +57,9 @@ export async function sliceVideoLocally(
 
   // Carrega a versão single-thread estável do core (não requer COOP/COEP especiais)
   const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+  const ffmpegBaseURL = "https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm";
   await ffmpeg.load({
+    classWorkerURL: await toBlobURL(`${ffmpegBaseURL}/worker.js`, "text/javascript"),
     coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
     wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
   });
