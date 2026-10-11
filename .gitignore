@@ -12,3 +12,5 @@ expansao.md
 plano de escalonamento.md
 "plano de escalonamento.md"
 plano*escalonamento*
+__pycache__/
+*.pyc
