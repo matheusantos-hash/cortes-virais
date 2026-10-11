@@ -354,7 +354,15 @@ export default function NewJobForm({
       try {
         let projectName = mode === "upload" && file
           ? file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
-          : (url ? `Corte ${new Date().toLocaleDateString("pt-BR")}` : "Novo Projeto");
+          : (url ? (function() {
+              try {
+                const u = new URL(url);
+                const host = u.hostname.replace(/^www\./, "");
+                return `Corte - ${host} (${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})`;
+              } catch {
+                return `Corte ${new Date().toLocaleDateString("pt-BR")}`;
+              }
+            })() : "Novo Projeto");
         if (projectName.length > 50) projectName = projectName.substring(0, 50);
 
         const { data: newProj } = await supabase

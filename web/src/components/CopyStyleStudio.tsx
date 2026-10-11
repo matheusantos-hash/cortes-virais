@@ -1256,9 +1256,11 @@ export default function CopyStyleStudio({
       let effectiveProjectId = projectId;
       if (!effectiveProjectId) {
         try {
-          let projectName = sourceMode === "upload" && sourceFile
-            ? `Clone - ${sourceFile.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")}`
-            : (sourceUrl ? `Clone ${new Date().toLocaleDateString("pt-BR")}` : "Projeto Clone Studio");
+          let projectName = sourceClip
+            ? `Clone - ${sourceClip.title || "Clipe"}`
+            : (sourceMode === "upload" && sourceFile
+              ? `Clone - ${sourceFile.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")}`
+              : (sourceUrl ? `Clone ${new Date().toLocaleDateString("pt-BR")}` : "Projeto Clone Studio"));
           if (projectName.length > 50) projectName = projectName.substring(0, 50);
 
           const { data: newProj } = await supabase
