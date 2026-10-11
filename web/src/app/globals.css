@@ -2563,3 +2563,15 @@ label.checkbox-row {
   flex-shrink: 0 !important;
   display: block !important;
 }
+
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+

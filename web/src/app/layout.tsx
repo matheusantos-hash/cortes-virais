@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { signOut } from "./actions";
 import { createClient } from "@/lib/supabase/server";
@@ -6,14 +6,36 @@ import "./globals.css";
 
 import { ScissorsIcon, ShieldIcon, LogOutIcon, CrownIcon, CoinsIcon, HelpCircleIcon, FolderKanban } from "@/components/Icons";
 import ThemeToggle from "@/components/ThemeToggle";
+import PWARegister from "@/components/PWARegister";
+import InstallPrompt from "@/components/InstallPrompt";
+
+export const viewport: Viewport = {
+  themeColor: "#0a0d14",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   title: "Cortes AI",
   description: "Transforme vídeos longos em cortes prontos para as redes sociais.",
+  manifest: "/manifest.json",
+  applicationName: "Cortes AI",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Cortes AI",
+  },
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
     shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -140,6 +162,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main className="main-wrapper">{children}</main>
+        <PWARegister />
+        <InstallPrompt />
       </body>
     </html>
   );
