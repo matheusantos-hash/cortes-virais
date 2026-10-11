@@ -170,6 +170,22 @@ export default function EditorFormatsTab({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
             <button
               type="button"
+              onClick={() => onVerticalModeChange("grupo")}
+              style={{
+                padding: "0.45rem",
+                borderRadius: "6px",
+                border: verticalMode === "grupo" ? "1px solid #00F0FF" : "1px solid #2A3042",
+                background: verticalMode === "grupo" ? "rgba(0,240,255,0.15)" : "#1A1D27",
+                color: verticalMode === "grupo" ? "#00F0FF" : "#94A3B8",
+                fontSize: "0.74rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Grupo Mesa (IA)
+            </button>
+            <button
+              type="button"
               onClick={() => onVerticalModeChange("crop")}
               style={{
                 padding: "0.45rem",

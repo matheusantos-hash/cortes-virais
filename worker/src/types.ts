@@ -61,7 +61,7 @@ export interface StyleBlueprint {
 }
 
 export type Orientation = "vertical" | "horizontal";
-export type VerticalMode = "blur" | "crop" | "split" | "face_tracking" | "split_face";
+export type VerticalMode = "blur" | "crop" | "split" | "face_tracking" | "split_face" | "grupo";
 export type ReferenceType = "link" | "upload" | "preset" | "none";
 export type BrollSource = "auto" | "pexels" | "higgsfield" | "none";
 

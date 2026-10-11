@@ -8,7 +8,7 @@ export type JobStatus =
   | "failed"
   | "canceled";
 
-export type VerticalMode = "crop" | "blur" | "split" | "face_tracking" | "split_face";
+export type VerticalMode = "crop" | "blur" | "split" | "face_tracking" | "split_face" | "grupo";
 export type SubtitleStyle = "hormozi" | "beast" | "apple" | "minimal";
 
 export interface SourceMeta {
@@ -130,7 +130,7 @@ export interface ManualAdjustments {
     frequency?: "high" | "medium" | "low";
   };
   camera?: {
-    verticalMode?: "face_tracking" | "crop" | "blur" | "split" | "split_face";
+    verticalMode?: "face_tracking" | "crop" | "blur" | "split" | "split_face" | "grupo";
     dynamicZoom?: boolean;
   };
   aiCuration?: {

@@ -52,8 +52,24 @@ export default function StudioPacingSection({
 
         <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
           <div>
-            <label className="field-label">Enquadramento Vertical Automático</label>
+            <label className="field-label">Enquadramento da Câmera</label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "0.45rem" }}>
+              <div
+                className={`selection-card ${verticalMode === "grupo" ? "active" : ""}`}
+                onClick={() => onVerticalModeChange("grupo")}
+                style={{
+                  padding: "0.55rem 0.4rem",
+                  border: verticalMode === "grupo" ? "2px solid var(--primary)" : "1px solid var(--card-border)",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  background: verticalMode === "grupo" ? "rgba(139, 92, 246, 0.12)" : "var(--card-bg)",
+                  textAlign: "center",
+                }}
+              >
+                <Users size={18} style={{ color: verticalMode === "grupo" ? "var(--primary)" : "var(--muted)", margin: "0 auto" }} />
+                <strong style={{ display: "block", fontSize: "0.8rem", marginTop: "3px" }}>Grupo (IA)</strong>
+                <small className="muted" style={{ fontSize: "0.68rem" }}>Foco em quem fala</small>
+              </div>
               <div
                 className={`selection-card ${verticalMode === "face_tracking" ? "active" : ""}`}
                 onClick={() => onVerticalModeChange("face_tracking")}

@@ -382,7 +382,7 @@ export default function CopyStyleStudio({
   const [brollSource, setBrollSource] = useState<"auto" | "pexels" | "higgsfield" | "none">("auto");
 
   // Posição de Câmeras & Enquadramento Vertical
-  const [verticalMode, setVerticalMode] = useState<"face_tracking" | "crop" | "blur" | "split" | "split_face">("face_tracking");
+  const [verticalMode, setVerticalMode] = useState<"face_tracking" | "crop" | "blur" | "split" | "split_face" | "grupo">("face_tracking");
 
   // Navegação de Abas Internas do Clone Studio
   const [activeStudioTab, setActiveStudioTab] = useState<"clonar" | "estilos">("clonar");
@@ -1955,7 +1955,7 @@ export default function CopyStyleStudio({
                             {" "}• Fonte: <strong>{customFontName}</strong>
                           </>
                         ) : null} • Câmera:{" "}
-                        <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : "Auto-Face"}</strong> • Ritmo:{" "}
+                        <strong>{verticalMode === "split" ? "Split 50/50" : verticalMode === "split_face" ? "Podcast IA" : verticalMode === "grupo" ? "Grupo (IA)" : "Auto-Face"}</strong> • Ritmo:{" "}
                         <strong>{cutPacing}</strong> • Formato:{" "}
                         <strong style={{ color: "var(--primary)" }}>
                           {resolution === "1920x1080"

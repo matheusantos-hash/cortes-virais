@@ -76,7 +76,7 @@ export default function EditStyleModal({
   const [resolution, setResolution] = useState<"1080x1920" | "1920x1080" | "1080x1080" | "2160x3840">(
     reference?.export_settings?.resolution || "1080x1920"
   );
-  const [verticalMode, setVerticalMode] = useState<"face_tracking" | "crop" | "blur" | "split" | "split_face">(
+  const [verticalMode, setVerticalMode] = useState<"face_tracking" | "crop" | "blur" | "split" | "split_face" | "grupo">(
     reference?.manual_adjustments?.camera?.verticalMode || "face_tracking"
   );
   const [newVideoFiles, setNewVideoFiles] = useState<File[]>([]);
@@ -532,6 +532,28 @@ export default function EditStyleModal({
                   <strong>Enquadramento Padrão de Câmera:</strong>
                 </label>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(95px, 1fr))", gap: "0.4rem" }}>
+                  <button
+                    type="button"
+                    onClick={() => !isSaving && setVerticalMode("grupo")}
+                    style={{
+                      padding: "0.45rem 0.4rem",
+                      fontSize: "0.76rem",
+                      borderRadius: "8px",
+                      border: verticalMode === "grupo" ? "1px solid var(--primary)" : "1px solid rgba(255, 255, 255, 0.08)",
+                      background: verticalMode === "grupo" ? "rgba(139, 92, 246, 0.25)" : "rgba(255, 255, 255, 0.03)",
+                      color: verticalMode === "grupo" ? "#fff" : "var(--text-muted)",
+                      fontWeight: verticalMode === "grupo" ? 600 : 400,
+                      cursor: isSaving ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "5px",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <Users size={14} style={{ color: verticalMode === "grupo" ? "var(--primary)" : "inherit" }} /> Grupo (IA)
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => !isSaving && setVerticalMode("face_tracking")}

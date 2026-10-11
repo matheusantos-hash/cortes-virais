@@ -308,7 +308,9 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
               {job.vertical_mode && (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                   <strong>Layout:</strong>{" "}
-                  {job.vertical_mode === "face_tracking" ? (
+                  {job.vertical_mode === "grupo" ? (
+                    <><Users size={13} /> Grupo IA (Foco no Orador)</>
+                  ) : job.vertical_mode === "face_tracking" ? (
                     <><User size={13} /> Auto-Face (IA)</>
                   ) : job.vertical_mode === "split_face" ? (
                     <><Users size={13} /> Podcast IA (Split Rostos)</>

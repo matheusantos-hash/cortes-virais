@@ -511,6 +511,11 @@ export default function Dashboard({
                         {vertical ? <SmartphoneIcon size={13} /> : <MonitorIcon size={13} />}
                         {vertical ? "Vertical (9:16)" : "Horizontal (16:9)"}
                       </span>
+                      {job.vertical_mode === "grupo" && (
+                        <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                          <Users size={12} /> Grupo Mesa IA
+                        </span>
+                      )}
                       {job.vertical_mode === "face_tracking" && (
                         <span className="badge-status" style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid rgba(79, 70, 229, 0.2)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                           <User size={12} /> Auto-Face IA

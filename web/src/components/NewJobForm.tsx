@@ -656,8 +656,8 @@ export default function NewJobForm({
       {orientation === "vertical" && (
         <div className="card" style={{ background: "var(--bg-subtle)", padding: "1rem" }}>
           <label style={{ marginBottom: "0.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span>Enquadramento da Câmera Vertical:</span>
-            {(verticalMode === "face_tracking" || verticalMode === "split_face") && (
+            <span>Enquadramento da Câmera:</span>
+            {(verticalMode === "face_tracking" || verticalMode === "split_face" || verticalMode === "grupo") && (
               <span className="badge badge-done" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
                 Detecção Facial com IA
               </span>
@@ -665,6 +665,15 @@ export default function NewJobForm({
           </label>
 
           <div className="selection-grid-framing">
+            <div
+              className={`selection-card ${verticalMode === "grupo" ? "active" : ""}`}
+              onClick={() => setVerticalMode("grupo")}
+            >
+              <UsersIcon size={20} style={{ color: verticalMode === "grupo" ? "var(--primary)" : "var(--text-muted)" }} />
+              <strong className="selection-card-title">Grupo (IA)</strong>
+              <small className="selection-card-desc">Foca em quem fala</small>
+            </div>
+
             <div
               className={`selection-card ${verticalMode === "face_tracking" ? "active" : ""}`}
               onClick={() => setVerticalMode("face_tracking")}
@@ -710,6 +719,13 @@ export default function NewJobForm({
               <small className="selection-card-desc">Divisão fixa</small>
             </div>
           </div>
+
+          {verticalMode === "grupo" && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <UsersIcon size={14} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              <span>Ideal para Podcasts com até 4 participantes em mesa: a IA mapeia os participantes e foca na pessoa que está falando através do movimento labial (Opção A).</span>
+            </div>
+          )}
 
           {verticalMode === "face_tracking" && (
             <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>

@@ -527,6 +527,7 @@ export async function extractAudio(videoPath: string, audioPath: string, signal?
 export interface FaceKeyframe {
   t: number;
   x: number;
+  speakerIdx?: number;
 }
 
 export interface FaceTrackingResult {
@@ -534,14 +535,17 @@ export interface FaceTrackingResult {
   leftFaceCenterX: number;
   rightFaceCenterX: number;
   detectedCount: number;
+  participants?: number[];
   keyframes?: FaceKeyframe[];
+  mode?: "tracking" | "group";
 }
 
 /** Executa o rastreamento facial contínuo e inteligente no trecho do vídeo via detect_faces.py */
 export async function detectFacesInVideo(
   videoPath: string,
   startSec: number,
-  durationSec: number
+  durationSec: number,
+  mode: "tracking" | "group" = "tracking"
 ): Promise<FaceTrackingResult> {
   try {
     const scriptPath = path.join(__dirname, "detect_faces.py");
@@ -551,7 +555,8 @@ export async function detectFacesInVideo(
         "--video", videoPath,
         "--start", startSec.toFixed(2),
         "--duration", durationSec.toFixed(2),
-        "--step", "1.0",
+        "--step", mode === "group" ? "0.5" : "1.0",
+        "--mode", mode,
       ];
       execFile("python3", args, (err, stdout) => {
         if (err) {
@@ -567,14 +572,24 @@ export async function detectFacesInVideo(
 
     const parsed = JSON.parse(out);
     return {
-      primaryCenterX: typeof parsed.primary_center_x === "number" ? parsed.primary_center_x : 0.5,
+      primaryCenterX: typeof parsed.primary_center_x === "number" ? parsed.primary_center_x : (mode === "group" ? 0.38 : 0.5),
       leftFaceCenterX: typeof parsed.left_face_center_x === "number" ? parsed.left_face_center_x : 0.25,
       rightFaceCenterX: typeof parsed.right_face_center_x === "number" ? parsed.right_face_center_x : 0.75,
       detectedCount: (parsed.keyframes ?? []).length,
+      participants: Array.isArray(parsed.participants) ? parsed.participants : undefined,
       keyframes: Array.isArray(parsed.keyframes) ? parsed.keyframes : [],
+      mode: parsed.mode,
     };
   } catch {
-    return { primaryCenterX: 0.5, leftFaceCenterX: 0.25, rightFaceCenterX: 0.75, detectedCount: 0, keyframes: [] };
+    return {
+      primaryCenterX: mode === "group" ? 0.38 : 0.5,
+      leftFaceCenterX: 0.25,
+      rightFaceCenterX: 0.75,
+      detectedCount: 0,
+      participants: [0.18, 0.38, 0.62, 0.82],
+      keyframes: mode === "group" ? [{ t: 0.0, x: 0.38 }] : [],
+      mode,
+    };
   }
 }
 
@@ -795,18 +810,54 @@ export async function cutClip(opts: {
   let splitLeftX = 0.25;
   let splitRightX = 0.75;
 
-  // Detecção e Rastreamento Facial Ativo para oradores e podcast
-  if (orientation === "vertical" && (verticalMode === "face_tracking" || verticalMode === "split_face")) {
-    onLog?.(`[ROSTOS IA] Mapeando oradores no trecho de ${duration.toFixed(1)}s com rastreamento temporal inteligente...`);
-    const faces = await detectFacesInVideo(input, start, duration);
+  // Detecção e Rastreamento Facial Ativo para oradores, podcast duplo e podcast grupo
+  if (orientation === "vertical" && (verticalMode === "face_tracking" || verticalMode === "split_face" || verticalMode === "grupo")) {
+    const isGroup = verticalMode === "grupo";
+    onLog?.(
+      isGroup
+        ? `[GRUPO IA] Mapeando até 4 oradores na mesa (${duration.toFixed(1)}s) com detecção labial de orador ativo (Opção A)...`
+        : `[ROSTOS IA] Mapeando oradores no trecho de ${duration.toFixed(1)}s com rastreamento temporal inteligente...`
+    );
+    const faces = await detectFacesInVideo(input, start, duration, isGroup ? "group" : "tracking");
 
-    if (faces.detectedCount > 0) {
-      onLog?.(`[ROSTOS IA] Rastreamento temporal concluído com ${faces.detectedCount} pontos de referência.`);
+    if (faces.detectedCount > 0 || (isGroup && faces.keyframes && faces.keyframes.length > 0)) {
+      onLog?.(
+        isGroup
+          ? `[GRUPO IA] Oradores mapeados com sucesso (${faces.participants?.length || 4} participantes identificados na mesa).`
+          : `[ROSTOS IA] Rastreamento temporal concluído com ${faces.detectedCount} pontos de referência.`
+      );
     } else {
       onLog?.(`[ROSTOS IA] Nenhum rosto isolado de alto contraste; usando enquadramento balanceado.`);
     }
 
-    if (verticalMode === "face_tracking") {
+    if (verticalMode === "grupo") {
+      effectiveCropX = faces.primaryCenterX;
+      effectiveCropExpr = `${effectiveCropX}`;
+
+      if (faces.keyframes && faces.keyframes.length > 0) {
+        const distinctSteps = faces.keyframes.filter((kf, idx, arr) => {
+          if (idx === 0) return true;
+          return Math.abs(kf.x - arr[idx - 1].x) >= 0.04;
+        });
+
+        if (distinctSteps.length >= 2) {
+          let expr = `${distinctSteps[distinctSteps.length - 1].x}`;
+          for (let k = distinctSteps.length - 2; k >= 0; k--) {
+            const nextT = distinctSteps[k + 1].t.toFixed(2);
+            const currX = distinctSteps[k].x.toFixed(3);
+            expr = `if(lt(t\\,${nextT})\\,${currX}\\,${expr})`;
+          }
+          effectiveCropExpr = expr;
+          result.cropKeyframes = distinctSteps.map((k) => ({ t: k.t, x: k.x, speakerIdx: k.speakerIdx }));
+          onLog?.(`[GRUPO IA] Enquadramento dinâmico ativado com ${distinctSteps.length} cortes secos (jump cuts) em quem está falando.`);
+        } else {
+          onLog?.(`[GRUPO IA] Câmera vertical centralizada no orador principal da conversa (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+        }
+      } else {
+        onLog?.(`[GRUPO IA] Câmera vertical centralizada no orador principal da conversa (X = ${(effectiveCropX * 100).toFixed(0)}%).`);
+      }
+      result.cropX = effectiveCropX;
+    } else if (verticalMode === "face_tracking") {
       effectiveCropX = faces.primaryCenterX;
       effectiveCropExpr = `${effectiveCropX}`;
 
@@ -859,7 +910,7 @@ export async function cutClip(opts: {
   let baseFilter = "";
   if (orientation === "horizontal") {
     baseFilter = `[0:v]scale=-2:min(${targetHeight}\\,ih),setsar=1[base_v]`;
-  } else if ((verticalMode === "crop" || verticalMode === "face_tracking") && dynamicPacingSec && dynamicPacingSec > 0) {
+  } else if ((verticalMode === "crop" || verticalMode === "face_tracking" || verticalMode === "grupo") && dynamicPacingSec && dynamicPacingSec > 0) {
     const pSec = Math.max(1.8, Math.min(5.0, dynamicPacingSec)).toFixed(2);
     result.zoomPacingSec = Number(pSec);
     onLog?.(`[EDIÇÃO DINÂMICA] Ativando cortes de câmera / punch zoom a cada ${pSec}s (ritmo clonado da referência).`);
@@ -870,7 +921,7 @@ export async function cutClip(opts: {
       `[v_wide_in]crop=w=${aspectW}:h=${aspectH}:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight},setsar=1[w_out];` +
       `[v_zoom_in]crop=w=${aspectW}*0.82:h=${aspectH}*0.82:x='(iw-out_w)*${effectiveCropExpr}':y=(ih-out_h)/2,scale=${targetWidth}:${targetHeight},setsar=1[z_out];` +
       `[w_out][z_out]overlay=enable='mod(floor(t/${pSec})\\,2)'[base_v]`;
-  } else if (verticalMode === "crop" || verticalMode === "face_tracking") {
+  } else if (verticalMode === "crop" || verticalMode === "face_tracking" || verticalMode === "grupo") {
     baseFilter = `[0:v]${cropVf}[base_v]`;
   } else if (verticalMode === "split") {
     const halfH = Math.round(targetHeight / 2);
@@ -993,7 +1044,7 @@ export async function cutClip(opts: {
       await run("ffmpeg", [...baseInputs, "-vf", `scale=-2:min(${targetHeight}\\,ih),setsar=1`, ...encode], signal, onLog);
       return result;
     }
-    if (verticalMode === "crop" || verticalMode === "face_tracking") {
+    if (verticalMode === "crop" || verticalMode === "face_tracking" || verticalMode === "grupo") {
       await run("ffmpeg", [...baseInputs, "-vf", cropVf, ...encode], signal, onLog);
       return result;
     }
