@@ -59,6 +59,7 @@ export default function Dashboard({
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [showRecentHistory, setShowRecentHistory] = useState(false);
 
   // Ativa automaticamente o modo Copiar Estilo se vier da URL ou do Editor de Cortes
   useEffect(() => {
@@ -458,22 +459,42 @@ export default function Dashboard({
           </div>
         </section>
 
-        {/* FEED DE VÍDEOS PROCESSADOS RECENTES */}
-        <section className="stack">
-          <div className="row">
-            <h2>Todos os Clipes Recentes</h2>
-            <span className="muted small">{jobs.length} vídeo(s)</span>
-          </div>
+        {/* HISTÓRICO DE VÍDEOS PROCESSADOS RECENTES (COLAPSÁVEL) */}
+        {jobs.length > 0 && (
+          <section className="stack">
+            <button
+              type="button"
+              onClick={() => setShowRecentHistory(!showRecentHistory)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.85rem 1.15rem",
+                background: "var(--card-bg)",
+                border: "1px solid var(--card-border)",
+                borderRadius: "12px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                width: "100%",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Film size={18} style={{ color: "var(--primary)" }} />
+                <strong style={{ fontSize: "0.95rem", color: "var(--text)" }}>
+                  Histórico de Vídeos &amp; Processamentos
+                </strong>
+                <span className="badge" style={{ fontSize: "0.72rem", background: "var(--bg-subtle)", color: "var(--text-muted)" }}>
+                  {jobs.length} vídeo(s)
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                <span>{showRecentHistory ? "Recolher histórico" : "Ver todos os vídeos"}</span>
+                {showRecentHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </div>
+            </button>
 
-          {jobs.length === 0 && (
-            <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem" }}>
-              <Film size={44} style={{ color: "var(--text-muted)", display: "block", margin: "0 auto 0.75rem", opacity: 0.6 }} />
-              <h3 style={{ color: "var(--text)", marginBottom: "0.35rem" }}>Nenhum projeto criado ainda</h3>
-              <p className="muted small" style={{ maxWidth: "380px", margin: "0 auto" }}>
-                Cole um link do YouTube ou envie um vídeo no formulário ao lado para a IA começar a extrair os melhores cortes virais.
-              </p>
-            </div>
-          )}
+            {showRecentHistory && (
+              <div className="stack" style={{ marginTop: "0.5rem" }}>
 
           {jobs.map((job) => {
             const vertical = job.orientation === "vertical";
@@ -603,7 +624,20 @@ export default function Dashboard({
               </article>
             );
           })}
-        </section>
+              </div>
+            )}
+          </section>
+        )}
+
+        {projects.length === 0 && jobs.length === 0 && (
+          <div className="card" style={{ textAlign: "center", padding: "3rem 1.5rem" }}>
+            <Film size={44} style={{ color: "var(--text-muted)", display: "block", margin: "0 auto 0.75rem", opacity: 0.6 }} />
+            <h3 style={{ color: "var(--text)", marginBottom: "0.35rem" }}>Nenhum projeto criado ainda</h3>
+            <p className="muted small" style={{ maxWidth: "380px", margin: "0 auto" }}>
+              Cole um link do YouTube ou envie um vídeo no formulário ao lado para a IA começar a extrair os melhores cortes virais.
+            </p>
+          </div>
+        )}
       </section>
     </div>
 

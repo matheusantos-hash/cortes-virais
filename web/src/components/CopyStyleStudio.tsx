@@ -1253,10 +1253,36 @@ export default function CopyStyleStudio({
         sourcePayload = { source_type: "upload", source_path: mainPath, file_name: sourceFile.name };
       }
 
+      let effectiveProjectId = projectId;
+      if (!effectiveProjectId) {
+        try {
+          let projectName = sourceMode === "upload" && sourceFile
+            ? `Clone - ${sourceFile.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")}`
+            : (sourceUrl ? `Clone ${new Date().toLocaleDateString("pt-BR")}` : "Projeto Clone Studio");
+          if (projectName.length > 50) projectName = projectName.substring(0, 50);
+
+          const { data: newProj } = await supabase
+            .from("projects")
+            .insert({
+              user_id: finalUserId,
+              name: projectName,
+              color_tag: "#EC4899",
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (newProj?.id) {
+            effectiveProjectId = newProj.id;
+          }
+        } catch (err) {
+          console.warn("Não foi possível auto-criar projeto no studio:", err);
+        }
+      }
+
       // 4. Criação do Job no Banco com todos os metadados de clonagem
       const jobPayload: Record<string, any> = {
         user_id: finalUserId,
-        ...(projectId ? { project_id: projectId } : {}),
+        ...(effectiveProjectId ? { project_id: effectiveProjectId } : {}),
         ...sourcePayload,
         orientation: resolution.includes("1920x1080") ? "horizontal" : "vertical",
         vertical_mode: verticalMode || "face_tracking",

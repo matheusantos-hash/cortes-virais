@@ -31,6 +31,8 @@ import {
   Shield,
   Check,
   Save,
+  ChevronDown,
+  ChevronUp,
 } from "./Icons";
 import ModernColorPicker from "./ModernColorPicker";
 
@@ -123,13 +125,38 @@ export default function NewJobForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [orientation, setOrientation] = useState<"vertical" | "horizontal">("vertical");
-  const [verticalMode, setVerticalMode] = useState<VerticalMode>("crop");
+  const [verticalMode, setVerticalMode] = useState<VerticalMode>("face_tracking");
   const [cropPct, setCropPct] = useState(50);
   const [clipCount, setClipCount] = useState(5);
   const [minSeconds, setMinSeconds] = useState(30);
   const [maxSeconds, setMaxSeconds] = useState(90);
   const [language, setLanguage] = useState("pt-BR");
   const [dryRun, setDryRun] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState("ganchos_rapidos");
+
+  function handleSelectPreset(presetId: string) {
+    setSelectedPresetId(presetId);
+    if (presetId === "podcast") {
+      setOrientation("vertical");
+      setVerticalMode("split_face");
+      setSubtitleStyle("minimal");
+    } else if (presetId === "ganchos_rapidos") {
+      setOrientation("vertical");
+      setVerticalMode("face_tracking");
+      setSubtitleStyle("hormozi");
+      setEnableEmojis(true);
+    } else if (presetId === "storytelling") {
+      setOrientation("vertical");
+      setVerticalMode("face_tracking");
+      setSubtitleStyle("apple");
+    } else if (presetId === "educacional") {
+      setSubtitleStyle("hormozi");
+    } else if (presetId === "humor") {
+      setSubtitleStyle("beast");
+      setEnableEmojis(true);
+    }
+  }
 
   // Opções de "Copiar Estilo" (Vídeo de Referência + Higgsfield AI)
   const [copyStyle, setCopyStyle] = useState(false);
@@ -322,9 +349,35 @@ export default function NewJobForm({
 
     const refManualAdj = copyStyle && refSourceType === "saved" ? selectedUserRef?.manual_adjustments : null;
 
+    let effectiveProjectId = projectId;
+    if (!effectiveProjectId) {
+      try {
+        let projectName = mode === "upload" && file
+          ? file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
+          : (url ? `Corte ${new Date().toLocaleDateString("pt-BR")}` : "Novo Projeto");
+        if (projectName.length > 50) projectName = projectName.substring(0, 50);
+
+        const { data: newProj } = await supabase
+          .from("projects")
+          .insert({
+            user_id: userId,
+            name: projectName,
+            color_tag: "#8B5CF6",
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (newProj?.id) {
+          effectiveProjectId = newProj.id;
+        }
+      } catch (err) {
+        console.warn("Não foi possível auto-criar projeto:", err);
+      }
+    }
+
     const payload: Record<string, any> = {
       user_id: userId,
-      ...(projectId ? { project_id: projectId } : {}),
+      ...(effectiveProjectId ? { project_id: effectiveProjectId } : {}),
       ...source,
       file_name: mode === "upload" && file ? file.name : null,
       orientation,
@@ -676,8 +729,71 @@ export default function NewJobForm({
         </div>
       )}
 
-      {/* Controles de Ajuste Numérico */}
-      <div className="grid3">
+      {/* Chips Rápidos de Estilo Viral */}
+      <div>
+        <label style={{ marginBottom: "0.45rem", fontSize: "0.85rem", fontWeight: 600 }}>
+          Estilo de Dinâmica &amp; Ritmo:
+        </label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+          {STYLE_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => handleSelectPreset(p.id)}
+              style={{
+                padding: "0.4rem 0.75rem",
+                borderRadius: "8px",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                border: selectedPresetId === p.id ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+                background: selectedPresetId === p.id ? "var(--primary-light)" : "var(--bg-subtle)",
+                color: selectedPresetId === p.id ? "var(--primary)" : "var(--text-muted)",
+                transition: "all 0.15s ease",
+              }}
+              title={p.desc}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Botão de Expansão / Progressive Disclosure: Configurações Avançadas */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0.75rem 1rem",
+          background: showAdvanced ? "var(--primary-light)" : "var(--bg-subtle)",
+          border: showAdvanced ? "1px solid var(--primary)" : "1px solid var(--card-border)",
+          borderRadius: "10px",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          marginTop: "0.25rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <SlidersIcon size={16} style={{ color: "var(--primary)" }} />
+          <span style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--text)" }}>
+            Configurações Avançadas
+          </span>
+          <span className="badge" style={{ fontSize: "0.7rem", background: "rgba(255, 255, 255, 0.08)", color: "var(--text-muted)" }}>
+            {showAdvanced ? "Ocultar" : "Duração, B-Rolls, Legendas, IA..."}
+          </span>
+        </div>
+        {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {/* GAVETA COLAPSÁVEL DE CONFIGURAÇÕES AVANÇADAS */}
+      {showAdvanced && (
+        <div className="stack" style={{ gap: "1rem", paddingTop: "0.5rem" }}>
+          {/* Controles de Ajuste Numérico */}
+          <div className="grid3">
         <label>
           Qtd. de cortes
           <input
@@ -1252,18 +1368,20 @@ export default function NewJobForm({
         </div>
       </div>
 
-      {/* Modo Rascunho */}
-      <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
-        <input
-          type="checkbox"
-          style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
-          checked={dryRun}
-          onChange={(e) => setDryRun(e.target.checked)}
-        />
-        <span style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>
-          Modo Rascunho (apenas escolhe os trechos, sem cortar os arquivos)
-        </span>
-      </label>
+        {/* Modo Rascunho */}
+        <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.6rem", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            style={{ width: "1.1rem", height: "1.1rem", accentColor: "var(--primary)", cursor: "pointer" }}
+            checked={dryRun}
+            onChange={(e) => setDryRun(e.target.checked)}
+          />
+          <span style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>
+            Modo Rascunho (apenas escolhe os trechos, sem cortar os arquivos)
+          </span>
+        </label>
+      </div>
+    )}
 
       {uploadPct !== null && (
         <div>

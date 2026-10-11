@@ -32,6 +32,7 @@ import {
   Subtitles,
   Clock,
   Pencil,
+  FolderKanban,
 } from "./Icons";
 
 export default function JobView({ initialJob, initialClips }: { initialJob: Job; initialClips: Clip[] }) {
@@ -209,19 +210,32 @@ export default function JobView({ initialJob, initialClips }: { initialJob: Job;
             <h1 className="ellipsis" style={{ fontSize: "1.4rem", margin: 0 }}>{jobTitle(job)}</h1>
           </div>
 
-          {!isFinal(job.status) && (
-            <button
-              type="button"
-              className="btn btn-small btn-danger-outline"
-              onClick={handleCancel}
-              disabled={canceling}
-              title="Interromper e cancelar o processamento deste vídeo"
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-            >
-              <XIcon size={14} />
-              <span>{canceling ? "Cancelando…" : "Cancelar Processo"}</span>
-            </button>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            {job.project_id && (
+              <Link
+                href={`/projetos/${job.project_id}`}
+                className="btn btn-secondary btn-small"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", textDecoration: "none" }}
+              >
+                <FolderKanban size={14} style={{ color: "var(--primary)" }} />
+                <span>Abrir no Workspace do Projeto</span>
+              </Link>
+            )}
+
+            {!isFinal(job.status) && (
+              <button
+                type="button"
+                className="btn btn-small btn-danger-outline"
+                onClick={handleCancel}
+                disabled={canceling}
+                title="Interromper e cancelar o processamento deste vídeo"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+              >
+                <XIcon size={14} />
+                <span>{canceling ? "Cancelando…" : "Cancelar Processo"}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {!isFinal(job.status) && (
