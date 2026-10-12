@@ -186,12 +186,13 @@ export async function findCandidates(
   const modelEnv = process.env.CLAUDE_MODEL?.trim();
   const preferredModel = modelEnv || (useThinking ? "claude-sonnet-5-5" : "claude-sonnet-5-5");
 
-  // Lista de modelos suportados pela Anthropic ordenada por preferência
+  // Lista de modelos suportados pela Anthropic ordenada por preferência (Sonnet 5.5 principal com fallback até Haiku 4.5)
   const candidateModels = Array.from(
     new Set([
       preferredModel,
       "claude-sonnet-5-5",
       "claude-sonnet-5",
+      "claude-haiku-4-5-20251001",
     ])
   ).filter(Boolean);
 
@@ -213,10 +214,11 @@ export async function findCandidates(
       messages: [{ role: "user", content: buildUserPrompt(blocks, opts, candidateCount) }],
     };
 
-    if (useThinking) {
+    const isHaiku = /haiku/i.test(model);
+    if (useThinking && !isHaiku) {
       if (/claude-5|sonnet-5/i.test(model)) {
         createParams.thinking = { type: "adaptive" };
-      } else if (/claude-3-7|claude-4/i.test(model)) {
+      } else if (/claude-3-7|sonnet-4/i.test(model)) {
         createParams.thinking = {
           type: "enabled",
           budget_tokens: budgetTokens,

@@ -222,6 +222,7 @@ Responda SOMENTE o JSON puro, sem markdown e sem explicações adicionais:
         modelEnv,
         "claude-sonnet-5-5",
         "claude-sonnet-5",
+        "claude-haiku-4-5-20251001",
       ])
     ).filter(Boolean) as string[];
 

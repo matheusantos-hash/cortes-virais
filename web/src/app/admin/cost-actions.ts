@@ -520,41 +520,58 @@ export async function testAnthropicApi(keyOverride?: string): Promise<{
     };
   }
 
-  try {
-    // Faz uma chamada rápida de verificação
-    const modelToTest = process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-5-5";
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelToTest,
-        max_tokens: 10,
-        messages: [{ role: "user", content: "Ping" }],
-      }),
-    });
+  // Testa conexão de forma rápida e de baixo custo com Haiku 4.5 e fallback para Sonnet 5.5
+  const testModels = Array.from(
+    new Set([
+      process.env.CLAUDE_TEST_MODEL?.trim(),
+      "claude-haiku-4-5-20251001",
+      process.env.CLAUDE_MODEL?.trim(),
+      "claude-sonnet-5-5",
+    ])
+  ).filter(Boolean) as string[];
 
-    if (res.ok) {
+  let lastErrorMsg = "";
+  for (const modelToTest of testModels) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: modelToTest,
+          max_tokens: 10,
+          messages: [{ role: "user", content: "Ping" }],
+        }),
+      });
+
+      if (res.ok) {
+        return {
+          success: true,
+          message: `Conexão com a API Claude bem-sucedida! A chave está ativa e funcional (${modelToTest}).`,
+        };
+      }
+
+      const err = await res.json().catch(() => ({}));
+      lastErrorMsg = `Anthropic retornou HTTP ${res.status}: ${err.error?.message || "Chave inválida ou limite atingido."}`;
+      if (res.status === 404) {
+        continue;
+      }
       return {
-        success: true,
-        message: "Conexão com a API Claude bem-sucedida! A chave está ativa e funcional.",
+        success: false,
+        message: lastErrorMsg,
       };
+    } catch (err: any) {
+      lastErrorMsg = `Erro ao testar Anthropic: ${err.message || String(err)}`;
     }
-
-    const err = await res.json().catch(() => ({}));
-    return {
-      success: false,
-      message: `Anthropic retornou HTTP ${res.status}: ${err.error?.message || "Chave inválida ou limite atingido."}`,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: `Erro ao testar Anthropic: ${err.message || String(err)}`,
-    };
   }
+
+  return {
+    success: false,
+    message: lastErrorMsg || "Falha ao conectar à API da Anthropic.",
+  };
 }
 
 /**
