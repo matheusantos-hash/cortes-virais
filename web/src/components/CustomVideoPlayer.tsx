@@ -53,6 +53,7 @@ export default function CustomVideoPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressContainerRef = useRef<HTMLDivElement>(null);
+  const optionsContainerRef = useRef<HTMLDivElement>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -334,17 +335,19 @@ export default function CustomVideoPlayer({
     }
   };
 
-  // Fechar menu de opções ao clicar fora
+  // Fechar menu de opções ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (optionsContainerRef.current && !optionsContainerRef.current.contains(e.target as Node)) {
         setShowOptionsMenu(false);
         setShowSpeedSubmenu(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+    if (showOptionsMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [showOptionsMenu]);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const bufferPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
@@ -582,7 +585,7 @@ export default function CustomVideoPlayer({
                   padding: 0,
                   width: "28px",
                   height: "28px",
-                  color: isMuted ? "var(--text-muted, #94A3B8)" : "#FFFFFF",
+                  color: isMuted ? "rgba(255, 255, 255, 0.45)" : "#FFFFFF",
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
@@ -663,7 +666,7 @@ export default function CustomVideoPlayer({
             )}
 
             {/* Botão de Opções (Três pontos / Menu) */}
-            <div style={{ position: "relative" }}>
+            <div ref={optionsContainerRef} style={{ position: "relative" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -674,8 +677,8 @@ export default function CustomVideoPlayer({
                 title="Opções do player"
                 className="player-icon-btn hover:scale-105 active:scale-95 transition-transform"
                 style={{
-                  background: showOptionsMenu ? "rgba(99, 102, 241, 0.3)" : "rgba(255, 255, 255, 0.12)",
-                  border: showOptionsMenu ? "1px solid var(--primary, #6366F1)" : "1px solid transparent",
+                  background: showOptionsMenu ? "rgba(99, 102, 241, 0.35)" : "rgba(255, 255, 255, 0.12)",
+                  border: showOptionsMenu ? "1px solid #6366F1" : "1px solid transparent",
                   padding: 0,
                   color: "#FFFFFF",
                   width: "32px",
@@ -694,61 +697,66 @@ export default function CustomVideoPlayer({
                 <MoreVertical size={16} style={{ flexShrink: 0 }} />
               </button>
 
-              {/* Menu Dropdown de Opções estilizado para o projeto */}
+              {/* Menu Dropdown de Opções estilizado para o player de vídeo */}
               {showOptionsMenu && (
                 <div
                   className="absolute right-0 bottom-full mb-2 z-50 rounded-xl shadow-2xl p-1.5"
                   style={{
-                    minWidth: "200px",
-                    background: "rgba(24, 27, 34, 0.95)",
+                    minWidth: "210px",
+                    background: "rgba(15, 23, 42, 0.96)",
                     backdropFilter: "blur(16px)",
-                    border: "1px solid var(--card-border, #262A35)",
-                    boxShadow: "0 12px 30px rgba(0, 0, 0, 0.6)",
-                    color: "var(--text, #F3F4F6)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    boxShadow: "0 12px 30px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+                    color: "#F8FAFC",
                   }}
                 >
                   {/* Seção Velocidade */}
-                  <div style={{ padding: "4px 8px 6px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                  <div style={{ padding: "6px 8px 8px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
                     <div
                       style={{
-                        fontSize: "0.72rem",
+                        fontSize: "0.7rem",
                         fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: "0.5px",
-                        color: "var(--text-muted, #94A3B8)",
+                        color: "#94A3B8",
                         display: "flex",
                         alignItems: "center",
-                        gap: "5px",
-                        marginBottom: "6px",
+                        gap: "6px",
+                        marginBottom: "8px",
                       }}
                     >
-                      <Gauge size={13} />
-                      Velocidade
+                      <Gauge size={13} style={{ color: "#818CF8" }} />
+                      <span>Velocidade</span>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "4px" }}>
-                      {SPEED_OPTIONS.map((speed) => (
-                        <button
-                          key={speed}
-                          type="button"
-                          onClick={() => handleSetSpeed(speed)}
-                          style={{
-                            padding: "4px 0",
-                            fontSize: "0.75rem",
-                            fontWeight: playbackRate === speed ? 800 : 500,
-                            borderRadius: "6px",
-                            border: "none",
-                            background:
-                              playbackRate === speed
-                                ? "var(--primary, #6366F1)"
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "5px" }}>
+                      {SPEED_OPTIONS.map((speed) => {
+                        const isSelected = playbackRate === speed;
+                        return (
+                          <button
+                            key={speed}
+                            type="button"
+                            onClick={() => handleSetSpeed(speed)}
+                            style={{
+                              padding: "5px 0",
+                              fontSize: "0.75rem",
+                              fontWeight: isSelected ? 700 : 500,
+                              borderRadius: "6px",
+                              border: isSelected
+                                ? "1px solid rgba(99, 102, 241, 0.6)"
+                                : "1px solid rgba(255, 255, 255, 0.08)",
+                              background: isSelected
+                                ? "#4F46E5"
                                 : "rgba(255, 255, 255, 0.06)",
-                            color: playbackRate === speed ? "#FFFFFF" : "var(--text, #F3F4F6)",
-                            cursor: "pointer",
-                            transition: "background 0.15s",
-                          }}
-                        >
-                          {speed}x
-                        </button>
-                      ))}
+                              color: isSelected ? "#FFFFFF" : "#E2E8F0",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                            className={isSelected ? "" : "hover:bg-white/10 hover:text-white"}
+                          >
+                            {speed}x
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -758,20 +766,22 @@ export default function CustomVideoPlayer({
                     <button
                       type="button"
                       onClick={toggleLoop}
-                      className="flex items-center justify-between w-full px-3 py-2 text-left rounded-lg text-xs font-semibold hover:bg-white/10 transition-colors"
-                      style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
+                      className="flex items-center justify-between w-full px-3 py-2 text-left rounded-lg text-xs font-medium hover:bg-white/10 transition-colors"
+                      style={{ background: "none", border: "none", color: "#E2E8F0", cursor: "pointer" }}
                     >
-                      <span className="flex items-center gap-2">
-                        <Repeat size={14} style={{ color: isLooping ? "#34D399" : "inherit" }} />
-                        Repetir corte
+                      <span className="flex items-center gap-2.5">
+                        <Repeat size={14} style={{ color: isLooping ? "#34D399" : "#94A3B8" }} />
+                        <span>Repetir corte</span>
                       </span>
                       <span
                         style={{
                           fontSize: "0.68rem",
+                          fontWeight: 600,
                           padding: "1px 6px",
                           borderRadius: "4px",
                           background: isLooping ? "rgba(52, 211, 153, 0.2)" : "rgba(255, 255, 255, 0.08)",
-                          color: isLooping ? "#34D399" : "var(--text-muted, #94A3B8)",
+                          color: isLooping ? "#34D399" : "#94A3B8",
+                          border: isLooping ? "1px solid rgba(52, 211, 153, 0.3)" : "1px solid rgba(255, 255, 255, 0.05)",
                         }}
                       >
                         {isLooping ? "Ligado" : "Desligado"}
@@ -783,11 +793,11 @@ export default function CustomVideoPlayer({
                       <button
                         type="button"
                         onClick={handleTogglePiP}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-lg text-xs font-semibold hover:bg-white/10 transition-colors"
-                        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs font-medium hover:bg-white/10 transition-colors"
+                        style={{ background: "none", border: "none", color: "#E2E8F0", cursor: "pointer" }}
                       >
-                        <PictureInPicture2 size={14} />
-                        Picture-in-Picture
+                        <PictureInPicture2 size={14} style={{ color: "#94A3B8" }} />
+                        <span>Picture-in-Picture</span>
                       </button>
                     )}
 
@@ -795,11 +805,11 @@ export default function CustomVideoPlayer({
                     <button
                       type="button"
                       onClick={handleDownload}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-lg text-xs font-semibold hover:bg-white/10 transition-colors"
-                      style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs font-medium hover:bg-white/10 transition-colors"
+                      style={{ background: "none", border: "none", color: "#E2E8F0", cursor: "pointer" }}
                     >
-                      <Download size={14} style={{ color: "var(--primary, #6366F1)" }} />
-                      Baixar vídeo (MP4)
+                      <Download size={14} style={{ color: "#818CF8" }} />
+                      <span>Baixar vídeo (MP4)</span>
                     </button>
                   </div>
                 </div>
