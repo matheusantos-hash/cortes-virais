@@ -14,7 +14,7 @@ create table if not exists public.jobs (
   source_path   text,
 
   orientation   text not null default 'vertical' check (orientation in ('vertical', 'horizontal')),
-  vertical_mode text not null default 'crop' check (vertical_mode in ('crop', 'blur', 'split')),
+  vertical_mode text not null default 'crop' check (vertical_mode in ('crop', 'blur', 'split', 'face_tracking', 'split_face', 'grupo')),
   crop_x        numeric not null default 0.5 check (crop_x between 0 and 1),
   clip_count    int  not null default 10 check (clip_count between 1 and 30),
   min_seconds   int  not null default 30 check (min_seconds >= 5),
@@ -40,7 +40,7 @@ create table if not exists public.jobs (
   transcription_provider text not null default 'auto' check (transcription_provider in ('deepgram', 'gemini', 'auto')),
 
   status        text not null default 'queued'
-                check (status in ('queued','downloading','transcribing','analyzing','cutting','done','failed','canceled')),
+                check (status in ('queued','downloading','transcribing','analyzing','awaiting_client_cut','cutting','done','failed','canceled')),
   progress      int  not null default 0 check (progress between 0 and 100),
   error         text,
   logs          text[] not null default '{}',

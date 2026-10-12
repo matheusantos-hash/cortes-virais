@@ -809,7 +809,10 @@ export default function NewJobForm({
           <div className="selection-grid-framing">
             <div
               className={`selection-card ${verticalMode === "grupo" ? "active" : ""}`}
-              onClick={() => setVerticalMode("grupo")}
+              onClick={() => {
+                setVerticalMode("grupo");
+                if (orientation === "horizontal") setOrientation("vertical");
+              }}
             >
               <UsersIcon size={20} style={{ color: verticalMode === "grupo" ? "var(--primary)" : "var(--text-muted)" }} />
               <strong className="selection-card-title">Grupo (IA)</strong>
@@ -818,7 +821,10 @@ export default function NewJobForm({
 
             <div
               className={`selection-card ${verticalMode === "face_tracking" ? "active" : ""}`}
-              onClick={() => setVerticalMode("face_tracking")}
+              onClick={() => {
+                setVerticalMode("face_tracking");
+                if (orientation === "horizontal") setOrientation("vertical");
+              }}
             >
               <UserIcon size={20} style={{ color: verticalMode === "face_tracking" ? "var(--primary)" : "var(--text-muted)" }} />
               <strong className="selection-card-title">Auto-Face (IA)</strong>
@@ -827,7 +833,10 @@ export default function NewJobForm({
 
             <div
               className={`selection-card ${verticalMode === "split_face" ? "active" : ""}`}
-              onClick={() => setVerticalMode("split_face")}
+              onClick={() => {
+                setVerticalMode("split_face");
+                if (orientation === "horizontal") setOrientation("vertical");
+              }}
             >
               <UsersIcon size={20} style={{ color: verticalMode === "split_face" ? "var(--primary)" : "var(--text-muted)" }} />
               <strong className="selection-card-title">Podcast IA</strong>
@@ -854,13 +863,23 @@ export default function NewJobForm({
 
             <div
               className={`selection-card ${verticalMode === "split" ? "active" : ""}`}
-              onClick={() => setVerticalMode("split")}
+              onClick={() => {
+                setVerticalMode("split");
+                if (orientation === "horizontal") setOrientation("vertical");
+              }}
             >
               <ColumnsIcon size={20} style={{ color: verticalMode === "split" ? "var(--primary)" : "var(--text-muted)" }} />
               <strong className="selection-card-title">Split 50/50</strong>
               <small className="selection-card-desc">Divisão fixa</small>
             </div>
           </div>
+
+          {orientation === "horizontal" && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--warning, #f59e0b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <AlertCircleIcon size={14} style={{ flexShrink: 0 }} />
+              <span>Formato Horizontal (16:9) ativo: o vídeo será gerado em widescreen. Para cortes verticais inteligentes (Shorts/Reels) com foco dinâmico nos oradores, selecione Vertical (9:16).</span>
+            </div>
+          )}
 
           {verticalMode === "grupo" && (
             <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
