@@ -429,7 +429,7 @@ export default function NewJobForm({
       file_name: mode === "upload" && file ? file.name : null,
       client_pipeline_enabled: isClientPipeline,
       orientation,
-      vertical_mode: orientation === "vertical" ? (refManualAdj?.camera?.verticalMode || verticalMode) : "crop",
+      vertical_mode: refManualAdj?.camera?.verticalMode || verticalMode,
       crop_x: cropPct / 100,
       clip_count: clipCount,
       min_seconds: minSeconds,
@@ -795,10 +795,9 @@ export default function NewJobForm({
         </div>
       </div>
 
-      {/* Opções de Enquadramento Vertical (somente se 9:16 estiver ativo) */}
-      {orientation === "vertical" && (
-        <div className="card" style={{ background: "var(--bg-subtle)", padding: "1rem" }}>
-          <label style={{ marginBottom: "0.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* Opções de Enquadramento da Câmera (disponível para 9:16 e 16:9) */}
+      <div className="card" style={{ background: "var(--bg-subtle)", padding: "1rem" }}>
+        <label style={{ marginBottom: "0.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>Enquadramento da Câmera:</span>
             {(verticalMode === "face_tracking" || verticalMode === "split_face" || verticalMode === "grupo") && (
               <span className="badge badge-done" style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}>
@@ -898,7 +897,6 @@ export default function NewJobForm({
             </div>
           )}
         </div>
-      )}
 
       {/* Chips Rápidos de Estilo Viral */}
       <div>
